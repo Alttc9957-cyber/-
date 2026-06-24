@@ -1132,6 +1132,15 @@ textarea { min-height: 84px; resize: vertical; line-height: 1.55; }
   min-width: 0;
   display: grid;
   gap: 14px;
+  overflow: hidden;
+}
+.quote-workspace-main > * { min-width: 0; }
+.quote-workspace-main .section-head {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.quote-workspace-main .section-head .actions {
+  justify-content: flex-start;
 }
 .agent-sidebar {
   position: sticky;

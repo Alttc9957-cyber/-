@@ -44166,6 +44166,7 @@ function init() {
 }
 
 function bindEvents() {
+  bindDelegatedActions();
   $$(".module").forEach((btn) => btn.addEventListener("click", () => switchModule(btn.dataset.module)));
   $$(".stepper a").forEach((a) => a.addEventListener("click", () => {
     $$(".stepper a").forEach((x) => x.classList.remove("active"));
@@ -44210,20 +44211,20 @@ function bindEvents() {
   on("#supplierCategoryFilter", "change", (event) => { state.supplierFilters.category = event.target.value; renderSupplierManagement(); });
   on("#supplierStatusFilter", "change", (event) => { state.supplierFilters.status = event.target.value; renderSupplierManagement(); });
   on("#loadSample", "click", loadSample);
-  on("#saveVersion", "click", saveVersion);
-  on("#loadHistory", "click", loadHistory);
-  on("#generateItinerary", "click", generateItinerary);
-  on("#aiImportItinerary", "click", aiImportItinerary);
+  on("#saveVersion", "click", handleSaveVersion);
+  on("#loadHistory", "click", handleLoadHistory);
+  on("#generateItinerary", "click", handleGenerateItinerary);
+  on("#aiImportItinerary", "click", handleAiImportItinerary);
   on("#importItineraryText", "click", importItineraryText);
-  on("#addDay", "click", addDay);
+  on("#addDay", "click", handleAddDay);
   on("#addRoomTypeRow", "click", addRoomTypeRow);
   on("#newQuoteVersion", "click", newQuoteVersion);
   on("#buildQuote", "click", buildQuote);
   on("#refreshSummary", "click", renderSummary);
-  on("#buildProposal", "click", buildProposal);
+  on("#buildProposal", "click", handleBuildProposal);
   on("#editProposal", "click", toggleProposalEdit);
-  on("#exportPdf", "click", exportPdf);
-  on("#exportImage", "click", exportImage);
+  on("#exportPdf", "click", handleExportPdf);
+  on("#exportImage", "click", handleExportImage);
   on("#convertToOrder", "click", convertToOrder);
   on("#agentRecognizeDemand", "click", agentRecognizeDemand);
   on("#agentApplyCustomer", "click", agentApplyCustomer);
@@ -44287,6 +44288,42 @@ function bindEvents() {
     });
     $(`#${id}`).addEventListener("input", rebuildProposalIfNeeded);
   });
+}
+
+function bindDelegatedActions() {
+  if (document.body.dataset.delegatedActionsBound) return;
+  document.body.dataset.delegatedActionsBound = "true";
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    const actions = {
+      generateItinerary: handleGenerateItinerary,
+      aiImportItinerary: handleAiImportItinerary,
+      loadHistory: handleLoadHistory,
+      addDay: handleAddDay,
+      buildProposal: handleBuildProposal,
+      exportPdf: handleExportPdf,
+      exportImage: handleExportImage,
+      saveVersion: handleSaveVersion,
+      agentRecognizeDemand,
+      agentApplyCustomer,
+      agentCheckMissing,
+      agentFollowQuestions,
+      agentGenerateRoute,
+      agentOptimizeRoute,
+      agentConfirmRoute,
+      agentExtractQuoteItems,
+      agentApplyQuoteItems,
+      agentRecalculateQuote,
+      agentBuildCustomerProposal,
+      agentSaveQuoteVersion,
+    };
+    const action = actions[button.id];
+    if (!action) return;
+    event.preventDefault();
+    event.stopPropagation();
+    action();
+  }, true);
 }
 
 function renderAll() {
@@ -45988,7 +46025,7 @@ function useRouteProductInQuote(id) {
   });
   if (!number($("#adults").value) && !number($("#children").value)) $("#adults").value = 2;
   syncItineraryToDemand();
-  generateItinerary();
+  handleGenerateItinerary();
   buildQuote();
   switchModule("quote");
   alert(`已带入线路产品「${route.name}」，报价明细会按 ${route.routeProductId || route.code} 的成本档位追溯。`);
@@ -46319,7 +46356,7 @@ function openProject(id) {
     $("#adults").value = project.guests ? Math.max(project.guests - 1, 0) : 0;
     $("#children").value = project.guests ? 1 : 0;
   }
-  if (!state.itinerary.length) loadHistory();
+  if (!state.itinerary.length) handleLoadHistory();
   showProjectDetail();
   updateProjectTitle();
 }
@@ -46430,9 +46467,9 @@ function loadSample() {
   $("#otherHeadset").checked = true;
   $("#otherWater").checked = true;
   $("#outputLang").value = "en";
-  loadHistory();
+  handleLoadHistory();
   buildQuote();
-  buildProposal();
+  handleBuildProposal();
   $("#projectStatus").textContent = "已生成客人方案";
   $("#projectStatus").className = "status ok";
   updateCurrentProject("报价中");
@@ -46647,13 +46684,13 @@ async function agentBuildCustomerProposal() {
     setAgentPending("customerProposal", result);
     applyCustomerProposal(result);
   } else {
-    buildProposal();
+    handleBuildProposal();
   }
 }
 
 function agentSaveQuoteVersion() {
   if (!activeQuote().data.vehicle.length && state.itinerary.length) buildQuote();
-  saveVersion();
+  handleSaveVersion();
   setAgentPending("message", { title: "报价版本已保存", body: `${activeQuote().name} 已保存到版本归档。` });
 }
 
@@ -46992,7 +47029,7 @@ function serviceHasZeroOrMissing(service) {
   return serviceCost(service) <= 0;
 }
 
-function loadHistory() {
+function handleLoadHistory() {
   const d = getDemand();
   const panel = $("#historyRecommendations");
   if (!panel) return;
@@ -47053,7 +47090,7 @@ function applyHistoricalTrip(index) {
   rebuildProposalIfNeeded();
 }
 
-function generateItinerary() {
+function handleGenerateItinerary() {
   const d = getDemand();
   const start = d.startDate || "2026-07-01";
   const plan = expandCities(d.cities.length ? d.cities : ["北京"], d.serviceDays);
@@ -47077,7 +47114,7 @@ function importItineraryText() {
     const start = d.startDate || "2026-07-01";
     state.itinerary = parsed.map((day, index) => ({ ...day, date: day.date || addDays(start, index) }));
   } else {
-    generateItinerary();
+    handleGenerateItinerary();
   }
   renderItinerary();
   updateProjectTitle();
@@ -47139,7 +47176,7 @@ function parseItineraryBlock(block, index) {
   };
 }
 
-function aiImportItinerary() {
+function handleAiImportItinerary() {
   importItineraryText();
   $("#projectStatus").textContent = "AI已识别行程";
   $("#projectStatus").className = "status ok";
@@ -47180,7 +47217,7 @@ function renderItinerary() {
   renderIcons();
 }
 
-function addDay() {
+function handleAddDay() {
   const d = getDemand();
   const last = state.itinerary.at(-1);
   state.itinerary.push({
@@ -47238,7 +47275,7 @@ function autoBuildQuote() {
 }
 
 function buildQuote(options = {}) {
-  if (!state.itinerary.length) generateItinerary();
+  if (!state.itinerary.length) handleGenerateItinerary();
   const d = getDemand();
   refreshQuoteResources();
   const quote = activeQuote();
@@ -47649,7 +47686,7 @@ function newQuoteVersion() {
   renderArchive();
 }
 
-function saveVersion() {
+function handleSaveVersion() {
   activeQuote().status = "已保存";
   renderArchive();
   $("#projectStatus").textContent = "报价已保存";
@@ -47803,9 +47840,9 @@ function missingCostDetails() {
   return details;
 }
 
-function buildProposal() {
+function handleBuildProposal() {
   state.proposalEditing = false;
-  if (!state.itinerary.length) generateItinerary();
+  if (!state.itinerary.length) handleGenerateItinerary();
   if (!activeQuote().data.vehicle.length) buildQuote();
   const lang = $("#outputLang").value;
   const t = i18n[lang] || i18n.zh;
@@ -47855,13 +47892,13 @@ function rebuildProposalIfNeeded() {
   if (state.proposalEditing) return;
   const content = $("#proposalContent");
   if (!content || !content.innerHTML.trim()) return;
-  buildProposal();
+  handleBuildProposal();
 }
 
 function toggleProposalEdit() {
   const content = $("#proposalContent");
   if (!content || !content.innerHTML.trim()) {
-    buildProposal();
+    handleBuildProposal();
   }
   state.proposalEditing = !state.proposalEditing;
   $("#proposalContent").contentEditable = state.proposalEditing ? "true" : "false";
@@ -48146,7 +48183,7 @@ function contactHtml(lang) {
   return blocks.length ? `<div class="proposal-block"><h4>${t.contact}</h4><div class="contact-grid">${blocks.join("")}</div></div>` : "";
 }
 
-async function exportImage() {
+async function handleExportImage() {
   if (!window.html2canvas) {
     alert("导出组件还在加载，请稍后再试。");
     return;
@@ -48158,7 +48195,7 @@ async function exportImage() {
   link.click();
 }
 
-async function exportPdf() {
+async function handleExportPdf() {
   if (!window.html2canvas || !window.jspdf?.jsPDF) {
     alert("PDF 导出组件还在加载，请稍后再试。");
     return;
