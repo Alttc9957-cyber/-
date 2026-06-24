@@ -1,0 +1,48 @@
+[
+  {
+    "id": "quote_case_c0757b9172",
+    "type": "historical_quote",
+    "quote_name": "7.6云贵川16天成交报价",
+    "route_case_id": "route_case_c0757b9172",
+    "customer_type": null,
+    "people_count": 6,
+    "adult_count": 6,
+    "child_count": null,
+    "days": 16,
+    "cities": [
+      "香港",
+      "成都",
+      "贵阳",
+      "千户苗寨",
+      "昆明",
+      "大理",
+      "丽江",
+      "西双版纳"
+    ],
+    "quote_version": "三改成交版",
+    "quote_versions_count": 5,
+    "total_sale_price": 132272,
+    "total_cost": 91857,
+    "profit": 40415,
+    "profit_rate": 0.44,
+    "currency": "CNY",
+    "service_items": [
+      "门票",
+      "包车",
+      "导游",
+      "酒店",
+      "餐费",
+      "保险",
+      "大交通"
+    ],
+    "source": "feishu",
+    "source_file": "销售需求与报价表单 / 云贵川三改成交版",
+    "source_row": null,
+    "missing_fields": [
+      "customer_type",
+      "child_count"
+    ],
+    "updated_at": "2026-06-24",
+    "internal_notes": "由成交版报价表前 16 个真实日期行逐日合计，需人工复核是否为最终对客总价。"
+  }
+]

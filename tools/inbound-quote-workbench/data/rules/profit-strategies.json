@@ -1,0 +1,30 @@
+[
+  {
+    "id": "strategy_c_end_standard",
+    "customer_type": "C端",
+    "pricing_mode": "profit_rate",
+    "default_profit_rate": 0.2,
+    "manual_price_allowed": true,
+    "rebate_required": false,
+    "notes": "普通C端客户默认策略",
+    "source": "manual_standardization",
+    "source_file": "统一清洗规则 / 价格策略",
+    "source_row": null,
+    "missing_fields": [],
+    "updated_at": "2026-06-24"
+  },
+  {
+    "id": "strategy_b_end_standard",
+    "customer_type": "B端",
+    "pricing_mode": "manual_or_profit_rate",
+    "default_profit_rate": 0.25,
+    "manual_price_allowed": true,
+    "rebate_required": true,
+    "notes": "B端客户可能存在返点或特殊成本价",
+    "source": "manual_standardization",
+    "source_file": "统一清洗规则 / 价格策略",
+    "source_row": null,
+    "missing_fields": [],
+    "updated_at": "2026-06-24"
+  }
+]

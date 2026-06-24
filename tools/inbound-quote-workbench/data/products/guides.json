@@ -1,0 +1,274 @@
+[
+  {
+    "id": "guide_dd2e4739e0",
+    "type": "guide",
+    "name_cn": null,
+    "city": "北京",
+    "languages": [
+      "英语"
+    ],
+    "guide_type": "地陪",
+    "full_day_price": 1160,
+    "half_day_price": null,
+    "airport_pickup_price": null,
+    "currency": "CNY",
+    "has_license": null,
+    "license_number": null,
+    "suitable_for": [
+      "外宾"
+    ],
+    "rating": null,
+    "supplier_id": null,
+    "status": "pending",
+    "source": "feishu",
+    "source_file": "产品库汇总 副本 / 导游报价",
+    "source_row": 3,
+    "missing_fields": [
+      "half_day_price",
+      "airport_pickup_price",
+      "has_license",
+      "license_number",
+      "supplier_id"
+    ],
+    "updated_at": "2026-06-24",
+    "internal_notes": "淡季:1060/150/；旺季:1160/150/；是否需门票:是"
+  },
+  {
+    "id": "guide_d7dad4d197",
+    "type": "guide",
+    "name_cn": null,
+    "city": "上海",
+    "languages": [
+      "英语"
+    ],
+    "guide_type": "地陪",
+    "full_day_price": 1560,
+    "half_day_price": null,
+    "airport_pickup_price": null,
+    "currency": "CNY",
+    "has_license": null,
+    "license_number": null,
+    "suitable_for": [
+      "外宾"
+    ],
+    "rating": null,
+    "supplier_id": null,
+    "status": "pending",
+    "source": "feishu",
+    "source_file": "产品库汇总 副本 / 导游报价",
+    "source_row": 12,
+    "missing_fields": [
+      "half_day_price",
+      "airport_pickup_price",
+      "has_license",
+      "license_number",
+      "supplier_id"
+    ],
+    "updated_at": "2026-06-24",
+    "internal_notes": "淡季:1360/170/；旺季:1560/250/；是否需门票:是"
+  },
+  {
+    "id": "guide_a865a89513",
+    "type": "guide",
+    "name_cn": null,
+    "city": "杭州",
+    "languages": [
+      "英语"
+    ],
+    "guide_type": "地陪",
+    "full_day_price": 1300,
+    "half_day_price": null,
+    "airport_pickup_price": null,
+    "currency": "CNY",
+    "has_license": null,
+    "license_number": null,
+    "suitable_for": [
+      "外宾"
+    ],
+    "rating": null,
+    "supplier_id": null,
+    "status": "pending",
+    "source": "feishu",
+    "source_file": "产品库汇总 副本 / 导游报价",
+    "source_row": 21,
+    "missing_fields": [
+      "half_day_price",
+      "airport_pickup_price",
+      "has_license",
+      "license_number",
+      "supplier_id"
+    ],
+    "updated_at": "2026-06-24",
+    "internal_notes": "淡季:1100/150/；旺季:1300/150/；是否需门票:是"
+  },
+  {
+    "id": "guide_f35ff58604",
+    "type": "guide",
+    "name_cn": null,
+    "city": "重庆",
+    "languages": [
+      "英语"
+    ],
+    "guide_type": "地陪",
+    "full_day_price": 1130,
+    "half_day_price": null,
+    "airport_pickup_price": null,
+    "currency": "CNY",
+    "has_license": null,
+    "license_number": null,
+    "suitable_for": [
+      "外宾"
+    ],
+    "rating": null,
+    "supplier_id": null,
+    "status": "pending",
+    "source": "feishu",
+    "source_file": "产品库汇总 副本 / 导游报价",
+    "source_row": 28,
+    "missing_fields": [
+      "half_day_price",
+      "airport_pickup_price",
+      "has_license",
+      "license_number",
+      "supplier_id"
+    ],
+    "updated_at": "2026-06-24",
+    "internal_notes": "淡季:930/150/；旺季:1130/150/；是否需门票:是"
+  },
+  {
+    "id": "guide_02adcb2648",
+    "type": "guide",
+    "name_cn": null,
+    "city": "成都",
+    "languages": [
+      "英语"
+    ],
+    "guide_type": "地陪",
+    "full_day_price": 1130,
+    "half_day_price": null,
+    "airport_pickup_price": null,
+    "currency": "CNY",
+    "has_license": null,
+    "license_number": null,
+    "suitable_for": [
+      "外宾"
+    ],
+    "rating": null,
+    "supplier_id": null,
+    "status": "pending",
+    "source": "feishu",
+    "source_file": "产品库汇总 副本 / 导游报价",
+    "source_row": 32,
+    "missing_fields": [
+      "half_day_price",
+      "airport_pickup_price",
+      "has_license",
+      "license_number",
+      "supplier_id"
+    ],
+    "updated_at": "2026-06-24",
+    "internal_notes": "淡季:930/150/；旺季:1130/150/；是否需门票:是"
+  },
+  {
+    "id": "guide_791172d186",
+    "type": "guide",
+    "name_cn": null,
+    "city": "西安",
+    "languages": [
+      "英语"
+    ],
+    "guide_type": "地陪",
+    "full_day_price": 1160,
+    "half_day_price": null,
+    "airport_pickup_price": null,
+    "currency": "CNY",
+    "has_license": null,
+    "license_number": null,
+    "suitable_for": [
+      "外宾"
+    ],
+    "rating": null,
+    "supplier_id": null,
+    "status": "pending",
+    "source": "feishu",
+    "source_file": "产品库汇总 副本 / 导游报价",
+    "source_row": 38,
+    "missing_fields": [
+      "half_day_price",
+      "airport_pickup_price",
+      "has_license",
+      "license_number",
+      "supplier_id"
+    ],
+    "updated_at": "2026-06-24",
+    "internal_notes": "淡季:1060/150/；旺季:1160/150/；是否需门票:是"
+  },
+  {
+    "id": "guide_dc88997603",
+    "type": "guide",
+    "name_cn": null,
+    "city": "云南",
+    "languages": [
+      "英语"
+    ],
+    "guide_type": "地陪",
+    "full_day_price": 1160,
+    "half_day_price": null,
+    "airport_pickup_price": null,
+    "currency": "CNY",
+    "has_license": null,
+    "license_number": null,
+    "suitable_for": [
+      "外宾"
+    ],
+    "rating": null,
+    "supplier_id": null,
+    "status": "pending",
+    "source": "feishu",
+    "source_file": "产品库汇总 副本 / 导游报价",
+    "source_row": 44,
+    "missing_fields": [
+      "half_day_price",
+      "airport_pickup_price",
+      "has_license",
+      "license_number",
+      "supplier_id"
+    ],
+    "updated_at": "2026-06-24",
+    "internal_notes": "淡季:1060/150/；旺季:1160/150/；是否需门票:是"
+  },
+  {
+    "id": "guide_8481fbb2f3",
+    "type": "guide",
+    "name_cn": null,
+    "city": "广州",
+    "languages": [
+      "英语"
+    ],
+    "guide_type": "地陪",
+    "full_day_price": 1260,
+    "half_day_price": null,
+    "airport_pickup_price": null,
+    "currency": "CNY",
+    "has_license": null,
+    "license_number": null,
+    "suitable_for": [
+      "外宾"
+    ],
+    "rating": null,
+    "supplier_id": null,
+    "status": "pending",
+    "source": "feishu",
+    "source_file": "产品库汇总 副本 / 导游报价",
+    "source_row": 46,
+    "missing_fields": [
+      "half_day_price",
+      "airport_pickup_price",
+      "has_license",
+      "license_number",
+      "supplier_id"
+    ],
+    "updated_at": "2026-06-24",
+    "internal_notes": "淡季:1160/150/；旺季:1260/150/；是否需门票:是"
+  }
+]

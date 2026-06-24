@@ -44152,6 +44152,7 @@ const state = {
   historyCandidates: [],
   agent: { pendingType: "", pendingData: null, loading: false },
   routeConfirmed: false,
+  runtimeData: { loaded: false, error: "" },
   proposalEditing: false,
   order: null,
 };
@@ -44161,6 +44162,7 @@ function init() {
   bindEvents();
   resetQuoteVersions();
   renderAll();
+  loadRuntimeData();
 }
 
 function bindEvents() {
@@ -44573,6 +44575,140 @@ function hydrateImportedProductCatalog() {
     route.projectId = "";
   });
   refreshQuoteResources();
+}
+
+async function loadRuntimeData() {
+  try {
+    const [attractions, vehicles, guides, hotels, routes, pricingRules, profitStrategies] = await Promise.all([
+      fetchJson("data/products/attractions.json"),
+      fetchJson("data/products/vehicles.json"),
+      fetchJson("data/products/guides.json"),
+      fetchJson("data/products/hotels.json"),
+      fetchJson("data/cases/historical-routes.json"),
+      fetchJson("data/rules/pricing-rules.json"),
+      fetchJson("data/rules/profit-strategies.json"),
+    ]);
+    mergeRuntimeProducts({ attractions, vehicles, guides, hotels, routes, pricingRules, profitStrategies });
+    state.runtimeData = { loaded: true, error: "" };
+    refreshQuoteResources();
+    renderResourceLibrary();
+    renderQuoteTabs();
+    renderQuoteTable();
+    renderSummary();
+  } catch (error) {
+    state.runtimeData = { loaded: false, error: error.message || "本地数据加载失败" };
+    console.warn("Runtime quote data load failed:", error);
+  }
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`${url} ${response.status}`);
+  return response.json();
+}
+
+function mergeRuntimeProducts(data) {
+  appendUnique(state.productCatalog.tickets, (data.attractions || []).map(runtimeAttractionToTicket), "runtimeId");
+  appendUnique(state.productCatalog.vehicles, (data.vehicles || []).map(runtimeVehicleToProduct), "runtimeId");
+  appendUnique(state.productCatalog.guides, (data.guides || []).map(runtimeGuideToProduct), "runtimeId");
+  appendUnique(state.productCatalog.hotels, (data.hotels || []).map(runtimeHotelToProduct), "runtimeId");
+  appendRuntimeHistoricalRoutes(data.routes || []);
+  state.pricingRules = data.pricingRules || {};
+  state.profitStrategies = data.profitStrategies || [];
+}
+
+function appendUnique(target, items, key) {
+  const existing = new Set(target.map((item) => item[key]).filter(Boolean));
+  items.filter(Boolean).forEach((item) => {
+    if (item[key] && existing.has(item[key])) return;
+    target.push(item);
+    if (item[key]) existing.add(item[key]);
+  });
+}
+
+function runtimeAttractionToTicket(item) {
+  return {
+    runtimeId: item.id,
+    city: item.city || "",
+    scenicName: item.name_cn || item.name_en || "",
+    ticketType: item.category || "景区门票",
+    type: item.category || "景点门票",
+    agencyAdult: valueOrEmpty(item.adult_price),
+    agencyDiscount: valueOrEmpty(item.child_price),
+    peakAdult: valueOrEmpty(item.adult_price),
+    peakDiscount: valueOrEmpty(item.child_price),
+    offAdult: valueOrEmpty(item.adult_price),
+    offDiscount: valueOrEmpty(item.child_price),
+    freePolicy: item.guide_ticket_free ? "导游免票" : "",
+    remark: [item.requires_reservation ? `需提前${item.reservation_days_before || ""}天预约` : "", item.suitable_for].filter(Boolean).join("；"),
+    supplierName: "清洗产品库",
+    source: item.source || "本地清洗数据",
+  };
+}
+
+function runtimeVehicleToProduct(item) {
+  const model = item.seat_count ? `${item.seat_count}座车` : `${item.vehicle_type || "用车"}`;
+  return {
+    runtimeId: item.id,
+    city: item.city || "",
+    vehicleType: item.vehicle_type || "包车",
+    route: item.vehicle_type || "市区包车",
+    model,
+    costPrice: valueOrEmpty(item.full_day_price || item.airport_transfer_price || item.half_day_price),
+    salePrice: "",
+    supplierName: "清洗产品库",
+    source: item.source || "本地清洗数据",
+  };
+}
+
+function runtimeGuideToProduct(item) {
+  const language = Array.isArray(item.languages) ? item.languages.join("/") : (item.languages || "英语");
+  return {
+    runtimeId: item.id,
+    city: item.city || "",
+    language,
+    lowSeasonCost: valueOrEmpty(item.full_day_price),
+    highSeasonCost: valueOrEmpty(item.full_day_price),
+    lowSeasonSale: "",
+    highSeasonSale: "",
+    needsTicket: item.has_license ? "有导游证" : "",
+    supplierName: item.name_cn || "清洗导游库",
+    source: item.source || "本地清洗数据",
+  };
+}
+
+function runtimeHotelToProduct(item) {
+  return {
+    runtimeId: item.id,
+    city: item.city || "",
+    hotelName: item.name_cn || item.name_en || "",
+    star: item.star_rating || "",
+    roomType: item.room_type || "双床房",
+    costPrice: valueOrEmpty(item.nightly_price),
+    salePrice: "",
+    breakfast: item.breakfast_included ? "含早" : "不含早",
+    hasAgreement: item.cooperation_status || "",
+    agreementFixed: "",
+    supplierName: "清洗酒店库",
+    source: item.source || "本地清洗数据",
+  };
+}
+
+function appendRuntimeHistoricalRoutes(routes) {
+  routes.forEach((item) => {
+    if (historicalTrips.some((trip) => trip.id === item.id)) return;
+    const days = (item.itinerary_summary || []).map((day) => ({
+      city: day.city || "",
+      overview: day.title || day.summary || "",
+      detail: day.summary || day.title || "",
+    }));
+    historicalTrips.push({
+      id: item.id,
+      name: item.route_name || item.id,
+      cities: item.cities || [],
+      days,
+    });
+  });
 }
 
 function refreshQuoteResources() {
