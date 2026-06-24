@@ -44595,6 +44595,7 @@ async function loadRuntimeData() {
     renderQuoteTabs();
     renderQuoteTable();
     renderSummary();
+    writeAcceptanceProbe();
   } catch (error) {
     state.runtimeData = { loaded: false, error: error.message || "本地数据加载失败" };
     console.warn("Runtime quote data load failed:", error);
