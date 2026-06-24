@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-label="WhatsApp QR">
+  <rect width="320" height="320" fill="#fff"/>
+  <g fill="#111">
+    <rect x="18" y="18" width="86" height="86"/><rect x="32" y="32" width="58" height="58" fill="#fff"/><rect x="45" y="45" width="32" height="32"/>
+    <rect x="216" y="18" width="86" height="86"/><rect x="230" y="32" width="58" height="58" fill="#fff"/><rect x="243" y="45" width="32" height="32"/>
+    <rect x="18" y="216" width="86" height="86"/><rect x="32" y="230" width="58" height="58" fill="#fff"/><rect x="45" y="243" width="32" height="32"/>
+    <rect x="126" y="24" width="18" height="18"/><rect x="162" y="24" width="18" height="18"/><rect x="180" y="42" width="18" height="18"/><rect x="126" y="60" width="36" height="18"/><rect x="180" y="78" width="18" height="18"/>
+    <rect x="120" y="120" width="18" height="18"/><rect x="156" y="120" width="18" height="18"/><rect x="192" y="120" width="18" height="18"/><rect x="228" y="120" width="54" height="18"/>
+    <rect x="120" y="156" width="54" height="18"/><rect x="192" y="156" width="18" height="18"/><rect x="246" y="156" width="36" height="18"/>
+    <rect x="120" y="192" width="18" height="18"/><rect x="156" y="192" width="54" height="18"/><rect x="228" y="192" width="18" height="18"/><rect x="264" y="192" width="18" height="18"/>
+    <rect x="120" y="228" width="36" height="18"/><rect x="174" y="228" width="18" height="18"/><rect x="210" y="228" width="72" height="18"/>
+    <rect x="120" y="264" width="18" height="18"/><rect x="156" y="264" width="18" height="18"/><rect x="192" y="264" width="36" height="18"/><rect x="264" y="264" width="18" height="18"/>
+  </g>
+  <circle cx="160" cy="160" r="48" fill="#fff"/>
+  <circle cx="160" cy="160" r="40" fill="#fff" stroke="#111" stroke-width="6"/>
+  <path d="M142 179l6-20a27 27 0 1149-16 27 27 0 01-38 34l-17 2z" fill="#fff" stroke="#111" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M151 142c-3 3-4 8-1 14 4 10 13 18 24 21 6 2 10 1 13-3l3-5-12-6-5 5c-7-3-13-8-16-16l4-4-6-11-4 5z" fill="#111"/>
+</svg>

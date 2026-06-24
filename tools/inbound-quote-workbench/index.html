@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>入境旅行社内部工作台</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">IN</div>
+          <div>
+            <h1>入境旅行社工作台</h1>
+            <p>报价 · 订单 · 操作 · 财务</p>
+          </div>
+        </div>
+        <nav class="module-nav">
+          <button class="module active" data-module="quote"><i data-lucide="folder-kanban"></i><span>报价项目</span></button>
+          <button class="module" data-module="orders"><i data-lucide="clipboard-list"></i><span>订单管理</span></button>
+          <button class="module" data-module="ops"><i data-lucide="route"></i><span>操作排团</span></button>
+          <button class="module" data-module="products"><i data-lucide="package-search"></i><span>产品资源库</span></button>
+          <button class="module" data-module="suppliers"><i data-lucide="handshake"></i><span>供应商管理</span></button>
+          <button class="module" data-module="finance"><i data-lucide="chart-no-axes-combined"></i><span>财务统计</span></button>
+          <button class="module" data-module="dashboard"><i data-lucide="layout-dashboard"></i><span>老板看板</span></button>
+          <button class="module" data-module="sop"><i data-lucide="book-open-check"></i><span>SOP 知识库</span></button>
+          <button class="module" data-module="settings"><i data-lucide="settings"></i><span>系统设置</span></button>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Quote Project</p>
+            <h2 id="moduleTitle">报价项目</h2>
+          </div>
+        </header>
+
+        <section class="module-view active-view" id="quote">
+          <section class="quote-dashboard" id="projectDashboard">
+            <div class="dashboard-hero">
+              <div>
+                <p class="eyebrow">Customizer Workspace</p>
+                <h3>定制师报价项目工作台</h3>
+                <p>管理所有询盘和报价项目，按状态跟踪从需求确认、报价、成交到服务评价的完整进展。</p>
+              </div>
+              <div class="dashboard-actions">
+                <label>数据周期<select id="periodFilter"><option value="last30" selected>近一个月</option><option value="month">本月</option><option value="week">本周</option><option value="today">今日</option></select></label>
+                <button class="primary-btn" id="newProjectFromDashboard"><i data-lucide="file-plus-2"></i><span>新增报价项目</span></button>
+              </div>
+            </div>
+            <div class="dashboard-stats" id="projectStats"></div>
+            <div class="pipeline-board" id="projectPipeline"></div>
+            <div class="panel">
+              <div class="panel-head">
+                <h4>我的报价项目</h4>
+                <span>点击“打开报价”进入项目详情，继续填写需求、行程、报价和客人方案</span>
+              </div>
+              <div class="project-filters">
+                <label>关键词<input id="projectSearch" placeholder="项目、账号、国家、城市" /></label>
+                <label>状态<select id="projectStatusFilter"><option value="">全部状态</option></select></label>
+                <label>用户类型<select id="projectUserTypeFilter"><option value="">全部类型</option><option>旅行社</option><option>直客</option><option>非旅行社机构或公司</option></select></label>
+                <label>用户国家<input id="projectCountryFilter" placeholder="国家" /></label>
+                <button class="secondary-btn" id="clearProjectFilters"><i data-lucide="rotate-ccw"></i><span>清空筛选</span></button>
+              </div>
+              <div id="projectTable"></div>
+            </div>
+          </section>
+
+          <div class="detail-view hidden" id="projectDetail">
+          <div class="project-bar">
+            <div>
+              <p>当前报价项目</p>
+              <h3 id="projectTitle">未命名客户 · 天数待定 · 目的地待定</h3>
+            </div>
+            <div class="project-meta">
+              <button class="secondary-btn" id="backToProjects"><i data-lucide="arrow-left"></i><span>返回项目列表</span></button>
+              <span id="projectId">QP-20260618-001</span>
+              <span class="status warn" id="projectStatus">草稿</span>
+            </div>
+          </div>
+
+          <div class="stepper">
+            <a href="#q-demand" class="active"><i data-lucide="list-checks"></i><span>需求确认</span></a>
+            <a href="#q-itinerary"><i data-lucide="map"></i><span>行程</span></a>
+            <a href="#q-quote"><i data-lucide="table-properties"></i><span>报价明细</span></a>
+            <a href="#q-summary"><i data-lucide="badge-check"></i><span>汇总检查</span></a>
+            <a href="#q-proposal"><i data-lucide="send"></i><span>客人方案</span></a>
+            <a href="#q-archive"><i data-lucide="archive"></i><span>版本归档</span></a>
+          </div>
+
+          <section class="section" id="q-demand">
+            <div class="section-head">
+              <div>
+                <h3>需求确认</h3>
+                <p>只保留会影响行程和报价的确认字段，按日期、人数、城市和服务项结构化录入。</p>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h4>客户与项目</h4>
+                <span>用于归档和跟进，不参与报价计算</span>
+              </div>
+              <div class="form-grid four">
+                <label>项目名称<input id="clientName" placeholder="客户名 + 城市 + 天数" /></label>
+                <label>客户账号<input id="clientAccount" placeholder="WhatsApp / 邮箱 / 用户ID" /></label>
+                <label>用户类型<select id="clientType"><option>直客</option><option>旅行社</option><option>非旅行社机构或公司</option></select></label>
+                <label>用户国家<input id="clientCountry" placeholder="国家 / 地区" /></label>
+                <label>客户来源<select id="source"><option>WhatsApp</option><option>Email</option><option>官网</option><option>Facebook</option><option>OTA</option></select></label>
+                <label>负责人<select id="owner"><option>定制师 A</option><option>定制师 B</option><option>老板</option></select></label>
+                <label>跟进状态<select id="followStatus"><option>新询盘</option><option>需求确认中</option><option>已发报价</option><option>待跟进</option><option>已成交</option><option>未成交</option></select></label>
+              </div>
+            </div>
+
+            <div class="panel demand-panel">
+              <div class="field-group">
+                <h4>日期</h4>
+                <div class="form-grid compact">
+                  <label>出行时间<input id="startDate" type="date" /></label>
+                  <label>服务天数<input id="serviceDays" type="number" min="1" value="1" /></label>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <h4>人数</h4>
+                <div class="form-grid compact">
+                  <label>成人数<input id="adults" type="number" min="0" value="0" /></label>
+                  <label>儿童数<input id="children" type="number" min="0" value="0" /></label>
+                </div>
+              </div>
+
+              <div class="field-group wide-group">
+                <h4>行程需求</h4>
+                <div class="form-grid">
+                  <label class="wide">城市<input id="cities" placeholder="北京、上海" /></label>
+                  <label class="wide">特殊要求<textarea id="specialNeed" placeholder="节奏、禁忌、购物要求、餐食偏好、语种偏好等"></textarea></label>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h4>报价服务项</h4>
+                <span>每项都可以选择是否包含，系统只生成已包含项的报价表</span>
+              </div>
+              <div class="service-config-grid">
+                <div class="service-config">
+                  <button type="button" class="include-toggle active" data-include="svcVehicle"><span>用车</span><strong>包含</strong></button>
+                  <input id="svcVehicle" type="checkbox" checked hidden />
+                  <div class="form-grid compact">
+                    <label>接送服务<select id="transferNeed"><option>不含</option><option>仅接机</option><option>仅送机</option><option>接送机</option></select></label>
+                    <label>接送车型<select id="transferVehicleType"><option>7座车</option><option selected>14座车</option><option>22座车</option><option>33座车</option></select></label>
+                    <label>按天包车<select id="charterNeed"><option selected>需要</option><option>不需要</option></select></label>
+                    <label>包车车型<select id="charterVehicleType"><option>7座车</option><option selected>14座车</option><option>22座车</option><option>33座车</option></select></label>
+                  </div>
+                </div>
+
+                <div class="service-config ticket-config">
+                  <button type="button" class="include-toggle active" data-include="svcTickets"><span>门票</span><strong>包含</strong></button>
+                  <input id="svcTickets" type="checkbox" checked hidden />
+                  <p>按每日行程自动识别景点，报价明细中可继续增删门票。</p>
+                </div>
+
+                <div class="service-config">
+                  <button type="button" class="include-toggle active" data-include="svcGuide"><span>导游</span><strong>包含</strong></button>
+                  <input id="svcGuide" type="checkbox" checked hidden />
+                  <div class="form-grid compact">
+                    <label>导游语种<select id="guideLang"><option selected>英语</option><option>阿拉伯语</option><option>法语</option><option>西班牙语</option><option>德语</option></select></label>
+                  </div>
+                </div>
+
+                <div class="service-config">
+                  <button type="button" class="include-toggle active" data-include="svcHotel"><span>酒店</span><strong>包含</strong></button>
+                  <input id="svcHotel" type="checkbox" checked hidden />
+                  <div class="form-grid compact">
+                    <label>酒店星级<select id="hotelLevel"><option>不含酒店</option><option selected>4星舒适型</option><option>5星品质型</option><option>豪华型</option></select></label>
+                    <label>每天房间数<input id="rooms" type="number" min="0" value="0" /></label>
+                    <div class="room-type-editor wide">
+                      <div class="room-type-head"><span>房型与房间数</span><button class="add-mini" type="button" id="addRoomTypeRow">添加房型</button></div>
+                      <div id="roomTypeRows"></div>
+                      <p class="field-warning" id="roomTypeWarning"></p>
+                    </div>
+                    <label>是否含早<select id="hotelBreakfast"><option selected>含早</option><option>不含早</option></select></label>
+                  </div>
+                </div>
+
+                <div class="service-config">
+                  <button type="button" class="include-toggle" data-include="svcTraffic"><span>大交通</span><strong>不含</strong></button>
+                  <input id="svcTraffic" type="checkbox" hidden />
+                  <div class="form-grid compact">
+                    <label>类型<select id="trafficType"><option>都可以</option><option>火车</option><option>飞机</option></select></label>
+                  </div>
+                </div>
+
+                <div class="service-config">
+                  <button type="button" class="include-toggle" data-include="svcMeals"><span>用餐</span><strong>不含</strong></button>
+                  <input id="svcMeals" type="checkbox" hidden />
+                  <div class="check-row">
+                    <label><input id="mealBreakfast" type="checkbox" /> 早餐</label>
+                    <label><input id="mealLunch" type="checkbox" /> 午餐</label>
+                    <label><input id="mealDinner" type="checkbox" /> 晚餐</label>
+                  </div>
+                </div>
+
+                <div class="service-config">
+                  <button type="button" class="include-toggle active" data-include="svcOther"><span>其他</span><strong>包含</strong></button>
+                  <input id="svcOther" type="checkbox" checked hidden />
+                  <div class="check-row">
+                    <label><input id="otherInsurance" type="checkbox" checked /> 保险</label>
+                    <label><input id="otherHeadset" type="checkbox" /> 耳麦</label>
+                    <label><input id="otherWater" type="checkbox" /> 水</label>
+                    <label><input id="otherGift" type="checkbox" /> 伴手礼</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section" id="q-itinerary">
+            <div class="section-head">
+              <div>
+                <h3>行程</h3>
+                <p>行程来源放在上方，每日行程放在下方，避免详情横向溢出。</p>
+              </div>
+              <div class="actions">
+                <button class="secondary-btn" id="loadHistory"><i data-lucide="history"></i><span>沿用历史行程</span></button>
+                <button class="primary-btn" id="generateItinerary"><i data-lucide="calendar-plus"></i><span>按需求生成行程</span></button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h4>行程来源</h4>
+                <span>可粘贴现成行程，点击导入后会同步到每日行程</span>
+              </div>
+              <textarea id="itinerarySource" class="large-text" placeholder="例：Day 1 北京：天安门广场、故宫、景山&#10;Day 2 上海：外滩、豫园、上海博物馆"></textarea>
+              <div class="actions panel-actions">
+                <button class="primary-btn" id="aiImportItinerary"><i data-lucide="sparkles"></i><span>识别并同步行程</span></button>
+                <button class="secondary-btn" id="addDay"><i data-lucide="plus"></i><span>加一天</span></button>
+              </div>
+              <div id="historyRecommendations" class="history-recommendations hidden"></div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h4>每日行程</h4>
+                <span>报价明细会引用这里的日期、城市和概览，避免遗漏门票和服务</span>
+              </div>
+              <div id="itineraryWarning" class="notice hidden"></div>
+              <div id="itineraryList" class="empty">尚未生成行程。</div>
+            </div>
+          </section>
+
+          <section class="section" id="q-quote">
+            <div class="section-head">
+              <div>
+                <h3>报价明细</h3>
+                <p>行程生成或修改后，报价明细会自动同步；按服务项切换后直接填写成本和卖价。</p>
+              </div>
+            </div>
+
+            <div class="panel quote-settings">
+              <label>报价版本<select id="quoteVersion"><option>报价 V1</option></select></label>
+              <label>综合毛利率 %<input id="grossMargin" type="number" value="20" min="0" max="80" /></label>
+              <label>币种<select id="currency"><option value="CNY">人民币</option><option value="USD">美元</option><option value="EUR">欧元</option><option value="AED">迪拉姆</option></select></label>
+              <div class="rate-card" id="rateCard">今日汇率：人民币 1.00</div>
+            </div>
+
+            <div class="quote-tabs" id="quoteTabs"></div>
+            <div id="quoteTablePanel" class="panel"></div>
+          </section>
+
+          <section class="section" id="q-summary">
+            <div class="section-head">
+              <div>
+                <h3>汇总检查</h3>
+                <p>系统自动汇总成本、卖价、毛利、人均价和缺失成本。</p>
+              </div>
+            </div>
+            <div id="summaryPanel" class="panel empty">行程生成后会自动汇总成本和卖价。</div>
+          </section>
+
+          <section class="section" id="q-proposal">
+            <div class="section-head">
+              <div>
+                <h3>客人方案</h3>
+                <p>选择语言后，标题、行程、费用包含和说明都会切换为对应语言。</p>
+              </div>
+              <div class="actions">
+                <button class="primary-btn" id="buildProposal"><i data-lucide="layout-template"></i><span>生成/更新方案</span></button>
+                <button class="secondary-btn" id="editProposal"><i data-lucide="pencil"></i><span>编辑方案</span></button>
+                <button class="secondary-btn" id="exportImage"><i data-lucide="image-down"></i><span>导出图片</span></button>
+              </div>
+            </div>
+            <div class="panel output-settings">
+              <label>输出语言<select id="outputLang"><option value="zh">中文</option><option value="en">English</option><option value="ar">العربية</option><option value="fr">Français</option><option value="es">Español</option></select></label>
+              <label>报价模板<select id="proposalStyle"><option>标准商务版</option><option>高端定制版</option><option>简洁邮件版</option></select></label>
+              <div class="option-box">
+                <span>价格展示</span>
+                <label><input id="priceTotal" type="checkbox" checked /> 总价</label>
+                <label><input id="priceAverage" type="checkbox" checked /> 人均价</label>
+                <label><input id="priceItemized" type="checkbox" /> 各项目分项报价</label>
+              </div>
+              <div class="option-box">
+                <span>方案标识</span>
+                <label><input id="proposalWatermark" type="checkbox" /> 添加水印 localtripchina</label>
+              </div>
+              <div class="option-box">
+                <span>联系方式</span>
+                <label><input id="contactWhatsapp" type="checkbox" /> WhatsApp</label>
+                <input id="contactWhatsappValue" placeholder="WhatsApp 号码" />
+                <label><input id="contactWechat" type="checkbox" /> 微信</label>
+                <input id="contactWechatValue" placeholder="微信号" />
+                <label><input id="contactEmail" type="checkbox" checked /> 邮箱</label>
+              </div>
+            </div>
+            <article class="proposal" id="proposal">
+              <div class="proposal-cover">
+                <img src="https://images.unsplash.com/photo-1508804185872-d7badad00f7d?auto=format&fit=crop&w=1600&q=80" alt="China travel" />
+                <div>
+                  <p id="proposalKicker">Private Tour Proposal</p>
+                  <h3 id="proposalTitle">等待生成客人方案</h3>
+                  <span id="proposalMeta">报价明细同步后，可输出给客人的正式方案</span>
+                </div>
+              </div>
+              <div class="proposal-content" id="proposalContent"></div>
+            </article>
+          </section>
+
+          <section class="section" id="q-archive">
+            <div class="section-head">
+              <div>
+                <h3>版本归档</h3>
+                <p>保留每次报价版本，成交后进入订单。</p>
+              </div>
+              <button class="primary-btn" id="convertToOrder"><i data-lucide="arrow-right-left"></i><span>成交转订单</span></button>
+            </div>
+            <div class="grid two">
+              <div class="panel"><div class="panel-head"><h4>报价版本</h4></div><div id="quoteArchive" class="archive-list"></div></div>
+              <div class="panel"><div class="panel-head"><h4>订单状态</h4></div><div id="orderArchive" class="empty">尚未成交。</div></div>
+            </div>
+          </section>
+          </div>
+        </section>
+
+        <section class="module-view" id="orders"><div class="placeholder"><h3>订单管理</h3><p>成交后的项目进入订单，继续管理合同、收款、成本确认、供应商付款和利润。</p></div></section>
+        <section class="module-view" id="ops"><div class="placeholder"><h3>操作排团</h3><p>从报价明细自动拆出车辆、导游、门票、酒店、餐厅和通知书任务。</p></div></section>
+        <section class="module-view" id="products">
+          <div class="resource-page">
+            <div class="section-head">
+              <div>
+                <h3>产品资源库</h3>
+                <p>以产品为主维护可报价内容。每个产品可以挂供应商成本，也可以保留手动成本，报价时优先调用产品下的有效成本。</p>
+              </div>
+              <div class="actions">
+                <button class="secondary-btn" id="syncFeishuProducts"><i data-lucide="refresh-cw"></i><span>飞书产品库已导入</span></button>
+                <button class="primary-btn" id="addResourceItem"><i data-lucide="plus"></i><span>新增产品</span></button>
+              </div>
+            </div>
+            <div class="dashboard-stats" id="resourceStats"></div>
+            <div class="panel">
+              <div class="panel-head">
+                <h4>产品品类</h4>
+                <span>先按品类进入，再维护该品类下的产品和成本，不把所有内容混在一起。</span>
+              </div>
+              <div class="category-tabs" id="productCategoryTabs"></div>
+              <div class="resource-filters product-filters">
+                <label>关键词<input id="resourceSearch" placeholder="产品名、城市、产品编号" /></label>
+                <label>城市<input id="resourceCityFilter" placeholder="城市" /></label>
+                <label><span id="resourceStatusLabel">筛选项</span><select id="resourceStatusFilter"><option value="">全部</option></select></label>
+              </div>
+            </div>
+            <div class="panel product-table-panel">
+              <div class="panel-head">
+                <h4 id="productListTitle">产品列表</h4>
+                <span id="productListHint">按当前二级目录展示对应产品字段。</span>
+              </div>
+              <div id="productTableFilters"></div>
+              <div id="resourceTable"></div>
+            </div>
+            <div class="panel">
+              <div class="panel-head">
+                <h4>报价联动规则</h4>
+                <span>产品负责承载报价内容，供应商负责承载真实成本来源。</span>
+              </div>
+              <div class="linkage-rules">
+                <div><strong>1. 产品为主</strong><span>例如“北京上海5日经典游”是产品，下面可以挂用车、门票、酒店、导游等成本项。</span></div>
+                <div><strong>2. 成本可混合</strong><span>同一个产品内，部分成本来自供应商成本库，部分成本可由定制师手动录入。</span></div>
+                <div><strong>3. 报价可追溯</strong><span>报价明细会保留产品、供应商、成本有效期和手动成本标记，便于操作和财务校验。</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="module-view" id="suppliers">
+          <div class="supplier-page">
+            <div class="section-head">
+              <div>
+                <h3>供应商管理</h3>
+                <p>按品类管理供应商。不同品类需要的资料不同，供应商成本会被产品库和报价明细调用。</p>
+              </div>
+              <button class="primary-btn" id="addSupplier"><i data-lucide="plus"></i><span>新增供应商</span></button>
+            </div>
+            <div class="dashboard-stats" id="supplierStats"></div>
+            <div class="panel">
+              <div class="panel-head">
+                <h4>供应商品类</h4>
+                <span>先选品类，再维护该品类供应商，不把车队、票务、酒店放在同一张表里。</span>
+              </div>
+              <div class="category-tabs" id="supplierCategoryTabs"></div>
+              <div class="supplier-filters">
+                <label>关键词<input id="supplierSearch" placeholder="供应商、城市、联系人" /></label>
+                <label>状态<select id="supplierStatusFilter"><option value="">全部状态</option><option>合作中</option><option>待审核</option><option>暂停合作</option></select></label>
+              </div>
+            </div>
+            <div class="grid two supplier-layout">
+              <div class="panel">
+                <div class="panel-head">
+                  <h4 id="supplierListTitle">供应商列表</h4>
+                  <span>点击供应商后，右侧展示该品类专属资料和成本目录。</span>
+                </div>
+                <div id="supplierTable"></div>
+              </div>
+              <div class="panel">
+                <div class="panel-head">
+                  <h4 id="supplierResourceTitle">供应商成本目录</h4>
+                  <span id="supplierResourceHint">选择供应商后查看绑定资源</span>
+                </div>
+                <div id="supplierResourceTable" class="empty">请选择左侧供应商。</div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="module-view" id="finance"><div class="placeholder"><h3>财务统计</h3><p>统计应收、实收、应付、实付、毛利、渠道、员工和产品利润。</p></div></section>
+        <section class="module-view" id="dashboard"><div class="placeholder"><h3>老板看板</h3><p>查看成交额、毛利率、报价转化率、待确认成本、未回款和员工效率。</p></div></section>
+        <section class="module-view" id="sop"><div class="placeholder"><h3>SOP 知识库</h3><p>沉淀报价、成交、操作、财务、供应商准入和风险处理 SOP。</p></div></section>
+        <section class="module-view" id="settings"><div class="placeholder"><h3>系统设置</h3><p>设置角色权限、汇率、报价公式、语言模板、飞书同步和导出样式。</p></div></section>
+      </main>
+    </div>
+    <div class="modal-backdrop hidden" id="productModal">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <h3 id="productModalTitle">新增产品</h3>
+            <p id="productModalHint">按当前产品类型填写字段。</p>
+          </div>
+          <button class="icon-btn" id="closeProductModal" aria-label="关闭"><i data-lucide="x"></i></button>
+        </div>
+        <div class="modal-body" id="productModalFields"></div>
+        <div class="modal-actions">
+          <button class="secondary-btn" id="cancelProductModal">取消</button>
+          <button class="primary-btn" id="saveProductModal"><i data-lucide="save"></i><span>保存产品</span></button>
+        </div>
+      </div>
+    </div>
+    <script src="./app.js?v=20260621-product-quote-resources"></script>
+  </body>
+</html>
