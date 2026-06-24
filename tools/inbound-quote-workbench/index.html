@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="./styles.css" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   </head>
   <body>
     <div class="app">
@@ -71,6 +72,8 @@
           </section>
 
           <div class="detail-view hidden" id="projectDetail">
+          <div class="quote-workspace-shell">
+          <div class="quote-workspace-main">
           <div class="project-bar">
             <div>
               <p>当前报价项目</p>
@@ -116,6 +119,14 @@
               </div>
             </div>
 
+            <div class="panel" id="rawDemandPanel">
+              <div class="panel-head">
+                <h4>客户需求输入区</h4>
+                <span>粘贴客户需求、聊天记录或飞书表单内容，右侧 Agent 会先输出待应用结果。</span>
+              </div>
+              <textarea id="rawDemandInput" class="large-text" placeholder="粘贴客户需求 / WhatsApp 聊天记录 / 飞书表单内容。例：Dubai family, 4 adults + 1 child, Beijing and Shanghai, 5 days from 2026-07-01, needs hotel, private car, English guide, tickets, no shopping, comfortable pace."></textarea>
+            </div>
+
             <div class="panel demand-panel">
               <div class="field-group">
                 <h4>日期</h4>
@@ -153,9 +164,9 @@
                   <input id="svcVehicle" type="checkbox" checked hidden />
                   <div class="form-grid compact">
                     <label>接送服务<select id="transferNeed"><option>不含</option><option>仅接机</option><option>仅送机</option><option>接送机</option></select></label>
-                    <label>接送车型<select id="transferVehicleType"><option>7座车</option><option selected>14座车</option><option>22座车</option><option>33座车</option></select></label>
+                    <label>接送车型<select id="transferVehicleType"><option>5座车</option><option>7座车</option><option selected>14座车</option><option>22座车</option><option>33座车</option></select></label>
                     <label>按天包车<select id="charterNeed"><option selected>需要</option><option>不需要</option></select></label>
-                    <label>包车车型<select id="charterVehicleType"><option>7座车</option><option selected>14座车</option><option>22座车</option><option>33座车</option></select></label>
+                    <label>包车车型<select id="charterVehicleType"><option>5座车</option><option>7座车</option><option selected>14座车</option><option>22座车</option><option>33座车</option></select></label>
                   </div>
                 </div>
 
@@ -293,6 +304,7 @@
               <div class="actions">
                 <button class="primary-btn" id="buildProposal"><i data-lucide="layout-template"></i><span>生成/更新方案</span></button>
                 <button class="secondary-btn" id="editProposal"><i data-lucide="pencil"></i><span>编辑方案</span></button>
+                <button class="secondary-btn" id="exportPdf"><i data-lucide="file-down"></i><span>下载 PDF</span></button>
                 <button class="secondary-btn" id="exportImage"><i data-lucide="image-down"></i><span>导出图片</span></button>
               </div>
             </div>
@@ -344,6 +356,39 @@
               <div class="panel"><div class="panel-head"><h4>订单状态</h4></div><div id="orderArchive" class="empty">尚未成交。</div></div>
             </div>
           </section>
+          </div>
+          <aside class="agent-sidebar" aria-label="AI Agent 超级助手">
+            <div class="agent-head">
+              <div>
+                <p class="eyebrow">AI Agent</p>
+                <h3>报价超级助手</h3>
+              </div>
+              <span class="status ok" id="agentMode">DeepSeek</span>
+            </div>
+            <div class="agent-actions">
+              <button class="primary-btn" id="agentRecognizeDemand"><i data-lucide="sparkles"></i><span>识别客户需求</span></button>
+              <button class="secondary-btn" id="agentApplyCustomer"><i data-lucide="user-check"></i><span>应用到客户资料</span></button>
+              <button class="secondary-btn" id="agentCheckMissing"><i data-lucide="circle-help"></i><span>检查缺失信息</span></button>
+              <button class="secondary-btn" id="agentFollowQuestions"><i data-lucide="messages-square"></i><span>生成追问建议</span></button>
+              <button class="primary-btn" id="agentGenerateRoute"><i data-lucide="route"></i><span>生成线路草稿</span></button>
+              <textarea id="agentOpFeedback" placeholder="OP 修改意见：例如节奏放慢、酒店升 5 星、减少购物点、上海多留自由活动。"></textarea>
+              <button class="secondary-btn" id="agentOptimizeRoute"><i data-lucide="wand-sparkles"></i><span>按我的意见优化</span></button>
+              <button class="primary-btn" id="agentConfirmRoute"><i data-lucide="badge-check"></i><span>确认线路</span></button>
+              <button class="secondary-btn" id="agentExtractQuoteItems"><i data-lucide="list-plus"></i><span>识别报价项</span></button>
+              <button class="secondary-btn" id="agentApplyQuoteItems"><i data-lucide="table-properties"></i><span>应用到报价明细</span></button>
+              <button class="secondary-btn" id="agentRecalculateQuote"><i data-lucide="calculator"></i><span>重新计算报价</span></button>
+              <button class="secondary-btn" id="agentBuildCustomerProposal"><i data-lucide="file-text"></i><span>生成客户版报价</span></button>
+              <button class="primary-btn" id="agentSaveQuoteVersion"><i data-lucide="save"></i><span>保存报价版本</span></button>
+            </div>
+            <div class="agent-result">
+              <div class="panel-head">
+                <h4>待应用结果</h4>
+                <span>Agent 输出不会直接覆盖页面。</span>
+              </div>
+              <div id="agentPendingResult" class="agent-pending empty">等待 Agent 输出。</div>
+            </div>
+          </aside>
+          </div>
           </div>
         </section>
 
@@ -456,6 +501,6 @@
         </div>
       </div>
     </div>
-    <script src="./app.js?v=20260621-product-quote-resources"></script>
+    <script src="./app.js?v=20260625-agent-mvp"></script>
   </body>
 </html>

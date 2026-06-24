@@ -44150,6 +44150,8 @@ const state = {
   activeQuote: 0,
   activeService: "vehicle",
   historyCandidates: [],
+  agent: { pendingType: "", pendingData: null, loading: false },
+  routeConfirmed: false,
   proposalEditing: false,
   order: null,
 };
@@ -44218,8 +44220,21 @@ function bindEvents() {
   on("#refreshSummary", "click", renderSummary);
   on("#buildProposal", "click", buildProposal);
   on("#editProposal", "click", toggleProposalEdit);
+  on("#exportPdf", "click", exportPdf);
   on("#exportImage", "click", exportImage);
   on("#convertToOrder", "click", convertToOrder);
+  on("#agentRecognizeDemand", "click", agentRecognizeDemand);
+  on("#agentApplyCustomer", "click", agentApplyCustomer);
+  on("#agentCheckMissing", "click", agentCheckMissing);
+  on("#agentFollowQuestions", "click", agentFollowQuestions);
+  on("#agentGenerateRoute", "click", agentGenerateRoute);
+  on("#agentOptimizeRoute", "click", agentOptimizeRoute);
+  on("#agentConfirmRoute", "click", agentConfirmRoute);
+  on("#agentExtractQuoteItems", "click", agentExtractQuoteItems);
+  on("#agentApplyQuoteItems", "click", agentApplyQuoteItems);
+  on("#agentRecalculateQuote", "click", agentRecalculateQuote);
+  on("#agentBuildCustomerProposal", "click", agentBuildCustomerProposal);
+  on("#agentSaveQuoteVersion", "click", agentSaveQuoteVersion);
 
   [
     "clientName", "clientAccount", "clientType", "clientCountry", "source", "owner", "followStatus", "startDate", "serviceDays", "adults", "children",
@@ -44286,6 +44301,7 @@ function renderAll() {
   renderSummary();
   renderArchive();
   renderRateCard();
+  renderAgentPending();
   renderIcons();
 }
 
@@ -46332,6 +46348,413 @@ function getDemand() {
   };
 }
 
+async function agentRecognizeDemand() {
+  const result = await callAgent("recognize_customer", [
+    "从 OP 粘贴的客户需求、聊天记录或飞书表单中提取结构化客户资料。",
+    "返回 JSON：{type:'customer', customer:{clientName, account, userType, country, source, startDate, serviceDays, adults, children, cities, specialNeed, guideLang, hotelLevel, rooms, roomTypes, services, vehicleType}, missing:[], questions:[]}",
+    "services 包含 vehicle,ticket,guide,hotel,traffic,meal,other 布尔值。",
+    "不要编造价格。",
+  ].join("\n"));
+  if (!result) return;
+  setAgentPending("customer", result);
+}
+
+function agentApplyCustomer() {
+  const data = state.agent.pendingData?.customer || state.agent.pendingData;
+  if (state.agent.pendingType !== "customer" || !data) {
+    setAgentPending("message", { title: "没有可应用的客户资料", body: "请先点击“识别客户需求”。" });
+    return;
+  }
+  setValue("clientName", data.clientName);
+  setValue("clientAccount", data.account);
+  setSelectValue("clientType", data.userType);
+  setValue("clientCountry", data.country);
+  setSelectValue("source", data.source);
+  setValue("startDate", data.startDate);
+  setValue("serviceDays", data.serviceDays);
+  setValue("adults", data.adults);
+  setValue("children", data.children);
+  if (Array.isArray(data.cities) && data.cities.length) $("#cities").value = data.cities.join("、");
+  setValue("specialNeed", data.specialNeed);
+  setSelectValue("guideLang", data.guideLang);
+  setSelectValue("hotelLevel", data.hotelLevel);
+  setValue("rooms", data.rooms);
+  if (Array.isArray(data.roomTypes) && data.roomTypes.length) {
+    state.roomTypes = data.roomTypes.map((room) => ({
+      type: room.type || "双床房",
+      rooms: number(room.rooms),
+    }));
+  }
+  if (data.vehicleType) {
+    ensureSelectOption("charterVehicleType", data.vehicleType);
+    ensureSelectOption("transferVehicleType", data.vehicleType);
+    $("#charterVehicleType").value = data.vehicleType;
+    $("#transferVehicleType").value = data.vehicleType;
+  }
+  const serviceIds = { vehicle: "svcVehicle", ticket: "svcTickets", guide: "svcGuide", hotel: "svcHotel", traffic: "svcTraffic", meal: "svcMeals", other: "svcOther" };
+  Object.entries(data.services || {}).forEach(([key, value]) => {
+    if (serviceIds[key]) $(`#${serviceIds[key]}`).checked = Boolean(value);
+  });
+  $("#followStatus").value = "需求确认中";
+  updateProjectTitle();
+  renderIncludeButtons();
+  renderRoomTypes();
+  renderQuoteTabs();
+  renderSummary();
+  updateCurrentProject("需求确认中");
+  setAgentPending("message", { title: "已应用到客户资料", body: "客户基础信息、人数、城市、服务项和偏好已写入页面。下一步可以生成线路草稿。" });
+}
+
+async function agentCheckMissing() {
+  const result = await callAgent("check_missing", [
+    "检查当前报价项目还缺哪些会影响报价或行程的信息。",
+    "返回 JSON：{type:'missing', missing:[{field, reason, priority}], summary:''}",
+    "只列影响第一版报价闭环的信息。",
+  ].join("\n"));
+  if (result) setAgentPending("missing", result);
+}
+
+async function agentFollowQuestions() {
+  const result = await callAgent("follow_questions", [
+    "根据当前缺失信息生成可直接发给客户的英文追问。",
+    "返回 JSON：{type:'questions', questions:[...], chineseNotes:[...]}",
+    "语气专业、自然、适合入境游定制报价。",
+  ].join("\n"));
+  if (result) setAgentPending("questions", result);
+}
+
+async function agentGenerateRoute() {
+  const result = await callAgent("generate_route", [
+    "根据客户需求、历史线路案例和产品资源库摘要生成线路草稿。",
+    "优先复用相似历史线路和可报价产品资源；没有合适案例再自主生成。",
+    "返回 JSON：{type:'route', source:'', route:{days:[{date, city, overview, detail, notes}]}, warnings:[]}",
+    "detail 用中文，方便 OP 审核；不要生成最终价格。",
+  ].join("\n"));
+  if (result) setAgentPending("route", result);
+}
+
+async function agentOptimizeRoute() {
+  const result = await callAgent("optimize_route", [
+    "按 OP 修改意见优化当前待应用线路或页面已有线路。",
+    "返回 JSON：{type:'route', source:'按 OP 意见优化', route:{days:[{date, city, overview, detail, notes}]}, warnings:[]}",
+    "必须保留日期、城市和天数结构。",
+  ].join("\n"));
+  if (result) setAgentPending("route", result);
+}
+
+function agentConfirmRoute() {
+  const data = state.agent.pendingData;
+  const days = data?.route?.days || data?.days;
+  if (state.agent.pendingType !== "route" || !Array.isArray(days) || !days.length) {
+    setAgentPending("message", { title: "没有可确认的线路", body: "请先生成线路草稿。" });
+    return;
+  }
+  state.itinerary = days.map((day, index) => ({
+    date: day.date || addDays(getDemand().startDate || "2026-07-01", index),
+    city: day.city || getDemand().cities[index] || getDemand().cities[0] || "北京",
+    overview: day.overview || `第${index + 1}天行程`,
+    detail: day.detail || day.notes || day.overview || "",
+  }));
+  $("#itinerarySource").value = state.itinerary.map((day, index) => `Day ${index + 1} ${day.city}: ${day.overview} | 行程详情：${day.detail}`).join("\n");
+  $("#serviceDays").value = state.itinerary.length;
+  state.routeConfirmed = true;
+  renderItinerary();
+  updateProjectTitle();
+  updateCurrentProject("报价中");
+  setAgentPending("message", { title: "线路已确认", body: "线路已写入每日行程。下一步可以识别报价项并生成报价明细。" });
+}
+
+async function agentExtractQuoteItems() {
+  if (!state.itinerary.length) {
+    setAgentPending("message", { title: "请先确认线路", body: "报价项识别需要基于已确认的每日行程。" });
+    return;
+  }
+  const result = await callAgent("extract_quote_items", [
+    "根据已确认线路识别尽可能完整的报价项。",
+    "返回 JSON：{type:'quoteItems', quoteItems:[{service, date, city, name, quantity, unit, pricingBasis, resourceHint, notes}], warnings:[]}",
+    "service 可用 vehicle,ticket,guide,hotel,traffic,meal,experience,other。",
+    "只识别项目，不计算最终价格。",
+  ].join("\n"));
+  if (result) setAgentPending("quoteItems", result);
+}
+
+function agentApplyQuoteItems() {
+  if (!state.itinerary.length) {
+    setAgentPending("message", { title: "请先确认线路", body: "没有每日行程时不能生成报价明细。" });
+    return;
+  }
+  applyQuoteItemServiceToggles(state.agent.pendingData?.quoteItems || []);
+  buildQuote();
+  setAgentPending("message", { title: "已应用到报价明细", body: "系统已按确认线路和服务项调用产品资源库计算报价。缺失成本会在汇总检查中提示，OP 可手动补价。" });
+}
+
+function agentRecalculateQuote() {
+  if (!state.itinerary.length) {
+    setAgentPending("message", { title: "请先确认线路", body: "没有每日行程时不能重新计算报价。" });
+    return;
+  }
+  buildQuote();
+  setAgentPending("message", { title: "报价已重新计算", body: `当前综合毛利率为 ${$("#grossMargin").value || 0}%。大交通按 6% 且单趟最低利润 30 元计算。` });
+}
+
+async function agentBuildCustomerProposal() {
+  if (!activeQuote().data.vehicle.length && state.itinerary.length) buildQuote();
+  $("#outputLang").value = "en";
+  const result = await callAgent("customer_proposal", [
+    "生成客户版英文报价文案。",
+    "必须隐藏成本、利润、利润率、供应商联系方式、内部备注和敏感价格策略。",
+    "返回 JSON：{type:'customerProposal', title, summary, itineraryEnglish:[{day,date,city,overview,detail}], inclusions:[], exclusions:[], payment, notes:[]}",
+    "不要翻译得机械，要自然、专业，适合入境游客户阅读。",
+  ].join("\n"));
+  if (result) {
+    setAgentPending("customerProposal", result);
+    applyCustomerProposal(result);
+  } else {
+    buildProposal();
+  }
+}
+
+function agentSaveQuoteVersion() {
+  if (!activeQuote().data.vehicle.length && state.itinerary.length) buildQuote();
+  saveVersion();
+  setAgentPending("message", { title: "报价版本已保存", body: `${activeQuote().name} 已保存到版本归档。` });
+}
+
+async function callAgent(action, instruction) {
+  const context = agentContext(action);
+  setAgentLoading(true, action);
+  try {
+    const response = await fetch("/api/agent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: [
+          { role: "user", content: `${instruction}\n\n当前工作台上下文 JSON：\n${JSON.stringify(context)}` },
+        ],
+      }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Agent request failed");
+    return parseAgentJson(result.content);
+  } catch (error) {
+    setAgentPending("message", { title: "Agent 调用失败", body: error.message || "请检查 DeepSeek API Key 或本地服务。" });
+    return null;
+  } finally {
+    setAgentLoading(false);
+  }
+}
+
+function agentContext(action) {
+  const d = getDemand();
+  const resources = agentResourceHints(d);
+  return {
+    action,
+    rawDemand: $("#rawDemandInput")?.value.trim() || "",
+    opFeedback: $("#agentOpFeedback")?.value.trim() || "",
+    demand: d,
+    currentItinerary: state.itinerary,
+    currentQuoteTotals: activeQuote()?.data ? calcTotals() : null,
+    enabledServices: serviceEnabledList(),
+    productResourceHints: resources,
+    pricingRules: {
+      trafficMargin: "6%",
+      trafficMinimumProfit: 30,
+      trafficCost: "第一版由 OP 手动录入，系统只计算利润和售价",
+      tickets: "成人数 * 成人票价 + 儿童数 * 儿童票价",
+      vehicle: "根据人数推荐车型并按城市 / 车型匹配包车价格",
+      guide: "按城市和语种匹配",
+      hotel: "按城市、星级、房型、晚数匹配",
+      generalMargin: `${$("#grossMargin")?.value || 20}%`,
+    },
+  };
+}
+
+function agentResourceHints(d) {
+  refreshQuoteResources();
+  const cities = d.cities.length ? d.cities : state.itinerary.map((day) => day.city).filter(Boolean);
+  const text = [
+    $("#rawDemandInput")?.value,
+    $("#specialNeed")?.value,
+    state.itinerary.map((day) => `${day.city} ${day.overview} ${day.detail}`).join(" "),
+  ].filter(Boolean).join(" ");
+  const routeMatches = state.productCatalog.routes
+    .filter((route) => cities.some((city) => route.city === city || route.name.includes(city)))
+    .slice(0, 8)
+    .map((route) => ({ name: route.name, city: route.city, days: route.days, includes: route.includes, costTier: routeCostTier(route, d.people || 2) }));
+  const resources = quoteResources()
+    .filter((resource) => !cities.length || cities.includes(resource.city) || text.includes(resource.name))
+    .slice(0, 60)
+    .map((resource) => ({
+      type: resource.type,
+      city: resource.city,
+      name: resource.name,
+      unit: resource.unit,
+      cost: resource.cost,
+      childCost: resource.childCost,
+      tags: resource.tags,
+      status: resource.status,
+    }));
+  return { routes: routeMatches, resources };
+}
+
+function parseAgentJson(content) {
+  if (typeof content !== "string") return content || {};
+  try {
+    return JSON.parse(content);
+  } catch {
+    const match = content.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+    throw new Error("DeepSeek 返回的内容不是有效 JSON。");
+  }
+}
+
+function setAgentPending(type, data) {
+  state.agent.pendingType = type;
+  state.agent.pendingData = data;
+  renderAgentPending();
+}
+
+function setAgentLoading(loading, action = "") {
+  state.agent.loading = loading;
+  const node = $("#agentPendingResult");
+  if (node && loading) {
+    node.className = "agent-pending";
+    node.innerHTML = `<div class="agent-card agent-loading">Agent 正在处理：${escapeHtml(action)}</div>`;
+  }
+  if (!loading) renderAgentPending();
+}
+
+function renderAgentPending() {
+  const node = $("#agentPendingResult");
+  if (!node || state.agent.loading) return;
+  const { pendingType, pendingData } = state.agent;
+  if (!pendingType || !pendingData) {
+    node.className = "agent-pending empty";
+    node.textContent = "等待 Agent 输出。";
+    return;
+  }
+  node.className = "agent-pending";
+  if (pendingType === "customer") {
+    const data = pendingData.customer || pendingData;
+    node.innerHTML = `<div class="agent-card"><h5>识别到的客户资料</h5><div class="agent-kv">
+      <span>项目</span><strong>${escapeHtml(data.clientName || "待命名")}</strong>
+      <span>国家</span><strong>${escapeHtml(data.country || "待确认")}</strong>
+      <span>日期</span><strong>${escapeHtml(data.startDate || "待确认")}</strong>
+      <span>天数</span><strong>${data.serviceDays || "-"} 天</strong>
+      <span>人数</span><strong>${data.adults || 0} 成人 / ${data.children || 0} 儿童</strong>
+      <span>城市</span><strong>${escapeHtml((data.cities || []).join("、") || "待确认")}</strong>
+      <span>车型</span><strong>${escapeHtml(data.vehicleType || "待确认")}</strong>
+      <span>酒店</span><strong>${escapeHtml(data.hotelLevel || "待确认")} · ${data.rooms || 0} 间</strong>
+    </div>${agentList("缺失信息", pendingData.missing)}${agentList("建议追问", pendingData.questions)}</div>`;
+    return;
+  }
+  if (pendingType === "route") {
+    const days = pendingData.route?.days || pendingData.days || [];
+    node.innerHTML = `<div class="agent-card"><h5>线路草稿</h5><p>${escapeHtml(pendingData.source || "")}</p>${days.map((day, index) => `
+      <div class="agent-route-day"><strong>Day ${index + 1} · ${escapeHtml(day.date || "")} · ${escapeHtml(day.city || "")}</strong><br><span>${escapeHtml(day.overview || "")}</span><p>${escapeHtml(day.detail || day.notes || "")}</p></div>
+    `).join("")}${agentList("提醒", pendingData.warnings)}</div>`;
+    return;
+  }
+  if (pendingType === "quoteItems") {
+    const items = pendingData.quoteItems || pendingData.items || [];
+    node.innerHTML = `<div class="agent-card"><h5>识别到的报价项</h5><ul>${items.map((item) => `<li>${escapeHtml(item.service || "")}｜${escapeHtml(item.name || item.resourceHint || "")}｜${escapeHtml(item.city || "")}｜${escapeHtml(item.pricingBasis || item.notes || "")}</li>`).join("")}</ul>${agentList("提醒", pendingData.warnings)}</div>`;
+    return;
+  }
+  if (pendingType === "missing") {
+    const missing = (pendingData.missing || []).map((item) => typeof item === "string" ? item : `${item.field || ""}: ${item.reason || ""}`);
+    node.innerHTML = `<div class="agent-card"><h5>缺失信息检查</h5>${missing.length ? `<ul>${missing.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : "<p>核心报价信息已基本齐全。</p>"}</div>`;
+    return;
+  }
+  if (pendingType === "questions") {
+    node.innerHTML = `<div class="agent-card"><h5>建议追问客户</h5>${agentList("", pendingData.questions)}${agentList("中文备注", pendingData.chineseNotes)}</div>`;
+    return;
+  }
+  if (pendingType === "customerProposal") {
+    node.innerHTML = `<div class="agent-card"><h5>${escapeHtml(pendingData.title || "客户版报价文案")}</h5><p>${escapeHtml(pendingData.summary || "")}</p>${agentList("费用包含", pendingData.inclusions)}${agentList("费用不含", pendingData.exclusions)}${agentList("备注", pendingData.notes)}</div>`;
+    return;
+  }
+  node.innerHTML = `<div class="agent-card"><h5>${escapeHtml(pendingData.title || "Agent 输出")}</h5><p>${escapeHtml(pendingData.body || "")}</p></div>`;
+}
+
+function agentList(title, items) {
+  if (!Array.isArray(items) || !items.length) return "";
+  return `${title ? `<h5>${escapeHtml(title)}</h5>` : ""}<ul>${items.map((item) => `<li>${escapeHtml(typeof item === "string" ? item : JSON.stringify(item))}</li>`).join("")}</ul>`;
+}
+
+function applyQuoteItemServiceToggles(items) {
+  const services = new Set((items || []).map((item) => item.service));
+  if (!items?.length) return;
+  const ids = { vehicle: "svcVehicle", ticket: "svcTickets", guide: "svcGuide", hotel: "svcHotel", traffic: "svcTraffic", meal: "svcMeals", experience: "svcOther", other: "svcOther" };
+  Object.entries(ids).forEach(([service, id]) => {
+    if (services.has(service)) $(`#${id}`).checked = true;
+  });
+  renderIncludeButtons();
+  renderQuoteTabs();
+}
+
+function applyCustomerProposal(data) {
+  const d = getDemand();
+  const totals = calcTotals();
+  $("#proposal").classList.toggle("watermarked", $("#proposalWatermark").checked);
+  $("#proposalKicker").textContent = "Private Tour Proposal";
+  $("#proposalTitle").textContent = data.title || `${d.serviceDays}-Day China Private Tour`;
+  $("#proposalMeta").textContent = `${d.startDate || "Date TBD"} · ${d.people} guests`;
+  const days = data.itineraryEnglish?.length ? data.itineraryEnglish : state.itinerary.map((day, index) => ({
+    day: index + 1,
+    date: day.date,
+    city: translate(day.city, "en"),
+    overview: day.overview,
+    detail: day.detail,
+  }));
+  $("#proposalContent").innerHTML = `
+    <div class="proposal-grid">
+      <div>
+        <div class="proposal-block">
+          <h4>Itinerary</h4>
+          ${days.map((day, index) => `<div class="proposal-day"><strong>Day ${day.day || index + 1}</strong><div><b>${escapeHtml(day.date || "")} · ${escapeHtml(day.city || "")} · ${escapeHtml(day.overview || "")}</b><p>${escapeHtml(day.detail || "")}</p></div></div>`).join("")}
+        </div>
+        <div class="proposal-block"><h4>Included / Excluded</h4><table class="simple-table"><tbody>
+          <tr><td>Included</td><td>${escapeHtml((data.inclusions || includedList("en")).join("; "))}</td></tr>
+          <tr><td>Not included</td><td>${escapeHtml((data.exclusions || [i18n.en.personal]).join("; "))}</td></tr>
+        </tbody></table></div>
+      </div>
+      <aside>
+        <div class="price-box"><span>Total Price</span><strong>${money(totals.sell)}</strong><span>Adult avg: ${money(totals.adultAvg)}</span>${d.children ? `<span>Child avg: ${money(totals.childAvg)}</span>` : ""}</div>
+        <div class="proposal-block"><h4>Payment</h4><p>${escapeHtml(data.payment || "A deposit is required to secure the booking. The remaining balance should be paid before service starts.")}</p></div>
+        <div class="proposal-block"><h4>Notes</h4><p>${escapeHtml((data.notes || ["This quotation is based on the current itinerary and available resources. Final confirmation is subject to availability."]).join(" "))}</p></div>
+        ${contactHtml("en")}
+      </aside>
+    </div>
+  `;
+  $("#proposalContent").contentEditable = "false";
+  $("#proposal").classList.remove("editing");
+  $("#projectStatus").textContent = "已生成客人方案";
+  $("#projectStatus").className = "status ok";
+  updateCurrentProject("价格已报但未成交");
+}
+
+function setValue(id, value) {
+  if (value === undefined || value === null || value === "") return;
+  const node = $(`#${id}`);
+  if (node) node.value = value;
+}
+
+function setSelectValue(id, value) {
+  if (!value) return;
+  ensureSelectOption(id, value);
+  const node = $(`#${id}`);
+  if (node) node.value = value;
+}
+
+function ensureSelectOption(id, value) {
+  const node = $(`#${id}`);
+  if (!node || Array.from(node.options).some((option) => option.value === value || option.textContent === value)) return;
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = value;
+  node.appendChild(option);
+}
+
 function updateProjectTitle() {
   const d = getDemand();
   const daysText = d.serviceDays ? `${d.serviceDays}天` : "天数待定";
@@ -47596,6 +48019,32 @@ async function exportImage() {
   link.download = `travel-proposal-${Date.now()}.png`;
   link.href = canvas.toDataURL("image/png");
   link.click();
+}
+
+async function exportPdf() {
+  if (!window.html2canvas || !window.jspdf?.jsPDF) {
+    alert("PDF 导出组件还在加载，请稍后再试。");
+    return;
+  }
+  const proposal = $("#proposal");
+  const canvas = await html2canvas(proposal, { scale: 2, useCORS: true });
+  const imgData = canvas.toDataURL("image/png");
+  const pdf = new window.jspdf.jsPDF("p", "mm", "a4");
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const imgWidth = pageWidth;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  let heightLeft = imgHeight;
+  let position = 0;
+  pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+  heightLeft -= pageHeight;
+  while (heightLeft > 0) {
+    position = heightLeft - imgHeight;
+    pdf.addPage();
+    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+  }
+  pdf.save(`travel-proposal-${Date.now()}.pdf`);
 }
 
 function convertToOrder() {
