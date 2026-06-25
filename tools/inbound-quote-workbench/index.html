@@ -403,15 +403,43 @@
             <div class="panel asset-panel">
               <div class="panel-head">
                 <h4>方案图片素材</h4>
-                <span>优先使用产品库图片；缺图显示待补图。酒店真实图不可用 AI 乱生成。</span>
+                <span>默认轻量展示，拖给小易的图片会自动进入当前项目素材池。</span>
               </div>
-              <div class="asset-actions">
-                <label>粘贴图片 URL<input id="assetUrlInput" placeholder="https://..." /></label>
-                <button class="secondary-btn" id="addAssetUrl"><i data-lucide="link"></i><span>加入素材</span></button>
-                <label class="upload-btn"><input id="assetUploadInput" type="file" accept="image/*" hidden /><i data-lucide="upload"></i><span>上传图片</span></label>
-                <button class="ghost-btn" id="image2Placeholder"><i data-lucide="image-plus"></i><span>Image2 补图（预留）</span></button>
+              <div class="asset-summary-grid">
+                <div><span>已上传图片</span><strong id="assetSummaryUploaded">0</strong></div>
+                <div><span>已确认使用</span><strong id="assetSummaryConfirmed">0</strong></div>
+                <div><span>待分类</span><strong id="assetSummaryUnclassified">0</strong></div>
+                <div><span>待补图片</span><strong id="assetSummaryMissing">0</strong></div>
               </div>
-              <div id="proposalAssets" class="proposal-assets"></div>
+              <div class="asset-toolbar">
+                <label class="upload-btn"><input id="assetUploadInput" type="file" accept="image/*" multiple hidden /><i data-lucide="upload"></i><span>上传图片</span></label>
+                <button class="secondary-btn" id="toggleAssetManager"><i data-lucide="images"></i><span>展开管理</span></button>
+                <button class="ghost-btn" id="clearUnusedAssets"><i data-lucide="trash-2"></i><span>清理未使用图片</span></button>
+              </div>
+              <div class="asset-manager hidden" id="proposalAssetManager">
+                <div class="asset-actions">
+                  <label>粘贴图片 URL<input id="assetUrlInput" placeholder="https://..." /></label>
+                  <button class="secondary-btn" id="addAssetUrl"><i data-lucide="link"></i><span>加入素材</span></button>
+                  <button class="ghost-btn" id="collapseAssetManager"><i data-lucide="chevron-up"></i><span>收起</span></button>
+                  <button class="ghost-btn" id="image2Placeholder"><i data-lucide="image-plus"></i><span>Image2 补图（预留）</span></button>
+                </div>
+                <div id="proposalAssets" class="proposal-assets"></div>
+              </div>
+            </div>
+            <div class="panel translation-panel">
+              <div class="panel-head">
+                <h4>英文翻译闭环</h4>
+                <span>保留中文源，生成英文预览后检测中文残留，可局部修正并沉淀词库。</span>
+              </div>
+              <div class="translation-actions">
+                <button class="secondary-btn" id="buildChineseSource"><i data-lucide="file-text"></i><span>生成中文源</span></button>
+                <button class="primary-btn" id="generateEnglishVersion"><i data-lucide="languages"></i><span>生成英文版</span></button>
+                <button class="secondary-btn" id="checkChineseResidue"><i data-lucide="scan-search"></i><span>检查中文残留</span></button>
+                <button class="secondary-btn" id="partialFixChinese"><i data-lucide="wand-sparkles"></i><span>AI 局部修正</span></button>
+                <button class="ghost-btn" id="saveTranslationTerms"><i data-lucide="book-open-check"></i><span>加入词库</span></button>
+              </div>
+              <div class="translation-status" id="translationStatus">尚未生成英文翻译任务。</div>
+              <div class="translation-residue-list hidden" id="translationResidueList"></div>
             </div>
             <div class="panel output-settings">
               <label>输出语言<select id="outputLang"><option value="zh">中文</option><option value="en" selected>English</option><option value="ar">العربية</option><option value="fr">Français</option><option value="es">Español</option></select></label>
@@ -471,23 +499,44 @@
               <span class="status ok" id="agentMode">DeepSeek</span>
               <button class="icon-btn" id="closeXiaoyi" aria-label="关闭小易"><i data-lucide="x"></i></button>
             </div>
-            <div class="agent-actions">
-              <button class="primary-btn" id="agentRecognizeDemand"><i data-lucide="sparkles"></i><span>识别客户需求</span></button>
-              <button class="secondary-btn" id="agentApplyCustomer"><i data-lucide="user-check"></i><span>应用到客户资料</span></button>
-              <button class="secondary-btn" id="agentCheckMissing"><i data-lucide="circle-help"></i><span>检查缺失信息</span></button>
-              <button class="secondary-btn" id="agentFollowQuestions"><i data-lucide="messages-square"></i><span>生成追问建议</span></button>
-              <button class="primary-btn" id="agentGenerateRoute"><i data-lucide="route"></i><span>生成线路草稿</span></button>
-              <textarea id="agentOpFeedback" placeholder="OP 修改意见：例如节奏放慢、酒店升 5 星、减少购物点、上海多留自由活动。"></textarea>
-              <button class="secondary-btn" id="agentOptimizeRoute"><i data-lucide="wand-sparkles"></i><span>按我的意见优化</span></button>
-              <button class="primary-btn" id="agentConfirmRoute"><i data-lucide="badge-check"></i><span>确认线路</span></button>
-              <button class="secondary-btn" id="agentExtractQuoteItems"><i data-lucide="list-plus"></i><span>识别报价项</span></button>
-              <button class="secondary-btn" id="agentApplyQuoteItems"><i data-lucide="table-properties"></i><span>应用到报价明细</span></button>
-              <button class="secondary-btn" id="agentRecalculateQuote"><i data-lucide="calculator"></i><span>重新计算报价</span></button>
-              <button class="secondary-btn" id="agentCheckCosts"><i data-lucide="circle-alert"></i><span>检查缺失成本</span></button>
-              <button class="secondary-btn" id="agentBuildCustomerProposal"><i data-lucide="file-text"></i><span>生成英文客户报价单</span></button>
-              <button class="secondary-btn" id="agentCheckEnglish"><i data-lucide="languages"></i><span>检查英文残留中文</span></button>
-              <button class="primary-btn" id="agentSaveQuoteVersion"><i data-lucide="save"></i><span>保存报价版本</span></button>
+            <div class="xiaoyi-context">
+              <div><span>当前项目</span><strong id="xiaoyiProjectName">-</strong></div>
+              <div><span>状态</span><strong id="xiaoyiProjectStatus">报价草稿</strong></div>
+              <div><span>关联图片</span><strong id="xiaoyiImageCount">0 张</strong></div>
+              <div><span>当前角色</span><strong id="xiaoyiRole">OP（占位）</strong></div>
             </div>
+            <div class="xiaoyi-chat-log" id="xiaoyiChatLog" aria-live="polite"></div>
+            <div class="xiaoyi-dropzone" id="xiaoyiDropzone">
+              <input id="xiaoyiFileInput" type="file" accept="image/*" multiple hidden />
+              <i data-lucide="image-up"></i>
+              <strong>拖入酒店 / 景点图片</strong>
+              <span>或点击上传，多图会同步到当前项目素材池</span>
+            </div>
+            <div class="xiaoyi-attachments" id="xiaoyiAttachmentPreview"></div>
+            <div class="xiaoyi-composer">
+              <textarea id="xiaoyiChatInput" placeholder="输入你的需求，例如：帮我生成英文报价单。拖入酒店图片后，可以说：帮我生成一份客户提案。"></textarea>
+              <button class="primary-btn" id="xiaoyiSend"><i data-lucide="send"></i><span>发送</span></button>
+            </div>
+            <details class="xiaoyi-skills" id="xiaoyiSkills">
+              <summary><i data-lucide="sliders-horizontal"></i><span>更多技能</span></summary>
+              <div class="agent-actions">
+                <button class="primary-btn" id="agentRecognizeDemand"><i data-lucide="sparkles"></i><span>识别客户需求</span></button>
+                <button class="secondary-btn" id="agentApplyCustomer"><i data-lucide="user-check"></i><span>应用到客户资料</span></button>
+                <button class="secondary-btn" id="agentCheckMissing"><i data-lucide="circle-help"></i><span>检查缺失信息</span></button>
+                <button class="secondary-btn" id="agentFollowQuestions"><i data-lucide="messages-square"></i><span>生成追问建议</span></button>
+                <button class="primary-btn" id="agentGenerateRoute"><i data-lucide="route"></i><span>生成线路草稿</span></button>
+                <textarea id="agentOpFeedback" placeholder="OP 修改意见：例如节奏放慢、酒店升 5 星、减少购物点、上海多留自由活动。"></textarea>
+                <button class="secondary-btn" id="agentOptimizeRoute"><i data-lucide="wand-sparkles"></i><span>按我的意见优化</span></button>
+                <button class="primary-btn" id="agentConfirmRoute"><i data-lucide="badge-check"></i><span>确认线路</span></button>
+                <button class="secondary-btn" id="agentExtractQuoteItems"><i data-lucide="list-plus"></i><span>识别报价项</span></button>
+                <button class="secondary-btn" id="agentApplyQuoteItems"><i data-lucide="table-properties"></i><span>应用到报价明细</span></button>
+                <button class="secondary-btn" id="agentRecalculateQuote"><i data-lucide="calculator"></i><span>重新计算报价</span></button>
+                <button class="secondary-btn" id="agentCheckCosts"><i data-lucide="circle-alert"></i><span>检查缺失成本</span></button>
+                <button class="secondary-btn" id="agentBuildCustomerProposal"><i data-lucide="file-text"></i><span>生成英文客户报价单</span></button>
+                <button class="secondary-btn" id="agentCheckEnglish"><i data-lucide="languages"></i><span>检查英文残留中文</span></button>
+                <button class="primary-btn" id="agentSaveQuoteVersion"><i data-lucide="save"></i><span>保存报价版本</span></button>
+              </div>
+            </details>
             <div class="agent-result">
               <div class="panel-head">
                 <h4>待确认结果 / AI 建议变更</h4>

@@ -40,6 +40,11 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "POST" && route === "/api/agent/chat") {
+    await handleAgentChatRequest(req, res);
+    return;
+  }
+
   let urlPath = decodeURIComponent(req.url.split("?")[0]);
   if (urlPath === "/") urlPath = "/index.html";
 
@@ -129,6 +134,91 @@ async function handleAgentRequest(req, res) {
   } catch (error) {
     sendJson(res, 500, { error: error.message || "Agent request failed" });
   }
+}
+
+async function handleAgentChatRequest(req, res) {
+  try {
+    const body = await readJsonBody(req);
+    const aiConfig = readAiConfig();
+    if (!aiConfig.apiKey) {
+      sendJson(res, 400, { error: "请先到系统设置配置 API Key" });
+      return;
+    }
+
+    const payload = {
+      model: aiConfig.model,
+      temperature: Number(aiConfig.temperature),
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: [
+            "你是友易行智能报价系统的小易，一个聊天式 Agent 工作流助手。",
+            "你要识别用户意图，并返回结构化 JSON。不要直接修改正式数据。",
+            "可用 intent：extract_customer_info, update_customer_info, generate_itinerary, optimize_itinerary, extract_quote_items, check_missing_costs, generate_quote_proposal, generate_english_proposal, translate_proposal, check_english_chinese_residue, generate_poster, classify_project_images, save_memory, search_memory, confirm_apply。",
+            "返回格式必须是：{reply,intent,suggestions,actions,attachments,memory_suggestions}。",
+            "suggestions 每项包含 type, summary, before, after, reason。actions 每项包含 id,label,requiresConfirmation。",
+            "涉及更新客户、行程、报价、图片分类、提案、记忆时，action 必须 requiresConfirmation=true。",
+            "不要编造最终价格，报价计算由系统后端完成。",
+          ].join("\n"),
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            message: body.message || "",
+            projectId: body.projectId || "",
+            context: body.context || {},
+            attachments: body.attachments || [],
+          }),
+        },
+      ],
+    };
+
+    const response = await fetch(`${aiConfig.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${aiConfig.apiKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      sendJson(res, response.status, { error: result.error?.message || "DeepSeek request failed", raw: result });
+      return;
+    }
+
+    const content = result.choices?.[0]?.message?.content || "{}";
+    const parsed = parseModelJson(content);
+    sendJson(res, 200, normalizeAgentChatResponse(parsed, result, payload.model));
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "Agent chat request failed" });
+  }
+}
+
+function parseModelJson(content) {
+  if (typeof content !== "string") return content || {};
+  try {
+    return JSON.parse(content);
+  } catch {
+    const match = content.match(/\{[\s\S]*\}/);
+    if (!match) return { reply: content, intent: "free_chat", suggestions: [], actions: [], attachments: [], memory_suggestions: [] };
+    return JSON.parse(match[0]);
+  }
+}
+
+function normalizeAgentChatResponse(data, result, model) {
+  return {
+    reply: data.reply || "我已理解你的需求。",
+    intent: data.intent || "free_chat",
+    suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
+    actions: Array.isArray(data.actions) ? data.actions : [],
+    attachments: Array.isArray(data.attachments) ? data.attachments : [],
+    memory_suggestions: Array.isArray(data.memory_suggestions) ? data.memory_suggestions : [],
+    usage: result.usage || null,
+    model: result.model || model,
+  };
 }
 
 function defaultAiSettings() {

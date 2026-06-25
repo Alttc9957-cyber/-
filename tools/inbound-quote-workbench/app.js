@@ -44159,6 +44159,23 @@ const state = {
   proposalConfirmed: false,
   proposalLastChangedAt: "",
   proposalAssets: [],
+  assetManagerOpen: false,
+  xiaoyi: {
+    messages: [
+      { role: "assistant", text: "乐哥，我是小易。你可以直接把客户聊天记录、报价需求或酒店图片拖给我，我会先给出待确认建议，再由你决定是否应用。" },
+    ],
+    attachments: [],
+    pendingSuggestions: [],
+    memories: [],
+  },
+  translation: {
+    glossary: [],
+    memory: [],
+    chineseSource: null,
+    englishPreview: "",
+    residues: [],
+    pendingTerms: [],
+  },
   aiSettings: null,
   order: null,
 };
@@ -44191,7 +44208,25 @@ function bindEvents() {
   on("#confirmProposal", "click", confirmProposal);
   on("#addAssetUrl", "click", addProposalAssetFromUrl);
   on("#assetUploadInput", "change", handleProposalAssetUpload);
+  on("#toggleAssetManager", "click", () => toggleAssetManager(true));
+  on("#collapseAssetManager", "click", () => toggleAssetManager(false));
+  on("#clearUnusedAssets", "click", clearUnusedProposalAssets);
   on("#image2Placeholder", "click", () => alert("Image2 / 图像模型补图为后续预留入口。真实酒店图片不会自动用 AI 生成进入客户报价单。"));
+  on("#xiaoyiSend", "click", sendXiaoyiMessage);
+  on("#xiaoyiChatInput", "keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendXiaoyiMessage();
+    }
+  });
+  on("#xiaoyiDropzone", "click", () => $("#xiaoyiFileInput")?.click());
+  on("#xiaoyiFileInput", "change", (event) => handleXiaoyiFiles(event.target.files));
+  bindXiaoyiDropzone();
+  on("#buildChineseSource", "click", buildChineseProposalSource);
+  on("#generateEnglishVersion", "click", generateEnglishProposalVersion);
+  on("#checkChineseResidue", "click", checkEnglishChineseResidue);
+  on("#partialFixChinese", "click", partialFixChineseResidue);
+  on("#saveTranslationTerms", "click", saveSuggestedTranslationTerms);
   on("#saveAiSettings", "click", saveAiSettings);
   on("#testAiSettings", "click", testAiSettings);
   on("#clearAiSettings", "click", clearAiSettings);
@@ -44374,6 +44409,18 @@ function bindDelegatedActions() {
       setAgentPending("message", { title: "已忽略 AI 建议", body: "未对正式页面数据做任何修改。" });
       return;
     }
+    if (button.dataset.xiaoyiAction) {
+      event.preventDefault();
+      event.stopPropagation();
+      applyXiaoyiAction(button.dataset.xiaoyiAction, Number(button.dataset.xiaoyiMessage));
+      return;
+    }
+    if (button.dataset.xiaoyiIgnore) {
+      event.preventDefault();
+      event.stopPropagation();
+      addXiaoyiMessage("assistant", "已忽略这条建议，没有改动正式页面数据。");
+      return;
+    }
     if (!action) return;
     event.preventDefault();
     event.stopPropagation();
@@ -44412,6 +44459,8 @@ function renderAll() {
   renderWorkbenchMode();
   renderProposalGuard();
   renderProposalAssets();
+  renderXiaoyi();
+  renderTranslationWorkflow();
   renderAiSettings();
   renderIcons();
 }
@@ -44442,6 +44491,10 @@ function showProjectDashboard() {
   $("#projectDashboard").classList.remove("hidden");
   $("#projectDetail").classList.add("hidden");
   renderProjectDashboard();
+}
+
+function currentProject() {
+  return state.projects.find((project) => project.id === state.currentProjectId) || null;
 }
 
 function showProjectDetail() {
@@ -44783,7 +44836,7 @@ function hydrateImportedProductCatalog() {
 
 async function loadRuntimeData() {
   try {
-    const [attractions, vehicles, guides, hotels, transports, routes, pricingRules, profitStrategies] = await Promise.all([
+    const [attractions, vehicles, guides, hotels, transports, routes, pricingRules, profitStrategies, glossary, translationMemory, xiaoyiMemory] = await Promise.all([
       fetchJson("data/products/attractions.json"),
       fetchJson("data/products/vehicles.json"),
       fetchJson("data/products/guides.json"),
@@ -44792,14 +44845,22 @@ async function loadRuntimeData() {
       fetchJson("data/cases/historical-routes.json"),
       fetchJson("data/rules/pricing-rules.json"),
       fetchJson("data/rules/profit-strategies.json"),
+      fetchOptionalJson("data/translation-glossary.json", []),
+      fetchOptionalJson("data/user-translation-memory.json", []),
+      fetchOptionalJson("data/xiaoyi-memory.json", []),
     ]);
     mergeRuntimeProducts({ attractions, vehicles, guides, hotels, transports, routes, pricingRules, profitStrategies });
+    state.translation.glossary = mergeLocalTranslationMemory(glossary, "youyixing_translation_glossary");
+    state.translation.memory = mergeLocalTranslationMemory(translationMemory, "youyixing_translation_memory");
+    state.xiaoyi.memories = mergeLocalTranslationMemory(xiaoyiMemory, "youyixing_xiaoyi_memory");
     state.runtimeData = { loaded: true, error: "" };
     refreshQuoteResources();
     renderResourceLibrary();
     renderQuoteTabs();
     renderQuoteTable();
     renderSummary();
+    renderXiaoyi();
+    renderTranslationWorkflow();
     writeAcceptanceProbe();
   } catch (error) {
     state.runtimeData = { loaded: false, error: error.message || "本地数据加载失败" };
@@ -44811,6 +44872,33 @@ async function fetchJson(url) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`${url} ${response.status}`);
   return response.json();
+}
+
+async function fetchOptionalJson(url, fallback) {
+  try {
+    return await fetchJson(url);
+  } catch {
+    return fallback;
+  }
+}
+
+function mergeLocalTranslationMemory(seed, storageKey) {
+  const local = safeJsonParse(localStorage.getItem(storageKey), []);
+  const seen = new Set();
+  return [...(Array.isArray(seed) ? seed : []), ...(Array.isArray(local) ? local : [])].filter((item) => {
+    const key = item.id || `${item.sourceText || item.type}:${item.targetText || item.content || item.value}`;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function safeJsonParse(value, fallback) {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function mergeRuntimeProducts(data) {
@@ -46720,6 +46808,426 @@ function markXiaoyiHasResult() {
   $("#xiaoyiDot")?.classList.remove("hidden");
 }
 
+function renderXiaoyi() {
+  renderXiaoyiContext();
+  renderXiaoyiChat();
+  renderXiaoyiAttachments();
+}
+
+function renderXiaoyiContext() {
+  const d = getDemandSafe();
+  const current = currentProject();
+  if ($("#xiaoyiProjectName")) $("#xiaoyiProjectName").textContent = d.clientName || current?.name || "未命名报价项目";
+  if ($("#xiaoyiProjectStatus")) $("#xiaoyiProjectStatus").textContent = $("#projectStatus")?.textContent || current?.status || "报价草稿";
+  if ($("#xiaoyiImageCount")) $("#xiaoyiImageCount").textContent = `${state.proposalAssets.filter((asset) => asset.url).length} 张`;
+  if ($("#xiaoyiRole")) $("#xiaoyiRole").textContent = "OP（占位）";
+}
+
+function renderXiaoyiChat() {
+  const log = $("#xiaoyiChatLog");
+  if (!log) return;
+  log.innerHTML = state.xiaoyi.messages.map((message, index) => `
+    <div class="xiaoyi-message ${message.role}">
+      <div>${message.html || escapeHtml(message.text || "").replace(/\n/g, "<br>")}</div>
+      ${message.structured ? renderXiaoyiStructured(message.structured, index) : ""}
+    </div>
+  `).join("");
+  log.scrollTop = log.scrollHeight;
+}
+
+function renderXiaoyiStructured(data, messageIndex) {
+  const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+  const actions = Array.isArray(data.actions) ? data.actions : [];
+  const memorySuggestions = Array.isArray(data.memory_suggestions) ? data.memory_suggestions : [];
+  return `
+    <div class="xiaoyi-structured">
+      ${suggestions.map((item, suggestionIndex) => `
+        <div class="xiaoyi-suggestion">
+          <strong>${escapeHtml(item.summary || item.type || "AI 建议")}</strong>
+          <p>${escapeHtml(item.reason || "")}</p>
+          ${item.after ? `<pre>${escapeHtml(formatSuggestionAfter(item.after))}</pre>` : ""}
+        </div>
+      `).join("")}
+      ${memorySuggestions.map((item) => `<div class="xiaoyi-memory-suggestion"><strong>可保存记忆</strong><p>${escapeHtml(item.content || item.value || item.summary || "")}</p></div>`).join("")}
+      ${actions.length ? `<div class="xiaoyi-action-row">${actions.map((action) => `
+        <button class="${action.requiresConfirmation ? "primary-btn" : "secondary-btn"}" data-xiaoyi-action="${escapeHtml(action.id)}" data-xiaoyi-message="${messageIndex}">${escapeHtml(action.label || "应用")}</button>
+      `).join("")}<button class="ghost-btn" data-xiaoyi-ignore="${messageIndex}">忽略</button></div>` : ""}
+    </div>
+  `;
+}
+
+function formatSuggestionAfter(value) {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map((item) => typeof item === "string" ? item : JSON.stringify(item)).join("\n");
+  return JSON.stringify(value, null, 2);
+}
+
+function renderXiaoyiAttachments() {
+  const wrap = $("#xiaoyiAttachmentPreview");
+  if (!wrap) return;
+  wrap.innerHTML = state.xiaoyi.attachments.map((file, index) => `
+    <div class="xiaoyi-attachment">
+      <img src="${escapeHtml(file.url)}" alt="${escapeHtml(file.name)}" />
+      <span>${escapeHtml(file.name)}</span>
+      <button class="icon-btn" data-remove-xiaoyi-attachment="${index}" aria-label="删除图片"><i data-lucide="x"></i></button>
+    </div>
+  `).join("");
+  $$("[data-remove-xiaoyi-attachment]").forEach((btn) => btn.addEventListener("click", () => {
+    state.xiaoyi.attachments.splice(Number(btn.dataset.removeXiaoyiAttachment), 1);
+    renderXiaoyiAttachments();
+    renderIcons();
+  }));
+  renderIcons();
+}
+
+function bindXiaoyiDropzone() {
+  const zone = $("#xiaoyiDropzone");
+  if (!zone || zone.dataset.bound) return;
+  zone.dataset.bound = "true";
+  ["dragenter", "dragover"].forEach((eventName) => zone.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    zone.classList.add("dragging");
+  }));
+  ["dragleave", "drop"].forEach((eventName) => zone.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    zone.classList.remove("dragging");
+  }));
+  zone.addEventListener("drop", (event) => handleXiaoyiFiles(event.dataTransfer?.files));
+}
+
+async function handleXiaoyiFiles(fileList) {
+  const files = Array.from(fileList || []).filter((file) => file.type?.startsWith("image/"));
+  if (!files.length) return;
+  addXiaoyiMessage("assistant", `正在接收 ${files.length} 张图片...`);
+  for (const file of files) {
+    const url = await fileToDataUrl(file);
+    const asset = normalizeProposalAsset({
+      type: "用户上传",
+      category: "待分类",
+      name: file.name,
+      url,
+      confirmed: false,
+      useInProposal: true,
+      source: "xiaoyi_upload",
+      note: "来自小易聊天上传，进入客户提案前需人工确认。",
+    });
+    state.proposalAssets.unshift(asset);
+    state.xiaoyi.attachments.push({ name: file.name, url, status: "uploaded", assetId: asset.id });
+  }
+  invalidateProposalConfirmation();
+  addXiaoyiMessage("assistant", `已收到 ${files.length} 张图片，并同步到当前项目素材池。你可以继续说：帮我生成英文客户提案、整理这些图片，或做一张报价海报。`);
+  renderProposalAssets();
+  renderXiaoyi();
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error(`${file.name} 上传失败`));
+    reader.readAsDataURL(file);
+  });
+}
+
+function addXiaoyiMessage(role, text, structured = null) {
+  state.xiaoyi.messages.push({ role, text, structured, createdAt: new Date().toISOString() });
+  renderXiaoyiChat();
+}
+
+async function sendXiaoyiMessage() {
+  const input = $("#xiaoyiChatInput");
+  const text = input?.value.trim() || "";
+  if (!text && !state.xiaoyi.attachments.length) return;
+  if (input) input.value = "";
+  addXiaoyiMessage("user", text || "请处理我刚上传的图片。");
+  const normalized = text.replace(/\s+/g, "");
+  if (isConfirmText(normalized)) return applyLatestXiaoyiSuggestion();
+  if (isIgnoreText(normalized)) return ignoreLatestXiaoyiSuggestion();
+  const intent = inferXiaoyiIntent(text, state.xiaoyi.attachments);
+  await runXiaoyiIntent(intent, text);
+}
+
+function isConfirmText(text) {
+  return /^(确认|应用|可以|继续|好的|好|ok|OK|yes|Yes)$/i.test(text || "");
+}
+
+function isIgnoreText(text) {
+  return /^(不要改|忽略|取消|不用|先不)$/i.test(text || "");
+}
+
+function inferXiaoyiIntent(text, attachments = []) {
+  const value = String(text || "");
+  if (/记住|保存偏好|客户偏好|以后都/.test(value)) return "save_memory";
+  if (/查.*记忆|历史偏好|之前.*偏好/.test(value)) return "search_memory";
+  if (/残留中文|有没有中文|检查中文|中文残留/.test(value)) return "check_english_chinese_residue";
+  if (/局部修正|改掉中文|修正中文/.test(value)) return "translate_proposal";
+  if (/英文|翻译|English|english/.test(value) && /提案|报价单|方案|proposal/i.test(value)) return "generate_english_proposal";
+  if (/客户提案|报价表单|报价方案|客人方案/.test(value)) return "generate_quote_proposal";
+  if (/海报|poster|宣传图/.test(value)) return "generate_poster";
+  if (/整理.*图片|分类.*图片|图片.*分类|素材/.test(value) || (attachments.length && !value)) return "classify_project_images";
+  if (/缺失成本|成本没填|成本缺失|检查成本/.test(value)) return "check_missing_costs";
+  if (/报价项|价格项目|识别项目/.test(value)) return "extract_quote_items";
+  if (/优化|太赶|放慢|调整行程|修改行程/.test(value)) return "optimize_itinerary";
+  if (/生成.*行程|行程草稿| 天游|天游|线路/.test(value)) return "generate_itinerary";
+  if (/识别.*客户|客户信息|客户需求|聊天记录|需求/.test(value)) return "extract_customer_info";
+  return "free_chat";
+}
+
+async function runXiaoyiIntent(intent, text) {
+  if (intent === "extract_customer_info") {
+    if (text) $("#rawDemandInput").value = [$("#rawDemandInput")?.value.trim(), text].filter(Boolean).join("\n");
+    await agentRecognizeDemand();
+    return addXiaoyiMessage("assistant", "我已识别客户需求，结果已放到“待确认结果”。确认后才会写入客户资料。", structuredFromCurrentAgent("extract_customer_info", "应用客户信息", "apply_customer_info"));
+  }
+  if (intent === "generate_itinerary") {
+    if (text) $("#agentOpFeedback").value = text;
+    await agentGenerateRoute();
+    return addXiaoyiMessage("assistant", "我已生成线路草稿，先请你确认节奏和城市顺序，再应用到行程。", structuredFromCurrentAgent("generate_itinerary", "应用到行程", "apply_itinerary"));
+  }
+  if (intent === "optimize_itinerary") {
+    if (text) $("#agentOpFeedback").value = text;
+    await agentOptimizeRoute();
+    return addXiaoyiMessage("assistant", "我已按你的意见重新优化行程，建议仍然不会直接覆盖正式行程。", structuredFromCurrentAgent("optimize_itinerary", "应用到行程", "apply_itinerary"));
+  }
+  if (intent === "extract_quote_items") {
+    await agentExtractQuoteItems();
+    return addXiaoyiMessage("assistant", "我已识别报价项目，确认后系统会调用产品库和报价规则重新计算。", structuredFromCurrentAgent("extract_quote_items", "应用到报价明细", "apply_quote_items"));
+  }
+  if (intent === "check_missing_costs") {
+    agentCheckCosts();
+    const details = missingCostDetails();
+    return addXiaoyiMessage("assistant", details.length ? `发现 ${details.length} 个缺失成本：\n${details.slice(0, 8).join("\n")}` : "当前没有发现缺失成本项。");
+  }
+  if (intent === "generate_quote_proposal") {
+    return setXiaoyiStructuredResult({
+      reply: "我可以基于当前报价、行程和已上传图片生成客户方案预览。需要你确认后再更新正式提案。",
+      intent,
+      suggestions: [{ type: "proposal_generation", summary: "生成客户提案预览", before: {}, after: { language: $("#outputLang")?.value || "en", imageCount: state.proposalAssets.filter((asset) => asset.url).length }, reason: "根据当前项目数据和素材池生成" }],
+      actions: [{ id: "generate_quote_proposal", label: "生成客户提案", requiresConfirmation: true }],
+      attachments: state.xiaoyi.attachments,
+      memory_suggestions: [],
+    });
+  }
+  if (intent === "generate_english_proposal" || intent === "translate_proposal") {
+    return setXiaoyiStructuredResult({
+      reply: "我会先生成中文源，再生成英文预览，并自动检测中文残留。确认后才锁定客户提案。",
+      intent,
+      suggestions: [{ type: "english_proposal", summary: "生成英文客户提案", before: { source: "当前客户方案/报价数据" }, after: { glossaryTerms: activeGlossaryTerms().length, memoryTerms: state.translation.memory.length }, reason: "使用术语库和当前项目上下文翻译" }],
+      actions: [{ id: "generate_english_proposal", label: "生成英文版", requiresConfirmation: true }],
+      attachments: state.xiaoyi.attachments,
+      memory_suggestions: [],
+    });
+  }
+  if (intent === "check_english_chinese_residue") {
+    checkEnglishChineseResidue();
+    const count = state.translation.residues.length;
+    return addXiaoyiMessage("assistant", count ? `检测到 ${count} 处中文残留，建议点击“AI 局部修正”处理。` : "检查通过，当前英文预览没有中文字符残留。");
+  }
+  if (intent === "classify_project_images") {
+    const suggestions = classifyCurrentImages();
+    return setXiaoyiStructuredResult({
+      reply: `我已为 ${suggestions.length} 张图片生成分类建议。`,
+      intent,
+      suggestions: [{ type: "image_classification", summary: "整理图片素材", before: {}, after: suggestions, reason: "根据文件名和当前报价上下文初步分类" }],
+      actions: [{ id: "apply_image_classification", label: "应用图片分类", requiresConfirmation: true }],
+      attachments: state.xiaoyi.attachments,
+      memory_suggestions: [],
+    });
+  }
+  if (intent === "generate_poster") {
+    const plan = generatePosterPlan();
+    return setXiaoyiStructuredResult({
+      reply: "先给你一版适合发客户的报价海报方案。第一版不接图像生成模型，确认后会写入客户提案备注。",
+      intent,
+      suggestions: [{ type: "poster_plan", summary: "报价海报方案", before: {}, after: plan, reason: "基于当前线路、总价和素材池生成海报文案结构" }],
+      actions: [{ id: "apply_poster_plan", label: "写入提案备注", requiresConfirmation: true }],
+      attachments: state.xiaoyi.attachments,
+      memory_suggestions: [],
+    });
+  }
+  if (intent === "save_memory") {
+    const content = extractMemoryContent(text);
+    return setXiaoyiStructuredResult({
+      reply: `是否将“${content}”保存为当前项目/客户偏好？`,
+      intent,
+      suggestions: [],
+      actions: [{ id: "save_memory", label: "保存记忆", requiresConfirmation: true }],
+      attachments: [],
+      memory_suggestions: [{ type: "customer_preference", content, scope: "project" }],
+    });
+  }
+  if (intent === "search_memory") {
+    const memories = state.xiaoyi.memories.length ? state.xiaoyi.memories : [{ content: "当前还没有保存过偏好记忆。", scope: "project" }];
+    return addXiaoyiMessage("assistant", memories.map((item) => `- ${item.content || item.value || item.summary}`).join("\n"));
+  }
+  await runFreeAgentChat(text);
+}
+
+function structuredFromCurrentAgent(intent, label, actionId) {
+  return {
+    reply: "已生成待确认建议。",
+    intent,
+    suggestions: [{
+      type: state.agent.pendingType || intent,
+      summary: label,
+      before: {},
+      after: state.agent.pendingData || {},
+      reason: "由小易基于当前项目上下文生成",
+    }],
+    actions: [{ id: actionId, label, requiresConfirmation: true }],
+    attachments: [],
+    memory_suggestions: [],
+  };
+}
+
+function setXiaoyiStructuredResult(result) {
+  state.xiaoyi.pendingSuggestions = result.suggestions || [];
+  addXiaoyiMessage("assistant", result.reply || "已生成建议，请确认是否应用。", result);
+  markXiaoyiHasResult();
+}
+
+async function runFreeAgentChat(text) {
+  try {
+    const response = await fetch("/api/agent/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, projectId: state.currentProjectId, context: agentContext("chat"), attachments: state.xiaoyi.attachments.map(({ name, status, assetId }) => ({ name, status, assetId })) }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Agent chat failed");
+    addXiaoyiMessage("assistant", data.reply || "我已理解你的需求。", normalizeAgentChatResponse(data));
+  } catch (error) {
+    addXiaoyiMessage("assistant", `我暂时没有识别成明确任务：${error.message || "请换一种说法，或到系统设置检查 API Key。"}`);
+  }
+}
+
+function normalizeAgentChatResponse(data) {
+  return {
+    reply: data.reply || "",
+    intent: data.intent || "free_chat",
+    suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
+    actions: Array.isArray(data.actions) ? data.actions : [],
+    attachments: Array.isArray(data.attachments) ? data.attachments : [],
+    memory_suggestions: Array.isArray(data.memory_suggestions) ? data.memory_suggestions : [],
+  };
+}
+
+function applyLatestXiaoyiSuggestion() {
+  const messageIndex = [...state.xiaoyi.messages].reverse().findIndex((message) => message.structured?.actions?.length);
+  if (messageIndex === -1) return addXiaoyiMessage("assistant", "当前没有待确认建议。");
+  const index = state.xiaoyi.messages.length - 1 - messageIndex;
+  const action = state.xiaoyi.messages[index].structured.actions[0];
+  return applyXiaoyiAction(action.id, index);
+}
+
+function ignoreLatestXiaoyiSuggestion() {
+  addXiaoyiMessage("assistant", "好的，已忽略这次建议，没有改动正式页面数据。");
+}
+
+async function applyXiaoyiAction(actionId, messageIndex) {
+  if (actionId === "apply_customer_info") {
+    agentApplyCustomer();
+    return addXiaoyiMessage("assistant", "已应用到客户资料。");
+  }
+  if (actionId === "apply_itinerary") {
+    agentConfirmRoute();
+    return addXiaoyiMessage("assistant", "已应用到行程安排。");
+  }
+  if (actionId === "apply_quote_items") {
+    agentApplyQuoteItems();
+    return addXiaoyiMessage("assistant", "已应用到报价明细并重新计算。");
+  }
+  if (actionId === "generate_quote_proposal") {
+    handleBuildProposal();
+    return addXiaoyiMessage("assistant", "客户提案预览已生成，请人工确认后再导出 PDF / 图片。");
+  }
+  if (actionId === "generate_english_proposal") {
+    await generateEnglishProposalVersion();
+    return addXiaoyiMessage("assistant", state.translation.residues.length ? `英文预览已生成，但仍有 ${state.translation.residues.length} 处中文残留。` : "英文预览已生成，未检测到中文残留。");
+  }
+  if (actionId === "apply_image_classification") {
+    applyImageClassification(messageIndex);
+    return addXiaoyiMessage("assistant", "图片分类已应用到素材池。");
+  }
+  if (actionId === "apply_partial_translation_fix") {
+    saveTranslationTermsFromResidues(state.translation.residues);
+    applyPartialTranslationFix();
+    return addXiaoyiMessage("assistant", "已应用局部修正，并把修正片段加入个人英语词库。");
+  }
+  if (actionId === "apply_poster_plan") {
+    const structured = state.xiaoyi.messages[messageIndex]?.structured;
+    const plan = structured?.suggestions?.[0]?.after;
+    $("#opNotes").value = [$("#opNotes")?.value.trim(), `报价海报方案：${formatSuggestionAfter(plan)}`].filter(Boolean).join("\n\n");
+    invalidateProposalConfirmation();
+    return addXiaoyiMessage("assistant", "海报方案已写入 OP 内部备注，后续可以进入正式海报设计。");
+  }
+  if (actionId === "save_memory") {
+    const structured = state.xiaoyi.messages[messageIndex]?.structured;
+    const memory = structured?.memory_suggestions?.[0];
+    saveXiaoyiMemory(memory);
+    return addXiaoyiMessage("assistant", "已保存为小易记忆。下次生成提案或优化行程时会作为偏好参考。");
+  }
+  return addXiaoyiMessage("assistant", "这个建议暂时不需要写入正式字段。");
+}
+
+function applyImageClassification(messageIndex) {
+  const structured = state.xiaoyi.messages[messageIndex]?.structured;
+  const suggestions = structured?.suggestions?.[0]?.after || [];
+  suggestions.forEach((suggestion) => {
+    const asset = state.proposalAssets.find((item) => item.id === suggestion.assetId || item.name === suggestion.name);
+    if (!asset) return;
+    asset.category = suggestion.category;
+    asset.useInProposal = suggestion.useInProposal !== false;
+    asset.isCover = Boolean(suggestion.isCover);
+  });
+  invalidateProposalConfirmation();
+  renderProposalAssets();
+}
+
+function classifyCurrentImages() {
+  return state.proposalAssets.filter((asset) => asset.url).map((asset, index) => {
+    const text = `${asset.name} ${asset.type} ${asset.note || ""}`;
+    let category = asset.category && asset.category !== "待分类" ? asset.category : "其他素材";
+    if (/cover|封面|hero/i.test(text) || index === 0) category = "封面图";
+    else if (/hotel|酒店/i.test(text)) category = "酒店参考图";
+    else if (/餐|restaurant|food/i.test(text)) category = "餐厅图片";
+    else if (/景|ticket|故宫|长城|博物|park|temple/i.test(text)) category = "景点图片";
+    else if (/氛围|city|journey|travel/i.test(text)) category = "行程氛围图";
+    return { assetId: asset.id, name: asset.name, category, useInProposal: true, isCover: category === "封面图" };
+  });
+}
+
+function generatePosterPlan() {
+  const d = getDemandSafe();
+  const totals = calcTotals();
+  return {
+    title: `${d.serviceDays || state.itinerary.length}-Day China Private Tour`,
+    subtitle: unique(state.itinerary.map((day) => translate(day.city, "en"))).join(" · ") || "China Inbound Travel",
+    price: money(totals.sell),
+    visual: state.proposalAssets.find((asset) => asset.isCover || asset.url)?.name || "Use confirmed cover image",
+    copy: "Private itinerary, local guide, comfortable vehicle, selected hotels and flexible pacing.",
+    cta: "Contact Youyixing Travel for final confirmation.",
+  };
+}
+
+function extractMemoryContent(text) {
+  return String(text || "").replace(/^(这个客户|请|帮我|以后都|记住|保存偏好|客户偏好)[:：，,\s]*/g, "").trim() || "客户偏好待补充";
+}
+
+function saveXiaoyiMemory(memory) {
+  if (!memory?.content && !memory?.value) return;
+  const item = {
+    id: `memory_${Date.now()}`,
+    type: memory.type || "project_note",
+    scope: memory.scope || "project",
+    content: memory.content || memory.value,
+    projectId: state.currentProjectId,
+    createdAt: new Date().toISOString(),
+  };
+  state.xiaoyi.memories.unshift(item);
+  localStorage.setItem("youyixing_xiaoyi_memory", JSON.stringify(state.xiaoyi.memories));
+}
+
 function invalidateProposalConfirmation() {
   if (!state.proposalConfirmed) return;
   state.proposalConfirmed = false;
@@ -46761,6 +47269,203 @@ function confirmProposal() {
   renderProposalGuard();
   renderArchive();
   renderWorkbenchOverview();
+}
+
+function buildChineseProposalSource() {
+  if (!state.itinerary.length) handleGenerateItinerary();
+  if (!activeQuote().data.vehicle.length) buildQuote();
+  const d = getDemandSafe();
+  const totals = calcTotals();
+  const source = {
+    title: `${d.cities.join(" · ") || "中国"} ${d.serviceDays || state.itinerary.length}天定制游`,
+    cover: "友易行旅行社",
+    highlights: unique(state.itinerary.flatMap((day) => extractAttractions(`${day.overview} ${day.detail}`))).slice(0, 6),
+    itinerary: state.itinerary.map((day, index) => ({
+      day: index + 1,
+      date: day.date,
+      city: day.city,
+      overview: day.overview,
+      detail: day.detail,
+    })),
+    hotels: unique((activeQuote().data.hotel || []).flatMap((row) => (row.rooms || []).map((room) => room.hotelName).filter(Boolean))),
+    inclusions: costPolicyRows("zh").map((row) => `${row.item}：${row.included}`),
+    exclusions: costPolicyRows("zh").map((row) => `${row.item}：${row.excluded}`),
+    totalPrice: money(totals.sell),
+    validity: "报价有效期以最终确认为准",
+    notes: "行程以最终确认为准，门票需实名预约，不含国际机票。",
+    assets: state.proposalAssets.filter((asset) => asset.url && asset.useInProposal).map((asset) => ({ name: asset.name, category: asset.category, confirmed: asset.confirmed })),
+  };
+  state.translation.chineseSource = source;
+  $("#outputLang").value = "zh";
+  handleBuildProposal();
+  $("#translationStatus").textContent = "中文源已生成并单独保存在翻译任务中。";
+  renderTranslationWorkflow();
+  return source;
+}
+
+async function generateEnglishProposalVersion() {
+  if (!state.translation.chineseSource) buildChineseProposalSource();
+  $("#outputLang").value = "en";
+  handleBuildProposal();
+  applyGlossaryToProposal();
+  state.translation.englishPreview = $("#proposalContent")?.innerHTML || "";
+  state.translation.residues = detectChineseResidues($("#proposal") || $("#proposalContent"));
+  $("#translationStatus").textContent = state.translation.residues.length
+    ? `英文预览已生成，检测到 ${state.translation.residues.length} 处中文残留。`
+    : "英文预览已生成，未检测到中文残留。";
+  renderEnglishWarning();
+  renderTranslationWorkflow();
+}
+
+function applyGlossaryToProposal() {
+  const content = $("#proposalContent");
+  if (!content) return;
+  content.innerHTML = applyGlossary(content.innerHTML);
+}
+
+function applyGlossary(value) {
+  let result = String(value || "");
+  activeGlossaryTerms()
+    .sort((a, b) => String(b.sourceText || "").length - String(a.sourceText || "").length)
+    .forEach((term) => {
+      if (!term.enabled || !term.sourceText || !term.targetText) return;
+      result = result.replaceAll(term.sourceText, term.targetText);
+    });
+  return result;
+}
+
+function activeGlossaryTerms() {
+  return [
+    ...state.translation.memory,
+    ...state.translation.glossary.filter((term) => term.scope === "company"),
+    ...state.translation.glossary.filter((term) => term.scope === "system"),
+  ].filter((term) => term.enabled !== false);
+}
+
+function checkEnglishChineseResidue() {
+  state.translation.residues = detectChineseResidues($("#proposal") || $("#proposalContent"));
+  $("#translationStatus").textContent = state.translation.residues.length
+    ? `检测到 ${state.translation.residues.length} 处中文残留，请局部修正或人工确认风险。`
+    : "检查通过，当前英文预览没有中文残留。";
+  renderEnglishWarning();
+  renderTranslationWorkflow();
+}
+
+function detectChineseResidues(root) {
+  if (!root) return [];
+  const residues = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!containsChinese(node.nodeValue)) return NodeFilter.FILTER_REJECT;
+      if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  let node = walker.nextNode();
+  while (node) {
+    const text = node.nodeValue.trim();
+    const snippet = (text.match(/[\u4e00-\u9fa5][\u4e00-\u9fa5A-Za-z0-9，。；、：\s-]{0,40}/) || [text])[0].trim();
+    residues.push({
+      id: `residue_${residues.length}`,
+      location: nearestProposalLocation(node),
+      text,
+      snippet,
+      node,
+      suggested: translateResidueSnippet(snippet),
+    });
+    node = walker.nextNode();
+  }
+  return residues;
+}
+
+function nearestProposalLocation(node) {
+  let element = node.parentElement;
+  while (element && element !== document.body) {
+    if (element.classList?.contains("proposal-day")) return element.querySelector("strong")?.textContent || "每日行程";
+    if (element.classList?.contains("proposal-block")) return element.querySelector("h4")?.textContent || "客户提案";
+    if (element.id === "proposalTitle") return "封面标题";
+    if (element.id === "proposalMeta") return "封面信息";
+    element = element.parentElement;
+  }
+  return "客户提案";
+}
+
+function translateResidueSnippet(snippet) {
+  return applyGlossary(translate(snippet, "en"))
+    .replace(/含早/g, "breakfast included")
+    .replace(/或同级/g, "or similar standard")
+    .replace(/以实际确认为准/g, "subject to final confirmation")
+    .replace(/以最终确认为准/g, "subject to final confirmation");
+}
+
+function partialFixChineseResidue() {
+  if (!state.translation.residues.length) checkEnglishChineseResidue();
+  if (!state.translation.residues.length) return;
+  const fixes = state.translation.residues.map((item) => ({
+    location: item.location,
+    before: item.snippet,
+    after: item.suggested,
+  }));
+  setXiaoyiStructuredResult({
+    reply: `我找到 ${fixes.length} 处中文残留。以下是局部修正建议，确认后只替换这些片段，不重翻整篇。`,
+    intent: "translate_proposal",
+    suggestions: [{ type: "partial_translation_fix", summary: "局部修正中文残留", before: fixes.map((item) => item.before), after: fixes, reason: "只处理含中文的片段，保留已确认英文内容" }],
+    actions: [{ id: "apply_partial_translation_fix", label: "应用局部修正", requiresConfirmation: true }],
+    attachments: [],
+    memory_suggestions: fixes.map((item) => ({ type: "translation_term", content: `${item.before} = ${item.after}`, sourceText: item.before, targetText: item.after })),
+  });
+}
+
+function applyPartialTranslationFix() {
+  state.translation.residues.forEach((item) => {
+    if (!item.node?.nodeValue) return;
+    item.node.nodeValue = item.node.nodeValue.replace(item.snippet, item.suggested);
+  });
+  state.translation.englishPreview = $("#proposalContent")?.innerHTML || "";
+  checkEnglishChineseResidue();
+  invalidateProposalConfirmation();
+}
+
+function saveSuggestedTranslationTerms() {
+  saveTranslationTermsFromResidues(state.translation.residues);
+}
+
+function saveTranslationTermsFromResidues(residues) {
+  const source = Array.isArray(residues) ? residues : [];
+  const terms = source.map((item) => ({
+    id: `term_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+    sourceText: item.snippet,
+    targetText: item.suggested,
+    scope: "personal",
+    module: "proposal",
+    source: "manual_correction",
+    usageCount: 1,
+    enabled: true,
+    createdAt: new Date().toISOString().slice(0, 10),
+    updatedAt: new Date().toISOString().slice(0, 10),
+  })).filter((term) => term.sourceText && term.targetText && term.sourceText !== term.targetText);
+  if (!terms.length) {
+    if ($("#translationStatus")) $("#translationStatus").textContent = "当前没有可加入词库的中文残留片段。";
+    return;
+  }
+  state.translation.memory.unshift(...terms);
+  localStorage.setItem("youyixing_translation_memory", JSON.stringify(state.translation.memory));
+  if ($("#translationStatus")) $("#translationStatus").textContent = `已加入 ${terms.length} 条个人英语词库。下次翻译会优先使用。`;
+  renderTranslationWorkflow();
+}
+
+function renderTranslationWorkflow() {
+  const list = $("#translationResidueList");
+  if (!list) return;
+  const residues = state.translation.residues || [];
+  list.classList.toggle("hidden", !residues.length);
+  list.innerHTML = residues.map((item) => `
+    <div class="translation-residue">
+      <strong>${escapeHtml(item.location)}</strong>
+      <span>仍包含：${escapeHtml(item.snippet)}</span>
+      <em>建议：${escapeHtml(item.suggested)}</em>
+    </div>
+  `).join("");
 }
 
 function saveQuoteVersionMeta(confirmed = false) {
@@ -48686,17 +49391,35 @@ function renderEnglishWarning() {
 
 function renderProposalAssets() {
   const wrap = $("#proposalAssets");
-  if (!wrap) return;
   ensureProposalAssets();
+  state.proposalAssets = state.proposalAssets.map(normalizeProposalAsset);
+  renderAssetSummary();
+  const manager = $("#proposalAssetManager");
+  if (manager) manager.classList.toggle("hidden", !state.assetManagerOpen);
+  const toggle = $("#toggleAssetManager span");
+  if (toggle) toggle.textContent = state.assetManagerOpen ? "收起管理" : "展开管理";
+  if (!wrap) return;
+  if (!state.assetManagerOpen) {
+    wrap.innerHTML = "";
+    renderXiaoyiContext();
+    return;
+  }
   wrap.innerHTML = state.proposalAssets.map((asset, index) => `
-    <div class="asset-card ${asset.confirmed ? "confirmed" : ""}">
+    <div class="asset-card ${asset.confirmed ? "confirmed" : ""} ${asset.url ? "" : "missing"}">
       <div class="asset-thumb">${asset.url ? `<img src="${escapeHtml(asset.url)}" alt="${escapeHtml(asset.name)}" />` : `<span>待补图</span>`}</div>
       <div>
         <strong>${escapeHtml(asset.name)}</strong>
-        <span>${escapeHtml(asset.type)} · ${asset.confirmed ? "已确认" : "待确认"}</span>
+        <span>${escapeHtml(asset.category || asset.type)} · ${asset.confirmed ? "已确认" : "待确认"}${asset.isCover ? " · 封面图" : ""}</span>
         <p>${escapeHtml(asset.note || "")}</p>
+        <div class="asset-inline-controls">
+          <label>分类<select data-asset-category="${index}">${assetCategories().map((item) => `<option ${asset.category === item ? "selected" : ""}>${item}</option>`).join("")}</select></label>
+          <label><input type="checkbox" data-asset-use="${index}" ${asset.useInProposal ? "checked" : ""} /> 用于提案</label>
+          <label><input type="checkbox" data-asset-cover="${index}" ${asset.isCover ? "checked" : ""} /> 封面</label>
+        </div>
       </div>
       <div class="asset-card-actions">
+        ${asset.url ? `<a class="secondary-btn" href="${escapeHtml(asset.url)}" target="_blank" rel="noopener">查看</a>` : ""}
+        <label class="secondary-btn mini-upload"><input type="file" accept="image/*" hidden data-replace-asset="${index}" />替换</label>
         <button class="secondary-btn" data-confirm-asset="${index}">${asset.confirmed ? "取消确认" : "确认"}</button>
         <button class="ghost-btn" data-remove-asset="${index}">删除</button>
       </div>
@@ -48713,6 +49436,41 @@ function renderProposalAssets() {
     invalidateProposalConfirmation();
     renderProposalAssets();
   }));
+  $$("[data-asset-category]").forEach((select) => select.addEventListener("change", () => {
+    const asset = state.proposalAssets[Number(select.dataset.assetCategory)];
+    if (asset) asset.category = select.value;
+    invalidateProposalConfirmation();
+    renderProposalAssets();
+  }));
+  $$("[data-asset-use]").forEach((input) => input.addEventListener("change", () => {
+    const asset = state.proposalAssets[Number(input.dataset.assetUse)];
+    if (asset) asset.useInProposal = input.checked;
+    invalidateProposalConfirmation();
+    renderProposalAssets();
+  }));
+  $$("[data-asset-cover]").forEach((input) => input.addEventListener("change", () => {
+    const asset = state.proposalAssets[Number(input.dataset.assetCover)];
+    if (asset) {
+      if (input.checked) state.proposalAssets.forEach((item) => { item.isCover = false; });
+      asset.isCover = input.checked;
+      asset.useInProposal = true;
+    }
+    invalidateProposalConfirmation();
+    renderProposalAssets();
+  }));
+  $$("[data-replace-asset]").forEach((input) => input.addEventListener("change", async () => {
+    const file = input.files?.[0];
+    const asset = state.proposalAssets[Number(input.dataset.replaceAsset)];
+    if (!file || !asset) return;
+    asset.url = await fileToDataUrl(file);
+    asset.name = file.name;
+    asset.confirmed = false;
+    asset.note = "已替换为本地上传图片，进入客户提案前需确认。";
+    invalidateProposalConfirmation();
+    renderProposalAssets();
+  }));
+  renderXiaoyiContext();
+  renderIcons();
 }
 
 function ensureProposalAssets() {
@@ -48720,8 +49478,60 @@ function ensureProposalAssets() {
   const existing = new Set(state.proposalAssets.map((asset) => `${asset.type}:${asset.name}`));
   names.forEach((asset) => {
     const key = `${asset.type}:${asset.name}`;
-    if (!existing.has(key)) state.proposalAssets.push(asset);
+    if (!existing.has(key)) state.proposalAssets.push(normalizeProposalAsset(asset));
   });
+}
+
+function normalizeProposalAsset(asset) {
+  const type = asset.type || "其他素材";
+  return {
+    id: asset.id || `asset_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+    type,
+    category: asset.category || proposalAssetCategoryFromType(type),
+    name: asset.name || "未命名素材",
+    url: asset.url || "",
+    confirmed: Boolean(asset.confirmed),
+    useInProposal: asset.useInProposal !== false,
+    isCover: Boolean(asset.isCover),
+    source: asset.source || "product_library",
+    note: asset.note || "",
+  };
+}
+
+function proposalAssetCategoryFromType(type) {
+  if (type === "酒店") return "酒店参考图";
+  if (type === "景点") return "景点图片";
+  if (type === "餐") return "餐厅图片";
+  if (type === "用户上传") return "待分类";
+  return "其他素材";
+}
+
+function assetCategories() {
+  return ["待分类", "封面图", "酒店参考图", "景点图片", "餐厅图片", "行程氛围图", "其他素材"];
+}
+
+function renderAssetSummary() {
+  const uploaded = state.proposalAssets.filter((asset) => asset.url).length;
+  const confirmed = state.proposalAssets.filter((asset) => asset.confirmed && asset.useInProposal).length;
+  const unclassified = state.proposalAssets.filter((asset) => asset.url && (!asset.category || asset.category === "待分类")).length;
+  const missing = state.proposalAssets.filter((asset) => !asset.url).length;
+  if ($("#assetSummaryUploaded")) $("#assetSummaryUploaded").textContent = uploaded;
+  if ($("#assetSummaryConfirmed")) $("#assetSummaryConfirmed").textContent = confirmed;
+  if ($("#assetSummaryUnclassified")) $("#assetSummaryUnclassified").textContent = unclassified;
+  if ($("#assetSummaryMissing")) $("#assetSummaryMissing").textContent = missing;
+}
+
+function toggleAssetManager(force) {
+  state.assetManagerOpen = typeof force === "boolean" ? force : !state.assetManagerOpen;
+  renderProposalAssets();
+}
+
+function clearUnusedProposalAssets() {
+  const before = state.proposalAssets.length;
+  state.proposalAssets = state.proposalAssets.filter((asset) => asset.confirmed || asset.useInProposal || !asset.url);
+  invalidateProposalConfirmation();
+  renderProposalAssets();
+  addXiaoyiMessage("assistant", `已清理 ${before - state.proposalAssets.length} 张未使用图片。`);
 }
 
 function extractProposalAssetNames() {
@@ -48759,10 +49569,15 @@ function addProposalAssetFromUrl() {
   const url = input?.value.trim();
   if (!url) return;
   state.proposalAssets.unshift({
+    id: `asset_${Date.now()}`,
     type: "用户上传",
+    category: "待分类",
     name: "手动补充图片",
     url,
     confirmed: false,
+    useInProposal: true,
+    isCover: false,
+    source: "manual_url",
     note: "来自 OP 粘贴的图片 URL，进入客户提案前需确认。",
   });
   if (input) input.value = "";
@@ -48771,14 +49586,18 @@ function addProposalAssetFromUrl() {
 }
 
 function handleProposalAssetUpload(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  state.proposalAssets.unshift({
-    type: "用户上传",
-    name: file.name,
-    url: URL.createObjectURL(file),
-    confirmed: false,
-    note: "本地上传图片，进入客户提案前需确认。",
+  const files = Array.from(event.target.files || []);
+  files.forEach((file) => {
+    state.proposalAssets.unshift(normalizeProposalAsset({
+      type: "用户上传",
+      category: "待分类",
+      name: file.name,
+      url: URL.createObjectURL(file),
+      confirmed: false,
+      useInProposal: true,
+      source: "manual_upload",
+      note: "本地上传图片，进入客户提案前需确认。",
+    }));
   });
   event.target.value = "";
   invalidateProposalConfirmation();
