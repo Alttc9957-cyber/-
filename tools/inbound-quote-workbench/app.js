@@ -44155,6 +44155,11 @@ const state = {
   routeConfirmed: false,
   runtimeData: { loaded: false, error: "" },
   proposalEditing: false,
+  workbenchEditSection: "",
+  proposalConfirmed: false,
+  proposalLastChangedAt: "",
+  proposalAssets: [],
+  aiSettings: null,
   order: null,
 };
 
@@ -44164,6 +44169,7 @@ function init() {
   resetQuoteVersions();
   renderAll();
   loadRuntimeData();
+  loadAiSettings();
 }
 
 function bindEvents() {
@@ -44176,6 +44182,23 @@ function bindEvents() {
   on("#newProject", "click", resetProject);
   on("#newProjectFromDashboard", "click", resetProject);
   $("#backToProjects").addEventListener("click", showProjectDashboard);
+  on("#xiaoyiLauncher", "click", openXiaoyi);
+  on("#closeXiaoyi", "click", closeXiaoyi);
+  on("#submitQuote", "click", () => {
+    showWorkbenchSection("q-proposal");
+    if (!$("#proposalContent")?.innerHTML.trim()) handleBuildProposal();
+  });
+  on("#confirmProposal", "click", confirmProposal);
+  on("#addAssetUrl", "click", addProposalAssetFromUrl);
+  on("#assetUploadInput", "change", handleProposalAssetUpload);
+  on("#image2Placeholder", "click", () => alert("Image2 / 图像模型补图为后续预留入口。真实酒店图片不会自动用 AI 生成进入客户报价单。"));
+  on("#saveAiSettings", "click", saveAiSettings);
+  on("#testAiSettings", "click", testAiSettings);
+  on("#clearAiSettings", "click", clearAiSettings);
+  on("#agentRecognizeFromEditor", "click", () => {
+    openXiaoyi();
+    agentRecognizeDemand();
+  });
   $("#periodFilter").addEventListener("change", (event) => {
     state.period = event.target.value;
     renderProjectDashboard();
@@ -44237,11 +44260,13 @@ function bindEvents() {
   on("#agentExtractQuoteItems", "click", agentExtractQuoteItems);
   on("#agentApplyQuoteItems", "click", agentApplyQuoteItems);
   on("#agentRecalculateQuote", "click", agentRecalculateQuote);
+  on("#agentCheckCosts", "click", agentCheckCosts);
   on("#agentBuildCustomerProposal", "click", agentBuildCustomerProposal);
+  on("#agentCheckEnglish", "click", agentCheckEnglish);
   on("#agentSaveQuoteVersion", "click", agentSaveQuoteVersion);
 
   [
-    "clientName", "clientAccount", "clientType", "clientCountry", "source", "owner", "followStatus", "startDate", "serviceDays", "adults", "children",
+    "clientName", "actualCustomerName", "clientAccount", "clientType", "clientCountry", "source", "owner", "followStatus", "budgetRange", "languageNeed", "hotelPreference", "mealPreference", "aiNotes", "opNotes", "startDate", "serviceDays", "adults", "children",
     "cities", "svcVehicle", "svcTickets", "svcGuide", "svcHotel", "svcTraffic", "svcMeals", "svcOther",
     "transferNeed", "transferVehicleType", "charterNeed", "charterVehicleType", "guideLang", "hotelLevel",
     "rooms", "hotelBreakfast", "trafficType", "mealBreakfast", "mealLunch", "mealDinner",
@@ -44252,6 +44277,8 @@ function bindEvents() {
       renderQuoteTabs();
       renderIncludeButtons();
       renderRoomTypes();
+      invalidateProposalConfirmation();
+      renderWorkbenchOverview();
       autoBuildQuote();
       rebuildProposalIfNeeded();
     });
@@ -44266,6 +44293,8 @@ function bindEvents() {
     input.checked = !input.checked;
     renderIncludeButtons();
     renderQuoteTabs();
+    invalidateProposalConfirmation();
+    renderWorkbenchOverview();
     autoBuildQuote();
   }));
 
@@ -44274,6 +44303,8 @@ function bindEvents() {
       renderRateCard();
       renderQuoteTable();
       renderSummary();
+      invalidateProposalConfirmation();
+      renderWorkbenchOverview();
     });
   });
   $("#quoteVersion").addEventListener("change", (event) => {
@@ -44289,6 +44320,14 @@ function bindEvents() {
     });
     $(`#${id}`).addEventListener("input", rebuildProposalIfNeeded);
   });
+
+  $$("[data-workbench-edit]").forEach((btn) => btn.addEventListener("click", () => showWorkbenchSection(btn.dataset.workbenchEdit)));
+  $$("[data-workbench-home]").forEach((btn) => btn.addEventListener("click", showWorkbenchHome));
+  $$("[data-workbench-save]").forEach((btn) => btn.addEventListener("click", () => {
+    updateCurrentProject();
+    showWorkbenchHome();
+  }));
+  $$("#quoteStepper [data-step-target]").forEach((btn) => btn.addEventListener("click", () => showWorkbenchSection(btn.dataset.stepTarget)));
 }
 
 function bindDelegatedActions() {
@@ -44316,15 +44355,42 @@ function bindDelegatedActions() {
       agentExtractQuoteItems,
       agentApplyQuoteItems,
       agentRecalculateQuote,
+      agentCheckCosts,
       agentBuildCustomerProposal,
+      agentCheckEnglish,
       agentSaveQuoteVersion,
+      confirmProposal,
     };
     const action = actions[button.id];
+    if (button.dataset.agentApply) {
+      event.preventDefault();
+      event.stopPropagation();
+      applyCurrentAgentPending();
+      return;
+    }
+    if (button.dataset.agentIgnore) {
+      event.preventDefault();
+      event.stopPropagation();
+      setAgentPending("message", { title: "已忽略 AI 建议", body: "未对正式页面数据做任何修改。" });
+      return;
+    }
     if (!action) return;
     event.preventDefault();
     event.stopPropagation();
     action();
   }, true);
+}
+
+function applyCurrentAgentPending() {
+  const type = state.agent.pendingType;
+  if (type === "customer") return agentApplyCustomer();
+  if (type === "route") return agentConfirmRoute();
+  if (type === "quoteItems") return agentApplyQuoteItems();
+  if (type === "customerProposal") {
+    applyCustomerProposal(state.agent.pendingData);
+    return setAgentPending("message", { title: "已应用客户版报价文案", body: "客户提案预览已更新，导出前请人工确认方案。" });
+  }
+  return setAgentPending("message", { title: "当前建议无需应用", body: "这是检查或提示信息，不会写入正式页面字段。" });
 }
 
 function renderAll() {
@@ -44342,6 +44408,11 @@ function renderAll() {
   renderArchive();
   renderRateCard();
   renderAgentPending();
+  renderWorkbenchOverview();
+  renderWorkbenchMode();
+  renderProposalGuard();
+  renderProposalAssets();
+  renderAiSettings();
   renderIcons();
 }
 
@@ -44353,7 +44424,7 @@ function switchModule(id) {
   $$(".module").forEach((b) => b.classList.toggle("active", b.dataset.module === id));
   $$(".module-view").forEach((v) => v.classList.toggle("active-view", v.id === id));
   const titles = {
-    quote: "报价项目",
+    quote: "友易行旅行社报价工作台",
     orders: "订单管理",
     ops: "操作排团",
     products: "产品资源库",
@@ -44364,6 +44435,7 @@ function switchModule(id) {
     settings: "系统设置",
   };
   $("#moduleTitle").textContent = titles[id] || "工作台";
+  if (id === "settings") loadAiSettings();
 }
 
 function showProjectDashboard() {
@@ -44375,8 +44447,102 @@ function showProjectDashboard() {
 function showProjectDetail() {
   $("#projectDashboard").classList.add("hidden");
   $("#projectDetail").classList.remove("hidden");
+  showWorkbenchHome();
   window.scrollTo({ top: 0, behavior: "smooth" });
   renderIcons();
+}
+
+function showWorkbenchHome() {
+  state.workbenchEditSection = "";
+  renderWorkbenchMode();
+  renderWorkbenchOverview();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function showWorkbenchSection(sectionId) {
+  state.workbenchEditSection = sectionId || "";
+  renderWorkbenchMode();
+  const target = state.workbenchEditSection ? $(`#${state.workbenchEditSection}`) : $("#quoteOverview");
+  if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderWorkbenchMode() {
+  const detail = $("#projectDetail");
+  if (!detail) return;
+  detail.classList.toggle("overview-mode", !state.workbenchEditSection);
+  detail.classList.toggle("edit-mode", Boolean(state.workbenchEditSection));
+  $$(".edit-section").forEach((section) => section.classList.toggle("active-edit-section", section.id === state.workbenchEditSection));
+  $$("#quoteStepper [data-step-target]").forEach((button) => button.classList.toggle("active", button.dataset.stepTarget === (state.workbenchEditSection || "q-demand")));
+}
+
+function renderWorkbenchOverview() {
+  if (!$("#customerOverview")) return;
+  const d = getDemandSafe();
+  const totals = activeQuote()?.data ? calcTotals() : { cost: 0, sell: 0, adultAvg: 0, childAvg: 0 };
+  const missing = activeQuote()?.data ? countMissingCosts() : 0;
+  const gross = totals.sell ? Math.round(((totals.sell - totals.cost) / totals.sell) * 10000) / 100 : 0;
+  $("#customerOverview").innerHTML = [
+    ["客户名称", d.actualCustomerName || d.clientName],
+    ["客户来源", $("#source")?.value || "-"],
+    ["联系方式", d.account || "-"],
+    ["客源市场", d.country || "-"],
+    ["同行人数", `${d.people || 0} 人`],
+    ["预算范围", d.budgetRange || "待确认"],
+    ["出行日期", d.startDate || "-"],
+    ["语言需求", d.languageNeed || d.guideLang || "英语"],
+  ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
+
+  const cities = unique(state.itinerary.map((day) => day.city).filter(Boolean));
+  const highlights = unique(state.itinerary.flatMap((day) => extractAttractions(`${day.overview} ${day.detail}`))).slice(0, 5);
+  $("#itineraryOverview").innerHTML = `
+    <div class="trip-image"><img src="https://images.unsplash.com/photo-1508804185872-d7badad00f7d?auto=format&fit=crop&w=900&q=80" alt="China destination" /></div>
+    <div class="trip-facts">
+      <div><span>出发日期</span><strong>${escapeHtml(d.startDate || "-")}</strong></div>
+      <div><span>行程天数</span><strong>${d.serviceDays || 0} 天</strong></div>
+      <div><span>目的地</span><strong>${escapeHtml(d.cities.join("、") || cities.join("、") || "-")}</strong></div>
+      <div><span>主要城市</span><strong>${escapeHtml(cities.join("、") || d.cities.join("、") || "-")}</strong></div>
+      <div class="wide-fact"><span>行程亮点</span><strong>${escapeHtml(highlights.join("、") || state.itinerary[0]?.overview || "待生成行程")}</strong></div>
+    </div>
+  `;
+
+  $("#quoteItemsOverview").innerHTML = renderQuoteItemsOverview();
+  $("#summaryOverview").innerHTML = `
+    <div class="summary-lines">
+      <div><span>总成本</span><strong>${money(totals.cost)}</strong></div>
+      <div><span>总卖价</span><strong>${money(totals.sell)}</strong></div>
+      <div><span>毛利</span><strong>${money(totals.sell - totals.cost)}</strong></div>
+      <div><span>毛利率</span><strong class="${gross < 8 ? "danger-text" : "ok-text"}">${gross}%</strong></div>
+      <div><span>人均价</span><strong>${money(totals.adultAvg)}</strong></div>
+      <div><span>缺失成本项</span><strong class="${missing ? "danger-text" : "ok-text"}">${missing} 项</strong></div>
+    </div>
+    <div class="validity-pill"><i data-lucide="calendar-check"></i><span>报价有效期：2026-07-10</span></div>
+  `;
+  $("#proposalMiniPreview").innerHTML = `
+    <div class="mini-cover">
+      <span>友易行旅行社</span>
+      <strong>${escapeHtml($("#proposalTitle")?.textContent.trim() && $("#proposalTitle").textContent !== "等待生成客人方案" ? $("#proposalTitle").textContent : "China Inbound Travel Proposal")}</strong>
+      <small>${escapeHtml(d.startDate || "Date TBD")} · ${d.people || 0} guests</small>
+    </div>
+    <div class="proposal-state ${state.proposalConfirmed ? "ok" : "warn"}">${state.proposalConfirmed ? "客户方案已确认，可导出" : "客户方案待确认"}</div>
+  `;
+  renderIcons();
+}
+
+function renderQuoteItemsOverview() {
+  const quote = activeQuote()?.data;
+  if (!quote || !state.itinerary.length) return `<div class="empty">确认行程后，小易可识别报价项并生成明细。</div>`;
+  const rows = serviceEnabledList().map((service) => {
+    const cost = serviceCost(service);
+    const sell = serviceSell(service);
+    const missing = countMissingCosts(service);
+    const status = missing ? "待补成本" : (sell > 0 ? "已完成" : "待确认");
+    return `<div class="quote-overview-row">
+      <span>${serviceLabels[service]}</span>
+      <strong>${money(sell)}</strong>
+      <em class="${missing ? "danger" : "ok"}">${status}</em>
+    </div>`;
+  }).join("");
+  return `<div class="quote-overview-table">${rows || `<div class="empty">暂无报价项。</div>`}</div>`;
 }
 
 function renderProjectDashboard() {
@@ -46347,6 +46513,7 @@ function openProject(id) {
   if (project) {
     $("#projectId").textContent = project.id;
     $("#clientName").value = project.name;
+    if ($("#actualCustomerName")) $("#actualCustomerName").value = project.name.split(/\s+/)[0] || project.name;
     $("#clientAccount").value = project.account || "";
     $("#clientType").value = project.userType || "直客";
     $("#clientCountry").value = project.country || "";
@@ -46394,7 +46561,7 @@ function resetProject() {
   const nextId = `QP-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${String(state.projects.length + 1).padStart(3, "0")}`;
   state.currentProjectId = nextId;
   $("#projectId").textContent = nextId;
-  ["clientName", "clientAccount", "clientCountry", "startDate", "cities", "specialNeed", "itinerarySource"].forEach((id) => { $(`#${id}`).value = ""; });
+  ["clientName", "actualCustomerName", "clientAccount", "clientCountry", "budgetRange", "languageNeed", "hotelPreference", "mealPreference", "aiNotes", "opNotes", "startDate", "cities", "specialNeed", "itinerarySource"].forEach((id) => { if ($(`#${id}`)) $(`#${id}`).value = ""; });
   $("#clientType").value = "直客";
   $("#serviceDays").value = 1;
   $("#adults").value = 0;
@@ -46438,6 +46605,7 @@ function loadSample() {
   $("#projectId").textContent = "QP-20260618-001";
   showProjectDetail();
   $("#clientName").value = "Hichina 北京上海5天";
+  $("#actualCustomerName").value = "Hichina";
   $("#clientAccount").value = "+971 50 882 0134";
   $("#clientType").value = "旅行社";
   $("#clientCountry").value = "阿联酋";
@@ -46449,6 +46617,10 @@ function loadSample() {
   $("#children").value = 1;
   $("#cities").value = "北京、上海";
   $("#specialNeed").value = "节奏舒适，无购物安排，含经典景点。";
+  $("#budgetRange").value = "¥30,000 - ¥45,000 / 人";
+  $("#languageNeed").value = "英语";
+  $("#hotelPreference").value = "4星舒适型，双床优先";
+  $("#mealPreference").value = "清真友好";
   $("#svcVehicle").checked = true;
   $("#svcTickets").checked = true;
   $("#svcGuide").checked = true;
@@ -46485,10 +46657,17 @@ function getDemand() {
   const cities = splitCities($("#cities").value);
   return {
     clientName: $("#clientName").value.trim() || "未命名客户",
+    actualCustomerName: $("#actualCustomerName")?.value.trim() || "",
     account: $("#clientAccount").value.trim(),
     userType: $("#clientType").value,
     country: $("#clientCountry").value.trim(),
     specialNeed: $("#specialNeed").value.trim(),
+    budgetRange: $("#budgetRange")?.value.trim() || "",
+    languageNeed: $("#languageNeed")?.value.trim() || "",
+    hotelPreference: $("#hotelPreference")?.value.trim() || "",
+    mealPreference: $("#mealPreference")?.value.trim() || "",
+    aiNotes: $("#aiNotes")?.value.trim() || "",
+    opNotes: $("#opNotes")?.value.trim() || "",
     startDate: $("#startDate").value,
     serviceDays: Math.max(number($("#serviceDays").value), 1),
     adults,
@@ -46525,10 +46704,162 @@ function getDemand() {
   };
 }
 
+function openXiaoyi() {
+  $("#projectDetail")?.classList.add("agent-open");
+  $("#xiaoyiPanel")?.setAttribute("aria-hidden", "false");
+  $("#xiaoyiDot")?.classList.add("hidden");
+  renderIcons();
+}
+
+function closeXiaoyi() {
+  $("#projectDetail")?.classList.remove("agent-open");
+  $("#xiaoyiPanel")?.setAttribute("aria-hidden", "true");
+}
+
+function markXiaoyiHasResult() {
+  $("#xiaoyiDot")?.classList.remove("hidden");
+}
+
+function invalidateProposalConfirmation() {
+  if (!state.proposalConfirmed) return;
+  state.proposalConfirmed = false;
+  state.proposalLastChangedAt = new Date().toISOString();
+  renderProposalGuard();
+}
+
+function renderProposalGuard() {
+  const guard = $("#proposalGuard");
+  if (!guard) return;
+  const hasProposal = Boolean($("#proposalContent")?.innerHTML.trim());
+  if (!hasProposal) {
+    guard.className = "proposal-guard";
+    guard.textContent = "未生成客户方案。生成后需要人工确认，才可以导出 PDF / 图片。";
+    return;
+  }
+  if (state.proposalConfirmed) {
+    guard.className = "proposal-guard ok";
+    guard.textContent = "客户方案已确认并锁定，可以下载 PDF 或导出图片。修改客户信息、行程、报价或方案后需重新确认。";
+    return;
+  }
+  guard.className = "proposal-guard warn";
+  guard.textContent = "客户方案已生成但未确认。请人工检查英文内容、价格和图片素材后确认。";
+}
+
+function confirmProposal() {
+  const content = $("#proposalContent")?.innerText || "";
+  if (!content.trim()) {
+    alert("请先生成客户方案预览。");
+    return;
+  }
+  if ($("#outputLang")?.value === "en" && containsChinese(content)) {
+    const ok = window.confirm("英文方案仍包含中文内容，是否确认风险并锁定版本？");
+    if (!ok) return;
+  }
+  state.proposalConfirmed = true;
+  activeQuote().status = "已确认客户方案";
+  saveQuoteVersionMeta(true);
+  renderProposalGuard();
+  renderArchive();
+  renderWorkbenchOverview();
+}
+
+function saveQuoteVersionMeta(confirmed = false) {
+  const totals = calcTotals();
+  const version = activeQuote();
+  version.generatedAt = new Date().toISOString();
+  version.language = $("#outputLang")?.value || "en";
+  version.totalPrice = Math.round(totals.sell || 0);
+  version.averagePrice = Math.round(totals.adultAvg || 0);
+  version.grossMargin = totals.sell ? Math.round(((totals.sell - totals.cost) / totals.sell) * 10000) / 100 : 0;
+  version.confirmed = Boolean(confirmed);
+  version.final = Boolean(version.final);
+}
+
+async function loadAiSettings() {
+  try {
+    const response = await fetch("/api/settings");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "读取设置失败");
+    state.aiSettings = data.ai;
+    renderAiSettings();
+  } catch (error) {
+    state.aiSettings = { provider: "deepseek", baseUrl: "https://api.deepseek.com", model: "deepseek-chat", temperature: 0.2, hasApiKey: false, apiKeyMasked: "", source: "missing", error: error.message };
+    renderAiSettings();
+  }
+}
+
+function renderAiSettings() {
+  const settings = state.aiSettings;
+  if (!settings || !$("#aiProvider")) return;
+  $("#aiProvider").value = settings.provider || "deepseek";
+  $("#aiBaseUrl").value = settings.baseUrl || "https://api.deepseek.com";
+  $("#aiModel").value = settings.model || "deepseek-chat";
+  $("#aiTemperature").value = settings.temperature ?? 0.2;
+  $("#aiApiKey").value = "";
+  $("#aiApiKey").placeholder = settings.apiKeyMasked || "sk-...";
+  const status = $("#aiConnectionStatus");
+  if (status) {
+    status.className = `settings-status ${settings.hasApiKey ? "ok" : "warn"}`;
+    status.textContent = settings.hasApiKey
+      ? `连接状态：已配置 ${settings.apiKeyMasked}（来源：${settings.source}）`
+      : "连接状态：未配置，请填写 DeepSeek API Key";
+  }
+}
+
+function aiSettingsPayload() {
+  return {
+    provider: $("#aiProvider")?.value || "deepseek",
+    apiKey: $("#aiApiKey")?.value.trim() || "",
+    baseUrl: $("#aiBaseUrl")?.value.trim() || "https://api.deepseek.com",
+    model: $("#aiModel")?.value.trim() || "deepseek-chat",
+    temperature: Number($("#aiTemperature")?.value || 0.2),
+  };
+}
+
+async function saveAiSettings() {
+  await mutateAiSettings("/api/settings/ai", aiSettingsPayload(), "AI 配置已保存。");
+}
+
+async function testAiSettings() {
+  await mutateAiSettings("/api/settings/ai/test", aiSettingsPayload(), "模型连接正常。", false);
+}
+
+async function clearAiSettings() {
+  await mutateAiSettings("/api/settings/ai", { clear: true }, "AI 配置已清除。");
+}
+
+async function mutateAiSettings(url, payload, successMessage, reload = true) {
+  const status = $("#aiConnectionStatus");
+  if (status) {
+    status.className = "settings-status";
+    status.textContent = "连接状态：处理中...";
+  }
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "操作失败");
+    if (data.ai) state.aiSettings = data.ai;
+    if (status) {
+      status.className = "settings-status ok";
+      status.textContent = `连接状态：${data.message || successMessage}`;
+    }
+    if (reload) await loadAiSettings();
+  } catch (error) {
+    if (status) {
+      status.className = "settings-status danger";
+      status.textContent = `连接状态：${error.message}`;
+    }
+  }
+}
+
 async function agentRecognizeDemand() {
   const result = await callAgent("recognize_customer", [
     "从 OP 粘贴的客户需求、聊天记录或飞书表单中提取结构化客户资料。",
-    "返回 JSON：{type:'customer', customer:{clientName, account, userType, country, source, startDate, serviceDays, adults, children, cities, specialNeed, guideLang, hotelLevel, rooms, roomTypes, services, vehicleType}, missing:[], questions:[]}",
+    "返回 JSON：{type:'customer', customer:{clientName, actualCustomerName, account, userType, country, source, startDate, serviceDays, adults, children, cities, budgetRange, languageNeed, hotelPreference, mealPreference, specialNeed, aiNotes, guideLang, hotelLevel, rooms, roomTypes, services, vehicleType}, missing:[], questions:[]}",
     "services 包含 vehicle,ticket,guide,hotel,traffic,meal,other 布尔值。",
     "不要编造价格。",
   ].join("\n"));
@@ -46543,6 +46874,7 @@ function agentApplyCustomer() {
     return;
   }
   setValue("clientName", data.clientName);
+  setValue("actualCustomerName", data.actualCustomerName);
   setValue("clientAccount", data.account);
   setSelectValue("clientType", data.userType);
   setValue("clientCountry", data.country);
@@ -46552,6 +46884,11 @@ function agentApplyCustomer() {
   setValue("adults", data.adults);
   setValue("children", data.children);
   if (Array.isArray(data.cities) && data.cities.length) $("#cities").value = data.cities.join("、");
+  setValue("budgetRange", data.budgetRange);
+  setValue("languageNeed", data.languageNeed);
+  setValue("hotelPreference", data.hotelPreference);
+  setValue("mealPreference", data.mealPreference);
+  setValue("aiNotes", data.aiNotes);
   setValue("specialNeed", data.specialNeed);
   setSelectValue("guideLang", data.guideLang);
   setSelectValue("hotelLevel", data.hotelLevel);
@@ -46578,6 +46915,8 @@ function agentApplyCustomer() {
   renderRoomTypes();
   renderQuoteTabs();
   renderSummary();
+  invalidateProposalConfirmation();
+  renderWorkbenchOverview();
   updateCurrentProject("需求确认中");
   setAgentPending("message", { title: "已应用到客户资料", body: "客户基础信息、人数、城市、服务项和偏好已写入页面。下一步可以生成线路草稿。" });
 }
@@ -46637,6 +46976,8 @@ function agentConfirmRoute() {
   state.routeConfirmed = true;
   renderItinerary();
   updateProjectTitle();
+  invalidateProposalConfirmation();
+  renderWorkbenchOverview();
   updateCurrentProject("报价中");
   setAgentPending("message", { title: "线路已确认", body: "线路已写入每日行程。下一步可以识别报价项并生成报价明细。" });
 }
@@ -46670,6 +47011,8 @@ function agentApplyQuoteItems() {
   renderQuoteTabs();
   renderQuoteTable();
   renderSummary();
+  invalidateProposalConfirmation();
+  renderWorkbenchOverview();
   setAgentPending("message", { title: "已应用到报价明细", body: "系统已按确认线路和服务项调用产品资源库计算报价。缺失成本会在汇总检查中提示，OP 可手动补价。" });
 }
 
@@ -46679,7 +47022,18 @@ function agentRecalculateQuote() {
     return;
   }
   buildQuote();
+  invalidateProposalConfirmation();
+  renderWorkbenchOverview();
   setAgentPending("message", { title: "报价已重新计算", body: `当前综合毛利率为 ${$("#grossMargin").value || 0}%。大交通按 6% 且单趟最低利润 30 元计算。` });
+}
+
+function agentCheckCosts() {
+  if (!activeQuote().data.vehicle.length && state.itinerary.length) buildQuote();
+  const details = missingCostDetails();
+  setAgentPending("message", {
+    title: details.length ? "缺失成本检查" : "缺失成本检查通过",
+    body: details.length ? details.slice(0, 12).join("；") : "当前报价明细没有发现缺失成本项。",
+  });
 }
 
 async function agentBuildCustomerProposal() {
@@ -46693,7 +47047,6 @@ async function agentBuildCustomerProposal() {
   ].join("\n"));
   if (result) {
     setAgentPending("customerProposal", result);
-    applyCustomerProposal(result);
   } else {
     handleBuildProposal();
   }
@@ -46703,6 +47056,16 @@ function agentSaveQuoteVersion() {
   if (!activeQuote().data.vehicle.length && state.itinerary.length) buildQuote();
   handleSaveVersion();
   setAgentPending("message", { title: "报价版本已保存", body: `${activeQuote().name} 已保存到版本归档。` });
+}
+
+function agentCheckEnglish() {
+  const text = $("#proposal")?.innerText || "";
+  const hasChinese = containsChinese(text);
+  setAgentPending("message", {
+    title: hasChinese ? "英文残留中文检查未通过" : "英文残留中文检查通过",
+    body: hasChinese ? "英文报价单仍包含中文内容，请重新翻译或人工确认。" : "当前客户方案未检测到中文字符残留。",
+  });
+  renderEnglishWarning();
 }
 
 async function callAgent(action, instruction) {
@@ -46796,6 +47159,8 @@ function parseAgentJson(content) {
 function setAgentPending(type, data) {
   state.agent.pendingType = type;
   state.agent.pendingData = data;
+  markXiaoyiHasResult();
+  openXiaoyi();
   renderAgentPending();
 }
 
@@ -46830,19 +47195,19 @@ function renderAgentPending() {
       <span>城市</span><strong>${escapeHtml((data.cities || []).join("、") || "待确认")}</strong>
       <span>车型</span><strong>${escapeHtml(data.vehicleType || "待确认")}</strong>
       <span>酒店</span><strong>${escapeHtml(data.hotelLevel || "待确认")} · ${data.rooms || 0} 间</strong>
-    </div>${agentList("缺失信息", pendingData.missing)}${agentList("建议追问", pendingData.questions)}</div>`;
+    </div>${agentList("缺失信息", pendingData.missing)}${agentList("建议追问", pendingData.questions)}${agentDecisionActions("应用到客户资料")}</div>`;
     return;
   }
   if (pendingType === "route") {
     const days = pendingData.route?.days || pendingData.days || [];
     node.innerHTML = `<div class="agent-card"><h5>线路草稿</h5><p>${escapeHtml(pendingData.source || "")}</p>${days.map((day, index) => `
       <div class="agent-route-day"><strong>Day ${index + 1} · ${escapeHtml(day.date || "")} · ${escapeHtml(day.city || "")}</strong><br><span>${escapeHtml(day.overview || "")}</span><p>${escapeHtml(day.detail || day.notes || "")}</p></div>
-    `).join("")}${agentList("提醒", pendingData.warnings)}</div>`;
+    `).join("")}${agentList("提醒", pendingData.warnings)}${agentDecisionActions("应用到行程")}</div>`;
     return;
   }
   if (pendingType === "quoteItems") {
     const items = pendingData.quoteItems || pendingData.items || [];
-    node.innerHTML = `<div class="agent-card"><h5>识别到的报价项</h5><ul>${items.map((item) => `<li>${escapeHtml(item.service || "")}｜${escapeHtml(item.name || item.resourceHint || "")}｜${escapeHtml(item.city || "")}｜${escapeHtml(item.pricingBasis || item.notes || "")}</li>`).join("")}</ul>${agentList("提醒", pendingData.warnings)}</div>`;
+    node.innerHTML = `<div class="agent-card"><h5>识别到的报价项</h5><ul>${items.map((item) => `<li>${escapeHtml(item.service || "")}｜${escapeHtml(item.name || item.resourceHint || "")}｜${escapeHtml(item.city || "")}｜${escapeHtml(item.pricingBasis || item.notes || "")}</li>`).join("")}</ul>${agentList("提醒", pendingData.warnings)}${agentDecisionActions("应用到报价明细")}</div>`;
     return;
   }
   if (pendingType === "missing") {
@@ -46855,10 +47220,14 @@ function renderAgentPending() {
     return;
   }
   if (pendingType === "customerProposal") {
-    node.innerHTML = `<div class="agent-card"><h5>${escapeHtml(pendingData.title || "客户版报价文案")}</h5><p>${escapeHtml(pendingData.summary || "")}</p>${agentList("费用包含", pendingData.inclusions)}${agentList("费用不含", pendingData.exclusions)}${agentList("备注", pendingData.notes)}</div>`;
+    node.innerHTML = `<div class="agent-card"><h5>${escapeHtml(pendingData.title || "客户版报价文案")}</h5><p>${escapeHtml(pendingData.summary || "")}</p>${agentList("费用包含", pendingData.inclusions)}${agentList("费用不含", pendingData.exclusions)}${agentList("备注", pendingData.notes)}${agentDecisionActions("应用到客户提案")}</div>`;
     return;
   }
   node.innerHTML = `<div class="agent-card"><h5>${escapeHtml(pendingData.title || "Agent 输出")}</h5><p>${escapeHtml(pendingData.body || "")}</p></div>`;
+}
+
+function agentDecisionActions(applyText) {
+  return `<div class="agent-decision-actions"><button class="primary-btn" data-agent-apply="true">${escapeHtml(applyText)}</button><button class="ghost-btn" data-agent-ignore="true">忽略</button></div>`;
 }
 
 function agentList(title, items) {
@@ -46945,6 +47314,7 @@ function quoteItemMatchesDay(item, day, dayIndex) {
 function applyCustomerProposal(data) {
   const d = getDemand();
   const totals = calcTotals();
+  state.proposalConfirmed = false;
   $("#proposal").classList.toggle("watermarked", $("#proposalWatermark").checked);
   $("#proposalKicker").textContent = "Private Tour Proposal";
   $("#proposalTitle").textContent = data.title || `${d.serviceDays}-Day China Private Tour`;
@@ -46980,6 +47350,10 @@ function applyCustomerProposal(data) {
   $("#proposal").classList.remove("editing");
   $("#projectStatus").textContent = "已生成客人方案";
   $("#projectStatus").className = "status ok";
+  renderEnglishWarning();
+  renderProposalAssets();
+  renderProposalGuard();
+  renderWorkbenchOverview();
   updateCurrentProject("价格已报但未成交");
 }
 
@@ -47336,6 +47710,8 @@ function renderItineraryWarning() {
   const messages = [];
   if (state.itinerary.length && state.itinerary.length !== d.serviceDays) messages.push(`每日行程为 ${state.itinerary.length} 天，与服务天数 ${d.serviceDays} 不一致`);
   if (state.itinerary.length && d.startDate && state.itinerary[0].date !== d.startDate) messages.push(`首日日期 ${state.itinerary[0].date || "未填"} 与出行时间 ${d.startDate} 不一致`);
+  standardizeHighConfidenceAttractions();
+  messages.push(...standardAttractionWarnings());
   if (messages.length) {
     warning.classList.remove("hidden");
     warning.textContent = messages.join("；");
@@ -47343,6 +47719,35 @@ function renderItineraryWarning() {
     warning.classList.add("hidden");
     warning.textContent = "";
   }
+}
+
+function standardAttractionNames() {
+  return unique(state.productCatalog.tickets.map((item) => item.scenicName).filter(Boolean));
+}
+
+function standardizeHighConfidenceAttractions() {
+  const aliases = [
+    { pattern: /故官|故宫博物馆|紫禁城/g, standard: "故宫博物院" },
+  ];
+  state.itinerary.forEach((day) => {
+    aliases.forEach(({ pattern, standard }) => {
+      day.overview = String(day.overview || "").replace(pattern, standard);
+      day.detail = String(day.detail || "").replace(pattern, standard);
+    });
+  });
+}
+
+function standardAttractionWarnings() {
+  const names = standardAttractionNames();
+  const messages = [];
+  const knownWords = new Set([...names, "天安门广场", "景山", "胡同", "外滩", "南京路", "豫园"]);
+  state.itinerary.forEach((day, index) => {
+    const text = `${day.overview || ""} ${day.detail || ""}`;
+    if (/故官|故宫博物馆|紫禁城/.test(text)) messages.push(`Day ${index + 1}：已建议标准化为“故宫博物院”`);
+    const candidates = extractAttractions(text).filter((name) => !knownWords.has(name) && !names.includes(name));
+    candidates.slice(0, 3).forEach((name) => messages.push(`Day ${index + 1}：景点「${name}」未匹配标准名，请人工确认`));
+  });
+  return messages;
 }
 
 function autoBuildQuote() {
@@ -47482,6 +47887,8 @@ function buildQuote(options = {}) {
   renderQuoteTable();
   renderSummary();
   renderArchive();
+  if (!options.auto) invalidateProposalConfirmation();
+  renderWorkbenchOverview();
   updateCurrentProject("报价中");
 }
 
@@ -47764,6 +48171,7 @@ function newQuoteVersion() {
 
 function handleSaveVersion() {
   activeQuote().status = "已保存";
+  saveQuoteVersionMeta(state.proposalConfirmed);
   renderArchive();
   $("#projectStatus").textContent = "报价已保存";
   $("#projectStatus").className = "status ok";
@@ -47785,6 +48193,7 @@ function renderSummary() {
   if (!quote || !quote.data || !state.itinerary.length) {
     $("#summaryPanel").className = "panel empty";
     $("#summaryPanel").textContent = "行程生成后会自动汇总成本和卖价。";
+    renderWorkbenchOverview();
     return;
   }
   const totals = calcTotals();
@@ -47814,6 +48223,7 @@ function renderSummary() {
       </div>
     </div>
   `;
+  renderWorkbenchOverview();
 }
 
 function calcTotals() {
@@ -47918,6 +48328,7 @@ function missingCostDetails() {
 
 function handleBuildProposal() {
   state.proposalEditing = false;
+  state.proposalConfirmed = false;
   if (!state.itinerary.length) handleGenerateItinerary();
   if (!activeQuote().data.vehicle.length) buildQuote();
   const lang = $("#outputLang").value;
@@ -47961,6 +48372,10 @@ function handleBuildProposal() {
   if (editLabel) editLabel.textContent = "编辑方案";
   $("#projectStatus").textContent = "已生成客人方案";
   $("#projectStatus").className = "status ok";
+  renderEnglishWarning();
+  renderProposalAssets();
+  renderProposalGuard();
+  renderWorkbenchOverview();
   updateCurrentProject("价格已报但未成交");
 }
 
@@ -47982,10 +48397,12 @@ function toggleProposalEdit() {
   const label = $("#editProposal span");
   if (label) label.textContent = state.proposalEditing ? "完成编辑" : "编辑方案";
   if (state.proposalEditing) {
+    invalidateProposalConfirmation();
     $("#projectStatus").textContent = "客人方案可手动编辑";
     $("#projectStatus").className = "status ok";
     $("#proposalContent").focus();
   } else {
+    invalidateProposalConfirmation();
     $("#projectStatus").textContent = "客人方案已手动编辑";
     $("#projectStatus").className = "status ok";
   }
@@ -48259,7 +48676,117 @@ function contactHtml(lang) {
   return blocks.length ? `<div class="proposal-block"><h4>${t.contact}</h4><div class="contact-grid">${blocks.join("")}</div></div>` : "";
 }
 
+function renderEnglishWarning() {
+  const warning = $("#englishWarning");
+  if (!warning) return;
+  const shouldCheck = $("#outputLang")?.value === "en" && Boolean($("#proposalContent")?.innerText.trim());
+  const hasChinese = shouldCheck && containsChinese($("#proposal")?.innerText || "");
+  warning.classList.toggle("hidden", !hasChinese);
+}
+
+function renderProposalAssets() {
+  const wrap = $("#proposalAssets");
+  if (!wrap) return;
+  ensureProposalAssets();
+  wrap.innerHTML = state.proposalAssets.map((asset, index) => `
+    <div class="asset-card ${asset.confirmed ? "confirmed" : ""}">
+      <div class="asset-thumb">${asset.url ? `<img src="${escapeHtml(asset.url)}" alt="${escapeHtml(asset.name)}" />` : `<span>待补图</span>`}</div>
+      <div>
+        <strong>${escapeHtml(asset.name)}</strong>
+        <span>${escapeHtml(asset.type)} · ${asset.confirmed ? "已确认" : "待确认"}</span>
+        <p>${escapeHtml(asset.note || "")}</p>
+      </div>
+      <div class="asset-card-actions">
+        <button class="secondary-btn" data-confirm-asset="${index}">${asset.confirmed ? "取消确认" : "确认"}</button>
+        <button class="ghost-btn" data-remove-asset="${index}">删除</button>
+      </div>
+    </div>
+  `).join("") || `<div class="empty">暂无图片素材。生成行程后会自动列出酒店和景点待补图。</div>`;
+  $$("[data-confirm-asset]").forEach((btn) => btn.addEventListener("click", () => {
+    const asset = state.proposalAssets[Number(btn.dataset.confirmAsset)];
+    if (asset) asset.confirmed = !asset.confirmed;
+    invalidateProposalConfirmation();
+    renderProposalAssets();
+  }));
+  $$("[data-remove-asset]").forEach((btn) => btn.addEventListener("click", () => {
+    state.proposalAssets.splice(Number(btn.dataset.removeAsset), 1);
+    invalidateProposalConfirmation();
+    renderProposalAssets();
+  }));
+}
+
+function ensureProposalAssets() {
+  const names = extractProposalAssetNames();
+  const existing = new Set(state.proposalAssets.map((asset) => `${asset.type}:${asset.name}`));
+  names.forEach((asset) => {
+    const key = `${asset.type}:${asset.name}`;
+    if (!existing.has(key)) state.proposalAssets.push(asset);
+  });
+}
+
+function extractProposalAssetNames() {
+  const quote = activeQuote()?.data || emptyQuoteData();
+  const ticketAssets = unique(state.itinerary.flatMap((day) => extractAttractions(`${day.overview} ${day.detail}`))).map((name) => ({
+    type: "景点",
+    name,
+    url: firstImageUrlForName(name),
+    confirmed: Boolean(firstImageUrlForName(name)),
+    note: firstImageUrlForName(name) ? "来自产品库图片" : "待补图，可上传或粘贴图片 URL。",
+  }));
+  const hotelAssets = unique((quote.hotel || []).flatMap((row) => (row.rooms || []).map((room) => room.hotelName).filter(Boolean))).map((name) => ({
+    type: "酒店",
+    name,
+    url: firstImageUrlForName(name),
+    confirmed: Boolean(firstImageUrlForName(name)),
+    note: firstImageUrlForName(name) ? "来自产品库图片" : "真实酒店图片待人工补充，不能用 AI 乱生成。",
+  }));
+  return [...ticketAssets, ...hotelAssets];
+}
+
+function firstImageUrlForName(name) {
+  const text = String(name || "");
+  const all = [
+    ...state.productCatalog.tickets.map((item) => ({ name: item.scenicName, raw: item })),
+    ...state.productCatalog.hotels.map((item) => ({ name: item.hotelName, raw: item })),
+  ];
+  const matched = all.find((item) => item.name && (text.includes(item.name) || item.name.includes(text)));
+  const urls = matched?.raw?.image_urls || matched?.raw?.imageUrls || matched?.raw?.images || [];
+  return Array.isArray(urls) ? (urls[0] || "") : "";
+}
+
+function addProposalAssetFromUrl() {
+  const input = $("#assetUrlInput");
+  const url = input?.value.trim();
+  if (!url) return;
+  state.proposalAssets.unshift({
+    type: "用户上传",
+    name: "手动补充图片",
+    url,
+    confirmed: false,
+    note: "来自 OP 粘贴的图片 URL，进入客户提案前需确认。",
+  });
+  if (input) input.value = "";
+  invalidateProposalConfirmation();
+  renderProposalAssets();
+}
+
+function handleProposalAssetUpload(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  state.proposalAssets.unshift({
+    type: "用户上传",
+    name: file.name,
+    url: URL.createObjectURL(file),
+    confirmed: false,
+    note: "本地上传图片，进入客户提案前需确认。",
+  });
+  event.target.value = "";
+  invalidateProposalConfirmation();
+  renderProposalAssets();
+}
+
 async function handleExportImage() {
+  if (!canExportProposal()) return;
   if (!window.html2canvas) {
     alert("导出组件还在加载，请稍后再试。");
     return;
@@ -48272,6 +48799,7 @@ async function handleExportImage() {
 }
 
 async function handleExportPdf() {
+  if (!canExportProposal()) return;
   if (!window.html2canvas || !window.jspdf?.jsPDF) {
     alert("PDF 导出组件还在加载，请稍后再试。");
     return;
@@ -48311,8 +48839,32 @@ function convertToOrder() {
 function renderArchive() {
   $("#quoteArchive").innerHTML = state.quoteVersions.map((version, index) => {
     const active = index === state.activeQuote ? "当前" : "历史";
-    return `<div class="archive-item"><strong>${version.name}</strong><span>${active} · ${version.status}</span></div>`;
+    const meta = [
+      active,
+      version.status,
+      version.generatedAt ? new Date(version.generatedAt).toLocaleString("zh-CN", { hour12: false }) : "",
+      version.language ? `语言 ${version.language}` : "",
+      version.totalPrice ? `总价 ${money(version.totalPrice)}` : "",
+      version.averagePrice ? `人均 ${money(version.averagePrice)}` : "",
+      version.grossMargin !== undefined ? `毛利率 ${version.grossMargin}%` : "",
+      version.confirmed ? "已确认" : "未确认",
+      version.final ? "最终成交版" : "",
+    ].filter(Boolean).join(" · ");
+    return `<div class="archive-item"><strong>${version.name}</strong><span>${meta}</span></div>`;
   }).join("");
+}
+
+function canExportProposal() {
+  if (!$("#proposalContent")?.innerHTML.trim()) {
+    alert("请先生成客户方案预览。");
+    return false;
+  }
+  if (!state.proposalConfirmed) {
+    alert("请先确认客户方案，再下载 PDF 或导出图片。");
+    renderProposalGuard();
+    return false;
+  }
+  return true;
 }
 
 function money(value) {

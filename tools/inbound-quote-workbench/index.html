@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>入境旅行社内部工作台</title>
-    <link rel="stylesheet" href="./styles.css?v=20260625-agent-mvp-2" />
+    <title>友易行旅行社报价工作台</title>
+    <link rel="stylesheet" href="./styles.css?v=20260625-youyixing-ui-1" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
@@ -13,21 +13,18 @@
     <div class="app">
       <aside class="sidebar">
         <div class="brand">
-          <div class="brand-mark">IN</div>
+          <div class="brand-mark"><i data-lucide="plane"></i></div>
           <div>
-            <h1>入境旅行社工作台</h1>
-            <p>报价 · 订单 · 操作 · 财务</p>
+            <h1>友易行旅行社</h1>
+            <p>Inbound Travel</p>
           </div>
         </div>
         <nav class="module-nav">
           <button class="module active" data-module="quote"><i data-lucide="folder-kanban"></i><span>报价项目</span></button>
           <button class="module" data-module="orders"><i data-lucide="clipboard-list"></i><span>订单管理</span></button>
-          <button class="module" data-module="ops"><i data-lucide="route"></i><span>操作排团</span></button>
           <button class="module" data-module="products"><i data-lucide="package-search"></i><span>产品资源库</span></button>
           <button class="module" data-module="suppliers"><i data-lucide="handshake"></i><span>供应商管理</span></button>
           <button class="module" data-module="finance"><i data-lucide="chart-no-axes-combined"></i><span>财务统计</span></button>
-          <button class="module" data-module="dashboard"><i data-lucide="layout-dashboard"></i><span>老板看板</span></button>
-          <button class="module" data-module="sop"><i data-lucide="book-open-check"></i><span>SOP 知识库</span></button>
           <button class="module" data-module="settings"><i data-lucide="settings"></i><span>系统设置</span></button>
         </nav>
       </aside>
@@ -35,8 +32,12 @@
       <main class="main">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Quote Project</p>
-            <h2 id="moduleTitle">报价项目</h2>
+            <p class="eyebrow">Sales · OP · Quote · Proposal</p>
+            <h2 id="moduleTitle">友易行旅行社报价工作台</h2>
+          </div>
+          <div class="top-actions">
+            <button class="icon-btn" title="通知"><i data-lucide="bell"></i><span class="notify-dot">12</span></button>
+            <div class="user-avatar">A</div>
           </div>
         </header>
 
@@ -76,30 +77,101 @@
           <div class="quote-workspace-main">
           <div class="project-bar">
             <div>
-              <p>当前报价项目</p>
+              <p>友易行旅行社报价工作台</p>
               <h3 id="projectTitle">未命名客户 · 天数待定 · 目的地待定</h3>
+              <div class="project-submeta">
+                <span>ID：<b id="projectId">QP-20260618-001</b></span>
+                <span class="status warn" id="projectStatus">草稿</span>
+                <span>创建时间：2026年 6月25日 10:28</span>
+              </div>
             </div>
             <div class="project-meta">
               <button class="secondary-btn" id="backToProjects"><i data-lucide="arrow-left"></i><span>返回项目列表</span></button>
-              <span id="projectId">QP-20260618-001</span>
-              <span class="status warn" id="projectStatus">草稿</span>
+              <button class="secondary-btn" id="moreProjectActions"><span>更多</span><i data-lucide="chevron-down"></i></button>
+              <button class="secondary-btn" id="saveVersion"><i data-lucide="save"></i><span>保存草稿</span></button>
+              <button class="primary-btn" id="submitQuote"><i data-lucide="send"></i><span>提交报价</span></button>
             </div>
           </div>
 
-          <div class="stepper">
-            <a href="#q-demand" class="active"><i data-lucide="list-checks"></i><span>需求确认</span></a>
-            <a href="#q-itinerary"><i data-lucide="map"></i><span>行程</span></a>
-            <a href="#q-quote"><i data-lucide="table-properties"></i><span>报价明细</span></a>
-            <a href="#q-summary"><i data-lucide="badge-check"></i><span>汇总检查</span></a>
-            <a href="#q-proposal"><i data-lucide="send"></i><span>客人方案</span></a>
-            <a href="#q-archive"><i data-lucide="archive"></i><span>版本归档</span></a>
+          <div class="xiaoyi-launcher" id="xiaoyiLauncher" role="button" tabindex="0" aria-label="打开小易超级报价助手">
+            <div class="xiaoyi-bot">
+              <span class="xiaoyi-dot hidden" id="xiaoyiDot"></span>
+              <i data-lucide="bot"></i>
+            </div>
+            <div class="xiaoyi-bubble">
+              <div><strong>小易</strong><span>超级报价助手</span></div>
+              <p>帮你识别需求 / 生成报价</p>
+            </div>
+            <button class="xiaoyi-arrow" type="button"><i data-lucide="chevron-right"></i></button>
           </div>
 
-          <section class="section" id="q-demand">
+          <div class="quote-stepper" id="quoteStepper">
+            <button class="active" data-step-target="q-demand"><i data-lucide="user-round"></i><span>1</span><strong>客户信息</strong></button>
+            <button data-step-target="q-itinerary"><i data-lucide="map"></i><span>2</span><strong>行程安排</strong></button>
+            <button data-step-target="q-quote"><i data-lucide="receipt-text"></i><span>3</span><strong>报价项目</strong></button>
+            <button data-step-target="q-summary"><i data-lucide="badge-check"></i><span>4</span><strong>报价汇总</strong></button>
+            <button data-step-target="q-proposal"><i data-lucide="image"></i><span>5</span><strong>客户提案</strong></button>
+          </div>
+
+          <section class="workbench-overview" id="quoteOverview">
+            <div class="overview-left">
+              <article class="overview-card" id="overviewCustomerCard">
+                <div class="overview-card-head">
+                  <div><span class="card-icon blue"><i data-lucide="user-round"></i></span><h4>客户信息</h4></div>
+                  <button class="link-btn" data-workbench-edit="q-demand"><i data-lucide="pencil"></i><span>编辑</span></button>
+                </div>
+                <div class="overview-grid" id="customerOverview"></div>
+              </article>
+
+              <article class="overview-card" id="overviewItineraryCard">
+                <div class="overview-card-head">
+                  <div><span class="card-icon cyan"><i data-lucide="calendar-days"></i></span><h4>行程安排</h4></div>
+                  <div class="mini-actions">
+                    <button class="link-btn" data-workbench-edit="q-itinerary"><i data-lucide="pencil"></i><span>手动编辑</span></button>
+                    <button class="link-btn" id="overviewAiOptimize"><i data-lucide="wand-sparkles"></i><span>AI 优化</span></button>
+                  </div>
+                </div>
+                <div class="trip-overview" id="itineraryOverview"></div>
+              </article>
+
+              <article class="overview-card" id="overviewQuoteCard">
+                <div class="overview-card-head">
+                  <div><span class="card-icon violet"><i data-lucide="receipt-text"></i></span><h4>报价项目</h4></div>
+                  <button class="link-btn" data-workbench-edit="q-quote"><i data-lucide="pencil"></i><span>查看明细</span></button>
+                </div>
+                <div id="quoteItemsOverview"></div>
+              </article>
+            </div>
+
+            <aside class="overview-right">
+              <article class="overview-card summary-sticky-card">
+                <div class="overview-card-head">
+                  <div><span class="card-icon green"><i data-lucide="briefcase-business"></i></span><h4>报价汇总</h4></div>
+                  <button class="link-btn" data-workbench-edit="q-summary"><span>详情</span></button>
+                </div>
+                <div id="summaryOverview"></div>
+              </article>
+
+              <article class="overview-card proposal-preview-card">
+                <div class="overview-card-head">
+                  <div><span class="card-icon indigo"><i data-lucide="shield-check"></i></span><h4>客户提案预览</h4></div>
+                  <button class="link-btn" data-workbench-edit="q-proposal"><span>预览</span></button>
+                </div>
+                <div class="proposal-mini" id="proposalMiniPreview"></div>
+              </article>
+            </aside>
+          </section>
+
+          <section class="section edit-section" id="q-demand">
             <div class="section-head">
               <div>
-                <h3>需求确认</h3>
-                <p>只保留会影响行程和报价的确认字段，按日期、人数、城市和服务项结构化录入。</p>
+                <h3>客户信息编辑</h3>
+                <p>按销售和 OP 报价需要整理客户资料，保存后返回报价工作台总览。</p>
+              </div>
+              <div class="actions">
+                <button class="secondary-btn" data-workbench-home><i data-lucide="arrow-left"></i><span>返回报价工作台</span></button>
+                <button class="secondary-btn" id="agentRecognizeFromEditor"><i data-lucide="sparkles"></i><span>AI 重新识别客户信息</span></button>
+                <button class="primary-btn" data-workbench-save><i data-lucide="save"></i><span>保存</span></button>
               </div>
             </div>
 
@@ -110,12 +182,19 @@
               </div>
               <div class="form-grid four">
                 <label>项目名称<input id="clientName" placeholder="客户名 + 城市 + 天数" /></label>
+                <label>客户名称<input id="actualCustomerName" placeholder="客户真实姓名 / 公司名" /></label>
                 <label>客户账号<input id="clientAccount" placeholder="WhatsApp / 邮箱 / 用户ID" /></label>
                 <label>用户类型<select id="clientType"><option>直客</option><option>旅行社</option><option>非旅行社机构或公司</option></select></label>
                 <label>用户国家<input id="clientCountry" placeholder="国家 / 地区" /></label>
                 <label>客户来源<select id="source"><option>WhatsApp</option><option>Email</option><option>官网</option><option>Facebook</option><option>OTA</option></select></label>
                 <label>负责人<select id="owner"><option>定制师 A</option><option>定制师 B</option><option>老板</option></select></label>
                 <label>跟进状态<select id="followStatus"><option>新询盘</option><option>需求确认中</option><option>已发报价</option><option>待跟进</option><option>已成交</option><option>未成交</option></select></label>
+                <label>预算范围<input id="budgetRange" placeholder="¥30,000 - ¥45,000 / 人" /></label>
+                <label>语言需求<input id="languageNeed" placeholder="英语 / 阿拉伯语 / 西语" /></label>
+                <label>酒店偏好<input id="hotelPreference" placeholder="4星舒适型，双床优先" /></label>
+                <label>餐食偏好<input id="mealPreference" placeholder="清真 / 素食 / 不含猪肉" /></label>
+                <label class="wide">AI 识别备注<textarea id="aiNotes" placeholder="小易识别出的关键信息、疑点和风险"></textarea></label>
+                <label class="wide">OP 内部备注<textarea id="opNotes" placeholder="内部跟进备注，不进入客户报价单"></textarea></label>
               </div>
             </div>
 
@@ -231,15 +310,17 @@
             </div>
           </section>
 
-          <section class="section" id="q-itinerary">
+          <section class="section edit-section" id="q-itinerary">
             <div class="section-head">
               <div>
-                <h3>行程</h3>
-                <p>行程来源放在上方，每日行程放在下方，避免详情横向溢出。</p>
+                <h3>行程安排编辑</h3>
+                <p>每一天独立维护，保存后回到总览；小易优化会先生成 AI 建议变更。</p>
               </div>
               <div class="actions">
+                <button class="secondary-btn" data-workbench-home><i data-lucide="arrow-left"></i><span>返回报价工作台</span></button>
                 <button class="secondary-btn" id="loadHistory"><i data-lucide="history"></i><span>沿用历史行程</span></button>
                 <button class="primary-btn" id="generateItinerary"><i data-lucide="calendar-plus"></i><span>按需求生成行程</span></button>
+                <button class="primary-btn" data-workbench-save><i data-lucide="save"></i><span>保存</span></button>
               </div>
             </div>
 
@@ -266,11 +347,15 @@
             </div>
           </section>
 
-          <section class="section" id="q-quote">
+          <section class="section edit-section" id="q-quote">
             <div class="section-head">
               <div>
                 <h3>报价明细</h3>
                 <p>行程生成或修改后，报价明细会自动同步；按服务项切换后直接填写成本和卖价。</p>
+              </div>
+              <div class="actions">
+                <button class="secondary-btn" data-workbench-home><i data-lucide="arrow-left"></i><span>返回报价工作台</span></button>
+                <button class="primary-btn" id="buildQuote"><i data-lucide="calculator"></i><span>重新计算报价</span></button>
               </div>
             </div>
 
@@ -285,28 +370,48 @@
             <div id="quoteTablePanel" class="panel"></div>
           </section>
 
-          <section class="section" id="q-summary">
+          <section class="section edit-section" id="q-summary">
             <div class="section-head">
               <div>
                 <h3>汇总检查</h3>
                 <p>系统自动汇总成本、卖价、毛利、人均价和缺失成本。</p>
               </div>
+              <div class="actions">
+                <button class="secondary-btn" data-workbench-home><i data-lucide="arrow-left"></i><span>返回报价工作台</span></button>
+              </div>
             </div>
             <div id="summaryPanel" class="panel empty">行程生成后会自动汇总成本和卖价。</div>
           </section>
 
-          <section class="section" id="q-proposal">
+          <section class="section edit-section" id="q-proposal">
             <div class="section-head">
               <div>
                 <h3>客人方案</h3>
-                <p>选择语言后，标题、行程、费用包含和说明都会切换为对应语言。</p>
+                <p>先生成预览，再人工确认并锁定版本，之后才能下载 PDF 或导出图片。</p>
               </div>
               <div class="actions">
+                <button class="secondary-btn" data-workbench-home><i data-lucide="arrow-left"></i><span>返回报价工作台</span></button>
                 <button class="primary-btn" id="buildProposal"><i data-lucide="layout-template"></i><span>生成/更新方案</span></button>
+                <button class="primary-btn" id="confirmProposal"><i data-lucide="lock-keyhole"></i><span>确认并锁定方案</span></button>
                 <button class="secondary-btn" id="editProposal"><i data-lucide="pencil"></i><span>编辑方案</span></button>
                 <button class="secondary-btn" id="exportPdf"><i data-lucide="file-down"></i><span>下载 PDF</span></button>
                 <button class="secondary-btn" id="exportImage"><i data-lucide="image-down"></i><span>导出图片</span></button>
               </div>
+            </div>
+            <div class="proposal-guard" id="proposalGuard">未生成客户方案。生成后需要人工确认，才可以导出 PDF / 图片。</div>
+            <div class="proposal-guard danger hidden" id="englishWarning">英文报价单仍包含中文内容，请重新翻译或人工确认。</div>
+            <div class="panel asset-panel">
+              <div class="panel-head">
+                <h4>方案图片素材</h4>
+                <span>优先使用产品库图片；缺图显示待补图。酒店真实图不可用 AI 乱生成。</span>
+              </div>
+              <div class="asset-actions">
+                <label>粘贴图片 URL<input id="assetUrlInput" placeholder="https://..." /></label>
+                <button class="secondary-btn" id="addAssetUrl"><i data-lucide="link"></i><span>加入素材</span></button>
+                <label class="upload-btn"><input id="assetUploadInput" type="file" accept="image/*" hidden /><i data-lucide="upload"></i><span>上传图片</span></label>
+                <button class="ghost-btn" id="image2Placeholder"><i data-lucide="image-plus"></i><span>Image2 补图（预留）</span></button>
+              </div>
+              <div id="proposalAssets" class="proposal-assets"></div>
             </div>
             <div class="panel output-settings">
               <label>输出语言<select id="outputLang"><option value="zh">中文</option><option value="en" selected>English</option><option value="ar">العربية</option><option value="fr">Français</option><option value="es">Español</option></select></label>
@@ -343,7 +448,7 @@
             </article>
           </section>
 
-          <section class="section" id="q-archive">
+          <section class="section edit-section" id="q-archive">
             <div class="section-head">
               <div>
                 <h3>版本归档</h3>
@@ -357,13 +462,14 @@
             </div>
           </section>
           </div>
-          <aside class="agent-sidebar" aria-label="AI Agent 超级助手">
+          <aside class="agent-sidebar" id="xiaoyiPanel" aria-label="小易超级报价助手" aria-hidden="true">
             <div class="agent-head">
               <div>
-                <p class="eyebrow">AI Agent</p>
-                <h3>报价超级助手</h3>
+                <p class="eyebrow">Youyixing AI</p>
+                <h3>小易 · 超级报价助手</h3>
               </div>
               <span class="status ok" id="agentMode">DeepSeek</span>
+              <button class="icon-btn" id="closeXiaoyi" aria-label="关闭小易"><i data-lucide="x"></i></button>
             </div>
             <div class="agent-actions">
               <button class="primary-btn" id="agentRecognizeDemand"><i data-lucide="sparkles"></i><span>识别客户需求</span></button>
@@ -377,13 +483,15 @@
               <button class="secondary-btn" id="agentExtractQuoteItems"><i data-lucide="list-plus"></i><span>识别报价项</span></button>
               <button class="secondary-btn" id="agentApplyQuoteItems"><i data-lucide="table-properties"></i><span>应用到报价明细</span></button>
               <button class="secondary-btn" id="agentRecalculateQuote"><i data-lucide="calculator"></i><span>重新计算报价</span></button>
-              <button class="secondary-btn" id="agentBuildCustomerProposal"><i data-lucide="file-text"></i><span>生成客户版报价</span></button>
+              <button class="secondary-btn" id="agentCheckCosts"><i data-lucide="circle-alert"></i><span>检查缺失成本</span></button>
+              <button class="secondary-btn" id="agentBuildCustomerProposal"><i data-lucide="file-text"></i><span>生成英文客户报价单</span></button>
+              <button class="secondary-btn" id="agentCheckEnglish"><i data-lucide="languages"></i><span>检查英文残留中文</span></button>
               <button class="primary-btn" id="agentSaveQuoteVersion"><i data-lucide="save"></i><span>保存报价版本</span></button>
             </div>
             <div class="agent-result">
               <div class="panel-head">
-                <h4>待应用结果</h4>
-                <span>Agent 输出不会直接覆盖页面。</span>
+                <h4>待确认结果 / AI 建议变更</h4>
+                <span>小易输出不会直接覆盖正式数据。</span>
               </div>
               <div id="agentPendingResult" class="agent-pending empty">等待 Agent 输出。</div>
             </div>
@@ -393,7 +501,6 @@
         </section>
 
         <section class="module-view" id="orders"><div class="placeholder"><h3>订单管理</h3><p>成交后的项目进入订单，继续管理合同、收款、成本确认、供应商付款和利润。</p></div></section>
-        <section class="module-view" id="ops"><div class="placeholder"><h3>操作排团</h3><p>从报价明细自动拆出车辆、导游、门票、酒店、餐厅和通知书任务。</p></div></section>
         <section class="module-view" id="products">
           <div class="resource-page">
             <div class="section-head">
@@ -480,9 +587,51 @@
           </div>
         </section>
         <section class="module-view" id="finance"><div class="placeholder"><h3>财务统计</h3><p>统计应收、实收、应付、实付、毛利、渠道、员工和产品利润。</p></div></section>
-        <section class="module-view" id="dashboard"><div class="placeholder"><h3>老板看板</h3><p>查看成交额、毛利率、报价转化率、待确认成本、未回款和员工效率。</p></div></section>
-        <section class="module-view" id="sop"><div class="placeholder"><h3>SOP 知识库</h3><p>沉淀报价、成交、操作、财务、供应商准入和风险处理 SOP。</p></div></section>
-        <section class="module-view" id="settings"><div class="placeholder"><h3>系统设置</h3><p>设置角色权限、汇率、报价公式、语言模板、飞书同步和导出样式。</p></div></section>
+        <section class="module-view" id="settings">
+          <div class="settings-page">
+            <div class="section-head">
+              <div>
+                <h3>系统设置</h3>
+                <p>第一版先完成 AI 模型配置；汇率、报价公式、语言模板、飞书同步和权限后续扩展。</p>
+              </div>
+            </div>
+            <div class="grid two settings-layout">
+              <div class="panel">
+                <div class="panel-head">
+                  <h4>AI 模型配置</h4>
+                  <span>老板可以配置自己的 DeepSeek Key；完整 Key 不会返回给前端。</span>
+                </div>
+                <div class="form-grid settings-form">
+                  <label>模型服务商<select id="aiProvider"><option value="deepseek">DeepSeek</option></select></label>
+                  <label>API Key<input id="aiApiKey" type="password" placeholder="sk-..." autocomplete="off" /></label>
+                  <label>Base URL<input id="aiBaseUrl" value="https://api.deepseek.com" /></label>
+                  <label>Model<input id="aiModel" value="deepseek-chat" /></label>
+                  <label>Temperature<input id="aiTemperature" type="number" min="0" max="1" step="0.1" value="0.2" /></label>
+                </div>
+                <div class="settings-status" id="aiConnectionStatus">连接状态：未检测</div>
+                <div class="actions panel-actions">
+                  <button class="primary-btn" id="saveAiSettings"><i data-lucide="save"></i><span>保存配置</span></button>
+                  <button class="secondary-btn" id="testAiSettings"><i data-lucide="plug-zap"></i><span>测试连接</span></button>
+                  <button class="ghost-btn" id="clearAiSettings"><i data-lucide="trash-2"></i><span>清除配置</span></button>
+                </div>
+              </div>
+              <div class="panel">
+                <div class="panel-head">
+                  <h4>后续设置预留</h4>
+                  <span>先不深做，保留扩展位置。</span>
+                </div>
+                <div class="settings-placeholder-grid">
+                  <div><strong>汇率设置</strong><span>后续维护币种和报价换算。</span></div>
+                  <div><strong>报价公式设置</strong><span>后续维护利润率和 B 端策略。</span></div>
+                  <div><strong>语言模板</strong><span>后续维护多语种提案模板。</span></div>
+                  <div><strong>飞书同步设置</strong><span>后续接入单向/双向同步。</span></div>
+                  <div><strong>PDF 导出样式</strong><span>后续配置封面、Logo 和模板。</span></div>
+                  <div><strong>角色权限</strong><span>后续隔离成本和供应商敏感信息。</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
     <div class="modal-backdrop hidden" id="productModal">
@@ -501,6 +650,6 @@
         </div>
       </div>
     </div>
-    <script src="./app.js?v=20260625-agent-mvp-3"></script>
+    <script src="./app.js?v=20260625-youyixing-ui-1"></script>
   </body>
 </html>
