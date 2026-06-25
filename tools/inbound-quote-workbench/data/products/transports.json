@@ -1,0 +1,40 @@
+[
+  {
+    "id": "TR-MANUAL-001",
+    "type": "train",
+    "name_cn": "国内火车 / 高铁手动录入",
+    "name_en": "Domestic train manual entry",
+    "cost_mode": "manual",
+    "profit_rate": 0.06,
+    "minimum_profit_per_segment": 30,
+    "currency": "CNY",
+    "required_fields": [
+      "date",
+      "route",
+      "train_number",
+      "seat_class",
+      "adult_cost",
+      "child_cost"
+    ],
+    "notes": "第一版不自动出票，OP 按真实票面成本手动录入，系统按大交通利润规则计算售价。"
+  },
+  {
+    "id": "TR-MANUAL-002",
+    "type": "flight",
+    "name_cn": "国内航班手动录入",
+    "name_en": "Domestic flight manual entry",
+    "cost_mode": "manual",
+    "profit_rate": 0.06,
+    "minimum_profit_per_segment": 30,
+    "currency": "CNY",
+    "required_fields": [
+      "date",
+      "route",
+      "flight_number",
+      "cabin_class",
+      "adult_cost",
+      "child_cost"
+    ],
+    "notes": "第一版不自动订票，OP 按真实票面成本手动录入，系统按大交通利润规则计算售价。"
+  }
+]

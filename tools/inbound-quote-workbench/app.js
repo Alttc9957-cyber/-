@@ -44617,16 +44617,17 @@ function hydrateImportedProductCatalog() {
 
 async function loadRuntimeData() {
   try {
-    const [attractions, vehicles, guides, hotels, routes, pricingRules, profitStrategies] = await Promise.all([
+    const [attractions, vehicles, guides, hotels, transports, routes, pricingRules, profitStrategies] = await Promise.all([
       fetchJson("data/products/attractions.json"),
       fetchJson("data/products/vehicles.json"),
       fetchJson("data/products/guides.json"),
       fetchJson("data/products/hotels.json"),
+      fetchJson("data/products/transports.json"),
       fetchJson("data/cases/historical-routes.json"),
       fetchJson("data/rules/pricing-rules.json"),
       fetchJson("data/rules/profit-strategies.json"),
     ]);
-    mergeRuntimeProducts({ attractions, vehicles, guides, hotels, routes, pricingRules, profitStrategies });
+    mergeRuntimeProducts({ attractions, vehicles, guides, hotels, transports, routes, pricingRules, profitStrategies });
     state.runtimeData = { loaded: true, error: "" };
     refreshQuoteResources();
     renderResourceLibrary();
@@ -44651,6 +44652,7 @@ function mergeRuntimeProducts(data) {
   appendUnique(state.productCatalog.vehicles, (data.vehicles || []).map(runtimeVehicleToProduct), "runtimeId");
   appendUnique(state.productCatalog.guides, (data.guides || []).map(runtimeGuideToProduct), "runtimeId");
   appendUnique(state.productCatalog.hotels, (data.hotels || []).map(runtimeHotelToProduct), "runtimeId");
+  state.productCatalog.transports = data.transports || [];
   appendRuntimeHistoricalRoutes(data.routes || []);
   state.pricingRules = data.pricingRules || {};
   state.profitStrategies = data.profitStrategies || [];
@@ -48829,6 +48831,7 @@ function writeAcceptanceProbe() {
       tickets: state.productCatalog.tickets.length,
       guides: state.productCatalog.guides.length,
       hotels: state.productCatalog.hotels.length,
+      transports: state.productCatalog.transports?.length || 0,
       meals: state.productCatalog.meals.length,
     },
     quoteResourceCounts: state.quoteResources.reduce((acc, item) => {

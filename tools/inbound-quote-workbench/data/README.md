@@ -10,6 +10,7 @@ This directory contains first-version runtime data copied from the cleaned local
 - `products/vehicles.json`
 - `products/guides.json`
 - `products/hotels.json`
+- `products/transports.json`
 - `cases/historical-routes.json`
 - `cases/historical-quotes.json`
 - `rules/pricing-rules.json`
