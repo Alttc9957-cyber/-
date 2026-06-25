@@ -44151,6 +44151,7 @@ const state = {
   activeService: "vehicle",
   historyCandidates: [],
   agent: { pendingType: "", pendingData: null, loading: false },
+  agentQuoteItems: [],
   routeConfirmed: false,
   runtimeData: { loaded: false, error: "" },
   proposalEditing: false,
@@ -46657,8 +46658,16 @@ function agentApplyQuoteItems() {
     setAgentPending("message", { title: "请先确认线路", body: "没有每日行程时不能生成报价明细。" });
     return;
   }
-  applyQuoteItemServiceToggles(state.agent.pendingData?.quoteItems || []);
+  const pending = state.agent.pendingData || {};
+  const quoteItems = pending.quoteItems || [];
+  state.agentQuoteItems = quoteItems;
+  applyQuoteItemServiceToggles(quoteItems);
+  applyQuoteItemDemandHints(pending);
   buildQuote();
+  applyAgentQuoteItemsToQuote(quoteItems);
+  renderQuoteTabs();
+  renderQuoteTable();
+  renderSummary();
   setAgentPending("message", { title: "已应用到报价明细", body: "系统已按确认线路和服务项调用产品资源库计算报价。缺失成本会在汇总检查中提示，OP 可手动补价。" });
 }
 
@@ -46864,6 +46873,71 @@ function applyQuoteItemServiceToggles(items) {
   });
   renderIncludeButtons();
   renderQuoteTabs();
+}
+
+function applyQuoteItemDemandHints(data) {
+  const items = data?.quoteItems || data || [];
+  const hintText = [
+    ...(items || []).flatMap((item) => [item.quantity, item.pricingBasis, item.notes, item.name]),
+    ...(data?.warnings || []),
+  ].filter(Boolean).join(" ");
+  const hotelItem = (items || []).find((item) => item.service === "hotel");
+  let rooms = number(hintText.match(/(\d+)\s*间/)?.[1]);
+  if (!rooms && hotelItem) rooms = Math.max(Math.ceil(getDemand().people / 2), 1);
+  if (hotelItem && rooms > 0) {
+    $("#rooms").value = rooms;
+    state.roomTypes = [{ type: inferRoomType(hotelItem), rooms }];
+    renderRoomTypes();
+  }
+  if ((items || []).some((item) => item.service === "traffic")) {
+    $("#svcTraffic").checked = true;
+    renderIncludeButtons();
+  }
+}
+
+function inferRoomType(item) {
+  const text = `${item?.name || ""} ${item?.pricingBasis || ""} ${item?.notes || ""}`;
+  if (/大床/.test(text)) return "大床房";
+  if (/三人/.test(text)) return "三人间";
+  if (/套房/.test(text)) return "套房";
+  return "双床房";
+}
+
+function applyAgentQuoteItemsToQuote(items) {
+  const quote = activeQuote();
+  if (!quote?.data || !items?.length) return;
+  const d = getDemand();
+  const ticketItems = items.filter((item) => item.service === "ticket");
+  if (ticketItems.length && quote.data.ticket?.length) {
+    quote.data.ticket = quote.data.ticket.map((row, dayIndex) => {
+      const day = state.itinerary[dayIndex] || {};
+      const matched = ticketItems.filter((item) => quoteItemMatchesDay(item, day, dayIndex));
+      if (!matched.length) return { ...row, items: [] };
+      return {
+        ...row,
+        items: matched.map((item) => {
+          const lookup = lookupTicketCost(item.name || item.resourceHint || "", item.city || day.city, day.date || d.startDate, item.ticketType || "景区门票");
+          return {
+            name: item.name || item.resourceHint || "待补门票",
+            ticketType: lookup.ticketType || "景区门票",
+            adultCost: lookup.adultCost,
+            childCost: lookup.childCost,
+            source: lookup.source,
+            missingCost: lookup.adultCost === "" || (d.children && lookup.childCost === ""),
+            ...traceFields(lookup, lookup.sourceType || "产品库"),
+          };
+        }),
+      };
+    });
+  }
+}
+
+function quoteItemMatchesDay(item, day, dayIndex) {
+  if (item.date && day.date && item.date === day.date) return true;
+  if (item.day && number(item.day) === dayIndex + 1) return true;
+  if (item.city && day.city && item.city === day.city) return true;
+  const text = `${day.overview || ""} ${day.detail || ""}`;
+  return Boolean(item.name && text.includes(item.name));
 }
 
 function applyCustomerProposal(data) {
