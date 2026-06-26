@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>友易行旅行社报价工作台</title>
-    <link rel="stylesheet" href="./styles.css?v=20260625-youyixing-ui-1" />
+    <link rel="stylesheet" href="./styles.css?v=20260625-stable-engine-1" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
@@ -105,12 +105,12 @@
             <button class="xiaoyi-arrow" type="button"><i data-lucide="chevron-right"></i></button>
           </div>
 
-          <div class="quote-stepper" id="quoteStepper">
-            <button class="active" data-step-target="q-demand"><i data-lucide="user-round"></i><span>1</span><strong>客户信息</strong></button>
-            <button data-step-target="q-itinerary"><i data-lucide="map"></i><span>2</span><strong>行程安排</strong></button>
-            <button data-step-target="q-quote"><i data-lucide="receipt-text"></i><span>3</span><strong>报价项目</strong></button>
-            <button data-step-target="q-summary"><i data-lucide="badge-check"></i><span>4</span><strong>报价汇总</strong></button>
-            <button data-step-target="q-proposal"><i data-lucide="image"></i><span>5</span><strong>客户提案</strong></button>
+          <div class="quote-stepper flow-line" id="quoteStepper" aria-label="报价流程线">
+            <button class="active" data-step-target="q-demand" data-flow-step="customer"><i data-lucide="user-round"></i><span>1</span><strong>客户信息</strong><em class="step-status">未开始</em></button>
+            <button data-step-target="q-itinerary" data-flow-step="itinerary"><i data-lucide="map"></i><span>2</span><strong>行程安排</strong><em class="step-status">未开始</em></button>
+            <button data-step-target="q-quote" data-flow-step="quote"><i data-lucide="receipt-text"></i><span>3</span><strong>报价项目</strong><em class="step-status">未开始</em></button>
+            <button data-step-target="q-summary" data-flow-step="summary"><i data-lucide="badge-check"></i><span>4</span><strong>报价汇总</strong><em class="step-status">未开始</em></button>
+            <button data-step-target="q-proposal" data-flow-step="proposal"><i data-lucide="image"></i><span>5</span><strong>客户提案</strong><em class="step-status">未开始</em></button>
           </div>
 
           <section class="workbench-overview" id="quoteOverview">
@@ -201,9 +201,13 @@
             <div class="panel" id="rawDemandPanel">
               <div class="panel-head">
                 <h4>客户需求输入区</h4>
-                <span>粘贴客户需求、聊天记录或飞书表单内容，右侧 Agent 会先输出待应用结果。</span>
+                <span>粘贴客户需求、聊天记录或飞书表单内容，小易会先输出可修改草稿。</span>
               </div>
               <textarea id="rawDemandInput" class="large-text" placeholder="粘贴客户需求 / WhatsApp 聊天记录 / 飞书表单内容。例：Dubai family, 4 adults + 1 child, Beijing and Shanghai, 5 days from 2026-07-01, needs hotel, private car, English guide, tickets, no shopping, comfortable pace."></textarea>
+              <div class="actions panel-actions">
+                <button class="primary-btn" id="recognizeDemandDraft"><i data-lucide="sparkles"></i><span>识别需求并生成草稿</span></button>
+                <button class="secondary-btn" id="generateDemandQuestions"><i data-lucide="messages-square"></i><span>生成追问问题</span></button>
+              </div>
             </div>
 
             <div class="panel demand-panel">
@@ -267,7 +271,7 @@
                   <button type="button" class="include-toggle active" data-include="svcHotel"><span>酒店</span><strong>包含</strong></button>
                   <input id="svcHotel" type="checkbox" checked hidden />
                   <div class="form-grid compact">
-                    <label>酒店星级<select id="hotelLevel"><option>不含酒店</option><option selected>4星舒适型</option><option>5星品质型</option><option>豪华型</option></select></label>
+                    <label>酒店星级<select id="hotelLevel"><option>不含酒店</option><option>3星标准型</option><option selected>4星舒适型</option><option>5星品质型</option><option>豪华型</option></select></label>
                     <label>每天房间数<input id="rooms" type="number" min="0" value="0" /></label>
                     <div class="room-type-editor wide">
                       <div class="room-type-head"><span>房型与房间数</span><button class="add-mini" type="button" id="addRoomTypeRow">添加房型</button></div>
@@ -563,6 +567,15 @@
               </div>
             </div>
             <div class="dashboard-stats" id="resourceStats"></div>
+            <div class="management-flow flow-line compact-flow" id="productFlowLine" aria-label="产品资源库流程线">
+              <button class="done"><i data-lucide="upload-cloud"></i><strong>数据导入</strong><em>已接入</em></button>
+              <button class="active"><i data-lucide="wand-sparkles"></i><strong>字段清洗</strong><em>进行中</em></button>
+              <button><i data-lucide="layout-list"></i><strong>资源分类</strong><em>按品类</em></button>
+              <button><i data-lucide="badge-dollar-sign"></i><strong>成本校验</strong><em>可筛缺失</em></button>
+              <button><i data-lucide="link"></i><strong>供应商绑定</strong><em>可追溯</em></button>
+              <button><i data-lucide="badge-check"></i><strong>可报价状态</strong><em>状态看板</em></button>
+              <button><i data-lucide="refresh-cw"></i><strong>同步报价</strong><em>已预留</em></button>
+            </div>
             <div class="panel">
               <div class="panel-head">
                 <h4>产品品类</h4>
@@ -606,6 +619,15 @@
               <button class="primary-btn" id="addSupplier"><i data-lucide="plus"></i><span>新增供应商</span></button>
             </div>
             <div class="dashboard-stats" id="supplierStats"></div>
+            <div class="management-flow flow-line compact-flow" id="supplierFlowLine" aria-label="供应商管理流程线">
+              <button class="done"><i data-lucide="id-card"></i><strong>供应商档案</strong><em>基础字段</em></button>
+              <button class="active"><i data-lucide="boxes"></i><strong>服务品类</strong><em>分类维护</em></button>
+              <button><i data-lucide="badge-dollar-sign"></i><strong>成本规则</strong><em>资源成本</em></button>
+              <button><i data-lucide="handshake"></i><strong>合作状态</strong><em>可筛选</em></button>
+              <button><i data-lucide="link"></i><strong>资源绑定</strong><em>已打通</em></button>
+              <button><i data-lucide="receipt-text"></i><strong>报价调用</strong><em>可追溯</em></button>
+              <button><i data-lucide="truck"></i><strong>订单派单</strong><em>后续</em></button>
+            </div>
             <div class="panel">
               <div class="panel-head">
                 <h4>供应商品类</h4>
@@ -614,7 +636,7 @@
               <div class="category-tabs" id="supplierCategoryTabs"></div>
               <div class="supplier-filters">
                 <label>关键词<input id="supplierSearch" placeholder="供应商、城市、联系人" /></label>
-                <label>状态<select id="supplierStatusFilter"><option value="">全部状态</option><option>合作中</option><option>待审核</option><option>暂停合作</option></select></label>
+                <label>状态<select id="supplierStatusFilter"><option value="">全部状态</option><option>合作中</option><option>待确认</option><option>暂停合作</option><option>黑名单</option><option>待补资料</option></select></label>
               </div>
             </div>
             <div class="grid two supplier-layout">
@@ -664,6 +686,31 @@
                   <button class="ghost-btn" id="clearAiSettings"><i data-lucide="trash-2"></i><span>清除配置</span></button>
                 </div>
               </div>
+              <div class="panel pricing-rules-panel">
+                <div class="panel-head">
+                  <h4>报价规则设置</h4>
+                  <span>统一维护计价规则，不再放到报价首页。</span>
+                </div>
+                <div class="management-flow flow-line compact-flow settings-flow" id="pricingRulesFlowLine">
+                  <button class="done"><i data-lucide="percent"></i><strong>默认利润率</strong><em>20%</em></button>
+                  <button class="done"><i data-lucide="plane"></i><strong>大交通规则</strong><em>6% / 30元</em></button>
+                  <button class="active"><i data-lucide="users-round"></i><strong>成人/儿童价格</strong><em>分开计算</em></button>
+                  <button><i data-lucide="hotel"></i><strong>酒店房间规则</strong><em>按房型</em></button>
+                  <button><i data-lucide="pencil-line"></i><strong>手动价优先</strong><em>已启用</em></button>
+                  <button><i data-lucide="triangle-alert"></i><strong>缺成本提醒</strong><em>不静默</em></button>
+                  <button><i data-lucide="calendar-clock"></i><strong>报价有效期</strong><em>待配置</em></button>
+                </div>
+                <div class="form-grid settings-form">
+                  <label>默认综合利润率 %<input id="ruleDefaultMargin" type="number" value="20" min="0" max="80" /></label>
+                  <label>大交通利润率 %<input id="ruleTrafficMargin" type="number" value="6" min="0" max="80" /></label>
+                  <label>大交通最低利润<input id="ruleTrafficMinProfit" type="number" value="30" min="0" /></label>
+                  <label>酒店房间数规则<select id="ruleRoomCount"><option>成人儿童合计 / 2 向上取整</option><option>按 OP 手动房型优先</option></select></label>
+                  <label>手动价优先级<select id="ruleManualPriority"><option>手动成本和卖价优先</option><option>重新匹配时覆盖</option></select></label>
+                  <label>缺成本提醒<select id="ruleMissingCost"><option>缺成本不参与完整报价并提示</option><option>允许风险确认后导出</option></select></label>
+                  <label>报价有效期<input id="ruleValidityDays" type="number" value="7" min="1" /></label>
+                  <label>汇率设置<select id="ruleExchange"><option>使用本地汇率表</option><option>后续接实时汇率</option></select></label>
+                </div>
+              </div>
               <div class="panel">
                 <div class="panel-head">
                   <h4>后续设置预留</h4>
@@ -699,6 +746,6 @@
         </div>
       </div>
     </div>
-    <script src="./app.js?v=20260625-youyixing-ui-1"></script>
+    <script src="./app.js?v=20260625-stable-engine-1"></script>
   </body>
 </html>
