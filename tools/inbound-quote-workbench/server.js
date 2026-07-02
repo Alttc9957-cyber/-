@@ -4,8 +4,9 @@ const path = require("path");
 
 const root = __dirname;
 const host = "127.0.0.1";
-const port = 8787;
+const port = Number(process.env.PORT || 8787);
 const runtimeSettingsPath = path.join(root, "runtime-settings.json");
+const operationLogPath = path.join(root, "data", "agent-operation-log.json");
 loadLocalEnv(path.join(root, ".env"));
 
 const types = {
@@ -18,7 +19,7 @@ const types = {
   ".svg": "image/svg+xml",
 };
 
-const server = http.createServer(async (req, res) => {
+async function requestHandler(req, res) {
   const route = req.url.split("?")[0];
   if (req.method === "GET" && route === "/api/settings") {
     handleGetSettings(res);
@@ -45,11 +46,41 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "POST" && route === "/api/agent/action") {
+    await handleAgentActionRequest(req, res);
+    return;
+  }
+
+  if (req.method === "POST" && route === "/api/agent/suggestions") {
+    await handleAgentSuggestionsRequest(req, res);
+    return;
+  }
+
+  if (req.method === "POST" && route === "/api/agent/apply") {
+    await handleAgentApplyRequest(req, res);
+    return;
+  }
+
+  if (req.method === "POST" && route === "/api/translate") {
+    await handleTranslateRequest(req, res);
+    return;
+  }
+
+  if (req.method === "POST" && route === "/api/translate/segment") {
+    await handleTranslateSegmentRequest(req, res);
+    return;
+  }
+
   let urlPath = decodeURIComponent(req.url.split("?")[0]);
   if (urlPath === "/") urlPath = "/index.html";
 
   const filePath = path.resolve(root, `.${urlPath}`);
   if (!filePath.startsWith(root)) {
+    res.writeHead(403);
+    res.end("Forbidden");
+    return;
+  }
+  if (isBlockedStaticPath(filePath)) {
     res.writeHead(403);
     res.end("Forbidden");
     return;
@@ -67,7 +98,19 @@ const server = http.createServer(async (req, res) => {
     });
     res.end(data);
   });
-});
+}
+
+const server = http.createServer(requestHandler);
+
+function isBlockedStaticPath(filePath) {
+  const relative = path.relative(root, filePath);
+  const parts = relative.split(path.sep);
+  if (parts.some((part) => part.startsWith(".") && part !== ".well-known")) return true;
+  return [
+    "runtime-settings.json",
+    path.join("data", "agent-operation-log.json"),
+  ].includes(relative);
+}
 
 function loadLocalEnv(filePath) {
   if (!fs.existsSync(filePath)) return;
@@ -88,7 +131,7 @@ async function handleAgentRequest(req, res) {
     const body = await readJsonBody(req);
     const aiConfig = readAiConfig();
     if (!aiConfig.apiKey) {
-      sendJson(res, 400, { error: "请先到系统设置配置 API Key" });
+      sendJson(res, 200, localAgentResponse(body));
       return;
     }
 
@@ -141,7 +184,14 @@ async function handleAgentChatRequest(req, res) {
     const body = await readJsonBody(req);
     const aiConfig = readAiConfig();
     if (!aiConfig.apiKey) {
-      sendJson(res, 400, { error: "请先到系统设置配置 API Key" });
+      sendJson(res, 200, {
+        content: JSON.stringify(localAgentResponse({
+          message: body.messages?.map((item) => item.content).join("\n") || "",
+          context: body.context || {},
+        })),
+        usage: null,
+        model: "local-agent-engine",
+      });
       return;
     }
 
@@ -212,13 +262,319 @@ function normalizeAgentChatResponse(data, result, model) {
   return {
     reply: data.reply || "我已理解你的需求。",
     intent: data.intent || "free_chat",
+    context: data.context || {},
     suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
+    requiredFields: Array.isArray(data.requiredFields) ? data.requiredFields : [],
     actions: Array.isArray(data.actions) ? data.actions : [],
+    draft: data.draft || null,
+    canApply: Boolean(data.canApply),
+    nextSteps: Array.isArray(data.nextSteps) ? data.nextSteps : [],
     attachments: Array.isArray(data.attachments) ? data.attachments : [],
     memory_suggestions: Array.isArray(data.memory_suggestions) ? data.memory_suggestions : [],
     usage: result.usage || null,
     model: result.model || model,
   };
+}
+
+async function handleAgentActionRequest(req, res) {
+  try {
+    const body = await readJsonBody(req);
+    sendJson(res, 200, localAgentResponse({ ...body, message: body.message || body.action || "" }));
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "Agent action failed" });
+  }
+}
+
+async function handleTranslateRequest(req, res) {
+  try {
+    const body = await readJsonBody(req);
+    const aiConfig = readAiConfig();
+    if (!aiConfig.apiKey) {
+      sendJson(res, 503, { error: "未配置真实翻译 API Key。请先在系统设置里配置 DeepSeek / OpenAI 兼容接口。" });
+      return;
+    }
+    const source = body.source || {};
+    const targetLanguage = body.targetLanguage || "English";
+    const payload = {
+      model: aiConfig.model,
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: [
+            "你是入境游报价方案专业翻译。",
+            "只翻译用户提供的完整中文方案，不要新增未提供的服务或价格。",
+            "保留 Day 1 / Day 2 结构、日期、城市、酒店名、景点名、价格、费用包含和不包含。",
+            "返回 JSON：{title,kicker,meta,itinerary:[{day,date,city,overview,detail}], inclusions:[], exclusions:[], payment, notes:[]}",
+            "不要输出 Markdown。",
+          ].join("\n"),
+        },
+        {
+          role: "user",
+          content: JSON.stringify({ targetLanguage, source }),
+        },
+      ],
+    };
+    const response = await fetch(`${aiConfig.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${aiConfig.apiKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      sendJson(res, response.status, { error: result.error?.message || "Translate request failed", raw: result });
+      return;
+    }
+    const content = result.choices?.[0]?.message?.content || "{}";
+    sendJson(res, 200, { translation: parseModelJson(content), usage: result.usage || null, model: result.model || payload.model });
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "Translate request failed" });
+  }
+}
+
+async function handleTranslateSegmentRequest(req, res) {
+  try {
+    const body = await readJsonBody(req);
+    const aiConfig = readAiConfig();
+    if (!aiConfig.apiKey) {
+      sendJson(res, 503, { error: "未配置真实翻译 API Key。请先在系统设置里配置 DeepSeek / OpenAI 兼容接口。" });
+      return;
+    }
+    const text = String(body.text || "").trim();
+    if (!text) {
+      sendJson(res, 400, { error: "缺少需要翻译的中文片段。" });
+      return;
+    }
+    const targetLanguage = body.targetLanguage || "English";
+    const context = body.context || {};
+    const payload = {
+      model: aiConfig.model,
+      temperature: 0.15,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: [
+            "你是入境游报价方案的局部翻译器。",
+            "只翻译用户提供的 text，不新增原文没有的信息。",
+            "保留酒店名、城市名、景点名、日期、价格、Day 编号和专有名词。",
+            "结合 context 理解语境，但不要把 context 中其他内容扩写进译文。",
+            "返回 JSON：{translatedText:\"...\"}。",
+            "不要输出 Markdown。",
+          ].join("\n"),
+        },
+        {
+          role: "user",
+          content: JSON.stringify({ targetLanguage, text, context }),
+        },
+      ],
+    };
+    const response = await fetch(`${aiConfig.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${aiConfig.apiKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      sendJson(res, response.status, { error: result.error?.message || "Translate segment request failed", raw: result });
+      return;
+    }
+    const content = result.choices?.[0]?.message?.content || "{}";
+    const parsed = parseModelJson(content);
+    sendJson(res, 200, {
+      translatedText: String(parsed.translatedText || "").trim(),
+      usage: result.usage || null,
+      model: result.model || payload.model,
+    });
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "Translate segment request failed" });
+  }
+}
+
+async function handleAgentSuggestionsRequest(req, res) {
+  try {
+    const body = await readJsonBody(req);
+    sendJson(res, 200, localAgentSuggestions(body));
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "Agent suggestions failed" });
+  }
+}
+
+async function handleAgentApplyRequest(req, res) {
+  try {
+    const body = await readJsonBody(req);
+    const entry = {
+      id: `op_${Date.now()}`,
+      projectId: body.projectId || "",
+      intent: body.intent || body.actionId || "",
+      actionId: body.actionId || "",
+      draft: body.draft || null,
+      status: body.confirmed === false ? "draft" : "applied",
+      createdAt: new Date().toISOString(),
+    };
+    appendOperationLog(entry);
+    sendJson(res, 200, {
+      reply: entry.status === "applied" ? "已记录确认应用动作，前端可安全写入对应表格。" : "已记录为草稿，等待用户确认。",
+      intent: entry.intent,
+      context: { projectId: entry.projectId },
+      suggestions: [],
+      requiredFields: [],
+      actions: [],
+      draft: entry.draft,
+      canApply: entry.status !== "applied",
+      nextSteps: entry.status === "applied" ? ["刷新表格", "记录操作日志"] : ["继续修改草稿", "确认后应用"],
+      operation: entry,
+    });
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "Agent apply failed" });
+  }
+}
+
+function localAgentResponse(body = {}) {
+  const message = String(body.message || "").trim();
+  const context = body.context || {};
+  const intent = inferBackendIntent(message);
+  const draft = buildBackendDraft(intent, message, context);
+  return {
+    reply: backendReply(intent, draft),
+    intent,
+    context: {
+      projectId: body.projectId || "",
+      module: context.module || context.action || "quote",
+      knownFields: Object.keys(context || {}),
+    },
+    suggestions: [{
+      type: intent,
+      summary: backendSuggestionSummary(intent),
+      before: context.current || null,
+      after: draft,
+      reason: "由后端读取当前项目上下文和用户消息生成草稿，需用户确认后应用。",
+    }],
+    requiredFields: requiredFieldsForIntent(intent, draft),
+    actions: [{ id: actionIdForIntent(intent), label: actionLabelForIntent(intent), requiresConfirmation: true }],
+    draft,
+    canApply: true,
+    nextSteps: ["检查草稿", "需要时打回重改", "确认后应用到表格"],
+    attachments: body.attachments || [],
+    memory_suggestions: [],
+    model: "local-agent-engine",
+  };
+}
+
+function inferBackendIntent(message) {
+  if (/残留中文|中文残留|英文|翻译|translation/i.test(message)) return "check_english_chinese_residue";
+  if (/报价项|成本|匹配产品|重新计算|补价|补录/i.test(message)) return "extract_quote_items";
+  if (/行程|线路|route|itinerary|优化/i.test(message)) return /优化/.test(message) ? "optimize_itinerary" : "generate_itinerary";
+  if (/图片|素材|海报|封面/i.test(message)) return "classify_project_images";
+  if (/确认|应用|apply/i.test(message)) return "confirm_apply";
+  return "extract_customer_info";
+}
+
+function buildBackendDraft(intent, message, context) {
+  if (intent === "check_english_chinese_residue") {
+    return { task: "translation_residue_check", source: "proposal", instruction: message };
+  }
+  if (intent === "extract_quote_items") {
+    return { quoteItems: [], instruction: message, costPolicy: "manual_cost_first_then_product_rematch" };
+  }
+  if (intent === "generate_itinerary" || intent === "optimize_itinerary") {
+    return { route: { days: context.itinerary || [] }, instruction: message };
+  }
+  return { customer: context.customer || {}, instruction: message };
+}
+
+function backendReply(intent) {
+  const map = {
+    extract_customer_info: "我会先整理客户资料草稿，不直接覆盖正式字段。",
+    generate_itinerary: "我会生成线路草稿，等待你确认后写入行程表。",
+    optimize_itinerary: "我会按修改意见重排行程草稿，确认后才应用。",
+    extract_quote_items: "我会识别报价项并准备产品库匹配草稿，手动成本优先保留。",
+    check_english_chinese_residue: "我会调用同一套英文残留检查和局部修正流程。",
+    classify_project_images: "我会生成图片分类草稿，确认后同步素材池。",
+    confirm_apply: "收到确认，我会记录应用动作并由前端写入对应表格。",
+  };
+  return map[intent] || "我已生成待确认草稿。";
+}
+
+function backendSuggestionSummary(intent) {
+  return {
+    extract_customer_info: "客户资料草稿",
+    generate_itinerary: "线路草稿",
+    optimize_itinerary: "线路优化草稿",
+    extract_quote_items: "报价项草稿",
+    check_english_chinese_residue: "英文残留处理草稿",
+  }[intent] || "Agent 草稿";
+}
+
+function requiredFieldsForIntent(intent, draft) {
+  if (intent === "extract_customer_info") return ["成人数", "儿童数", "出行日期", "目的地城市"].filter((field) => !JSON.stringify(draft).includes(field));
+  if (intent === "extract_quote_items") return ["成本价", "供应商", "报价品类"];
+  if (intent === "check_english_chinese_residue") return ["中文源文", "当前英文预览"];
+  return [];
+}
+
+function actionIdForIntent(intent) {
+  return {
+    extract_customer_info: "apply_customer_info",
+    generate_itinerary: "apply_itinerary",
+    optimize_itinerary: "apply_itinerary",
+    extract_quote_items: "apply_quote_items",
+    check_english_chinese_residue: "apply_partial_translation_fix",
+    classify_project_images: "apply_image_classification",
+    confirm_apply: "confirm_apply",
+  }[intent] || "confirm_apply";
+}
+
+function actionLabelForIntent(intent) {
+  return {
+    extract_customer_info: "应用客户资料",
+    generate_itinerary: "应用到行程",
+    optimize_itinerary: "应用优化行程",
+    extract_quote_items: "应用到报价明细",
+    check_english_chinese_residue: "应用局部修正",
+    classify_project_images: "应用图片分类",
+    confirm_apply: "确认应用",
+  }[intent] || "确认应用";
+}
+
+function localAgentSuggestions(body = {}) {
+  const context = body.context || {};
+  const suggestions = [
+    { id: "recognize_customer", label: "识别需求", module: "customer", reason: "客户资料仍需确认" },
+    { id: "generate_itinerary", label: "生成线路草稿", module: "itinerary", reason: "行程为空或需优化" },
+    { id: "match_products", label: "匹配产品库", module: "quote", reason: "报价项需追溯成本来源" },
+    { id: "check_translation", label: "检查中文残留", module: "proposal", reason: "英文提案需确认无中文残留" },
+  ].filter((item) => !context.module || item.module === context.module || context.module === "chat");
+  return {
+    reply: "已根据当前模块生成建议动作。",
+    intent: "suggestions",
+    context,
+    suggestions,
+    requiredFields: [],
+    actions: suggestions.map((item) => ({ id: item.id, label: item.label, requiresConfirmation: true })),
+    draft: null,
+    canApply: false,
+    nextSteps: suggestions.map((item) => item.label),
+  };
+}
+
+function appendOperationLog(entry) {
+  let rows = [];
+  try {
+    rows = fs.existsSync(operationLogPath) ? JSON.parse(fs.readFileSync(operationLogPath, "utf8")) : [];
+  } catch {
+    rows = [];
+  }
+  rows.unshift(entry);
+  fs.mkdirSync(path.dirname(operationLogPath), { recursive: true });
+  fs.writeFileSync(operationLogPath, JSON.stringify(rows.slice(0, 200), null, 2));
 }
 
 function defaultAiSettings() {
@@ -381,16 +737,20 @@ function sendJson(res, status, data) {
   res.end(JSON.stringify(data));
 }
 
-server.on("error", (error) => {
-  if (error.code === "EADDRINUSE") {
-    console.error(`Port ${port} is already in use. Stop the other process and try again.`);
-  } else {
-    console.error(error);
-  }
+if (!process.env.VERCEL) {
+  server.on("error", (error) => {
+    if (error.code === "EADDRINUSE") {
+      console.error(`Port ${port} is already in use. Stop the other process and try again.`);
+    } else {
+      console.error(error);
+    }
 
-  process.exit(1);
-});
+    process.exit(1);
+  });
 
-server.listen(port, host, () => {
-  console.log(`Travel workbench running at http://${host}:${port}`);
-});
+  server.listen(port, host, () => {
+    console.log(`Travel workbench running at http://${host}:${port}`);
+  });
+}
+
+module.exports = requestHandler;

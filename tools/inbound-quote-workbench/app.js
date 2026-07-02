@@ -17,9 +17,85 @@ const serviceLabels = {
   other: "其他",
 };
 
-const productCategories = ["线路产品", "用车", "特色体验", "景点门票", "导游", "酒店", "餐", "大交通"];
+const productCategories = ["全部", "景点门票", "酒店", "用车", "导游", "餐厅", "特色体验", "大交通", "其他", "线路产品"];
+const supplierCategories = ["全部", "酒店", "包车", "导游", "门票", "大交通", "餐", "特色体验", "其他"];
+const productStatusOptions = ["可报价", "缺成本", "缺供应商", "待清洗", "停用"];
+const productFieldTypes = ["文本", "数字", "金额", "日期", "单选", "多选", "布尔值", "备注"];
+const cityCoordinates = {
+  北京: [39.9042, 116.4074],
+  上海: [31.2304, 121.4737],
+  西安: [34.3416, 108.9398],
+  广州: [23.1291, 113.2644],
+  深圳: [22.5431, 114.0579],
+  杭州: [30.2741, 120.1551],
+  苏州: [31.2989, 120.5853],
+  成都: [30.5728, 104.0668],
+  重庆: [29.563, 106.5516],
+  桂林: [25.2736, 110.2900],
+  张家界: [29.1171, 110.4792],
+  昆明: [25.0389, 102.7183],
+  丽江: [26.8721, 100.2296],
+  大理: [25.6065, 100.2676],
+};
+const extraRouteCities = [
+  "南京", "洛阳", "青岛", "厦门", "武汉", "长沙", "天津", "郑州", "开封", "济南",
+  "曲阜", "泰安", "哈尔滨", "长春", "沈阳", "大连", "丹东", "延吉", "漠河",
+  "太原", "大同", "平遥", "呼和浩特", "包头", "银川", "西宁", "兰州", "敦煌",
+  "张掖", "嘉峪关", "酒泉", "乌鲁木齐", "吐鲁番", "喀什", "伊犁", "库车",
+  "宁波", "绍兴", "无锡", "扬州", "镇江", "合肥", "黄山", "福州", "泉州",
+  "南昌", "九江", "宜昌", "台州", "温州", "珠海", "佛山", "东莞", "三亚",
+  "海口", "南宁", "北海", "贵阳", "遵义", "安顺", "荔波", "乐山", "峨眉山",
+  "阳朔", "贵州", "云南", "西双版纳", "景洪", "腾冲", "保山", "普洱", "香格里拉",
+];
+const routeCityAliases = {
+  beijing: "北京",
+  shanghai: "上海",
+  xian: "西安",
+  "xi'an": "西安",
+  "xi an": "西安",
+  chengdu: "成都",
+  chongqing: "重庆",
+  guangzhou: "广州",
+  shenzhen: "深圳",
+  hangzhou: "杭州",
+  suzhou: "苏州",
+  guilin: "桂林",
+  zhangjiajie: "张家界",
+  kunming: "昆明",
+  lijiang: "丽江",
+  dali: "大理",
+  nanjing: "南京",
+  luoyang: "洛阳",
+  qingdao: "青岛",
+  xiamen: "厦门",
+  wuhan: "武汉",
+  changsha: "长沙",
+  tianjin: "天津",
+  zhengzhou: "郑州",
+  kaifeng: "开封",
+  jinan: "济南",
+  qufu: "曲阜",
+  taian: "泰安",
+  harbin: "哈尔滨",
+  datong: "大同",
+  pingyao: "平遥",
+  huangshan: "黄山",
+  leshan: "乐山",
+  yichang: "宜昌",
+  qinghai: "青海",
+  dunhuang: "敦煌",
+  urumqi: "乌鲁木齐",
+  kashgar: "喀什",
+  xishuangbanna: "西双版纳",
+  guizhou: "贵州",
+  yunnan: "云南",
+  yangshuo: "阳朔",
+  shangrila: "香格里拉",
+  "shangri-la": "香格里拉",
+};
 const categoryToType = {
   用车: "vehicle",
+  包车: "vehicle",
   景点门票: "ticket",
   门票: "ticket",
   特色体验: "experience",
@@ -129,6 +205,9 @@ const resources = {
   },
   tickets: {
     故宫: { city: "北京", adult: 60, child: 20 },
+    天安门: { city: "北京", adult: 0, child: 0, isFree: true },
+    天安门广场: { city: "北京", adult: 0, child: 0, isFree: true },
+    景山公园: { city: "北京", adult: 2, child: 1 },
     颐和园: { city: "北京", adult: 30, child: 15 },
     慕田峪长城: { city: "北京", adult: 60, child: 30 },
     天坛: { city: "北京", adult: 35, child: 17 },
@@ -145,12 +224,13 @@ const resources = {
     外滩: { city: "上海", adult: 0, child: 0 },
   },
   meals: { 早餐: 45, 午餐: 120, 晚餐: 160 },
-  other: { 保险: 10, 耳麦: 18, 水: 5, 伴手礼: 35 },
+  other: { 保险: 10, 耳麦: 5, 水: 5, 伴手礼: 35 },
 };
 
 const englishAttractionAliases = [
   ["Forbidden City", "故宫博物院"],
   ["Palace Museum", "故宫博物院"],
+  ["Tiananmen Square", "天安门广场"],
   ["Summer Palace", "颐和园"],
   ["Temple of Heaven", "天坛"],
   ["Terracotta Warriors", "兵马俑"],
@@ -162,6 +242,13 @@ const englishAttractionAliases = [
   ["Nanjing Road", "南京路"],
   ["Oriental Pearl Tower", "东方明珠"],
 ];
+
+const attractionAliases = {
+  故宫: ["故宫博物院", "紫禁城", "Forbidden City", "Palace Museum"],
+  天安门: ["天安门广场", "Tiananmen Square"],
+  长城: ["八达岭长城", "慕田峪长城", "Great Wall"],
+  景山: ["景山公园"],
+};
 
 const xiaoyiStages = [
   "demand_empty",
@@ -218,17 +305,7 @@ const historicalTrips = [
 const projectStatuses = ["需求确认中", "报价中", "价格已报但未成交", "已成交待操作", "已操作待服务", "已服务待评价"];
 
 const state = {
-  suppliers: [
-    { id: "SUP-V-BJ-001", name: "北京安途车队", category: "用车", cities: ["北京"], supplierType: "车队", vehicleModels: "7座、14座、22座", quote: "接送 ¥580/次；14座包车 ¥1,480/天", businessLicense: "已上传", transportPermit: "待核验", bankPayment: "对公账户已留存", contact: "王经理", phone: "+86 138 0101 8866", email: "bjcar@example.com", settlement: "月结15天", rating: 4.7, status: "合作中", updated: "2026-06-16" },
-    { id: "SUP-V-SH-001", name: "上海申行车队", category: "用车", cities: ["上海"], supplierType: "车队", vehicleModels: "7座、14座、22座", quote: "14座包车 ¥1,580/天；市区接送 ¥620/次", businessLicense: "已上传", transportPermit: "已上传", bankPayment: "银行卡/对公账户均可", contact: "陈经理", phone: "+86 139 1600 7788", email: "shcar@example.com", settlement: "现结", rating: 4.6, status: "合作中", updated: "2026-06-12" },
-    { id: "SUP-T-BJ-001", name: "北京景区票务中心", category: "景点门票", cities: ["北京"], contact: "李女士", phone: "+86 136 0111 9022", email: "ticketbj@example.com", settlement: "周结", rating: 4.8, status: "合作中", updated: "2026-06-17" },
-    { id: "SUP-T-SH-001", name: "上海景点票务合作社", category: "景点门票", cities: ["上海"], contact: "周女士", phone: "+86 137 0188 5632", email: "ticketsh@example.com", settlement: "月结", rating: 4.5, status: "合作中", updated: "2026-06-10" },
-    { id: "SUP-E-BJ-001", name: "北京文化体验供应商", category: "特色体验", cities: ["北京", "西安"], contact: "何经理", phone: "+86 138 0108 6620", email: "experience@example.com", settlement: "预付", rating: 4.6, status: "合作中", updated: "2026-06-18" },
-    { id: "SUP-G-CN-001", name: "中青外语导游中心", category: "导游", cities: ["北京", "上海", "西安"], contact: "赵老师", phone: "+86 135 0100 6612", email: "guide@example.com", settlement: "月结", rating: 4.9, status: "合作中", updated: "2026-06-14" },
-    { id: "SUP-H-BJ-001", name: "北京精选酒店渠道", category: "酒店", cities: ["北京"], contact: "孙经理", phone: "+86 138 0118 7821", email: "hotelbj@example.com", settlement: "预付", rating: 4.6, status: "合作中", updated: "2026-06-13" },
-    { id: "SUP-H-SH-001", name: "上海商务酒店渠道", category: "酒店", cities: ["上海"], contact: "许经理", phone: "+86 137 0177 9921", email: "hotelsh@example.com", settlement: "预付", rating: 4.4, status: "合作中", updated: "2026-06-11" },
-    { id: "SUP-M-CN-001", name: "优选团队餐厅联盟", category: "餐", cities: ["北京", "上海"], contact: "刘经理", phone: "+86 136 0109 8833", email: "meal@example.com", settlement: "现结", rating: 4.3, status: "合作中", updated: "2026-06-09" },
-  ],
+  suppliers: [],
   resourceItems: [
     {
         "id": "RES-IMP-V-00001",
@@ -44153,15 +44230,30 @@ const state = {
         }
     ]
 },
-  resourceFilters: { search: "", type: "", city: "", supplierId: "", status: "" },
+  resourceFilters: { search: "", type: "", city: "", supplierId: "", supplier: "", status: "", issue: "" },
   productColumnFilter: { column: "", value: "" },
+  customProductFields: [],
+  productImport: { rows: [], mapping: {}, category: "", duplicates: [], missing: [], mode: "merge" },
+  productPage: 1,
+  productPageSize: 100,
+  productSyncConfig: {
+    syncFeishu: true,
+    syncKnowledge: true,
+    aiCallable: true,
+    salesVisible: true,
+    customerVisible: false,
+  },
   supplierFilters: { search: "", category: "", status: "" },
-  activeProductCategory: "线路产品",
+  routeEditor: { tab: "draft", selectedDay: 0, buffer: [], pasteText: "", preview: [], selectedHistoryIndex: 0 },
+  supplierImport: { rows: [], preview: [] },
+  supplierCallRecords: [],
+  activeProductCategory: "全部",
   activeProductId: "",
   selectedRouteProductId: "",
   quoteResources: [],
   importQuality: null,
-  activeSupplierCategory: "用车",
+  systemProductCatalog: { loaded: false },
+  activeSupplierCategory: "全部",
   activeSupplierId: "",
   projects: [
     { id: "QP-20260618-001", name: "Hichina 北京上海5天", account: "+971 50 882 0134", userType: "旅行社", country: "阿联酋", status: "报价中", owner: "定制师 A", source: "WhatsApp", cities: "北京、上海", serviceStart: "2026-07-01", days: 5, guests: 5, amount: 19450, createdDate: "2026-06-18", statusUpdatedDate: "2026-06-18" },
@@ -44172,11 +44264,13 @@ const state = {
     { id: "QP-20260512-018", name: "France Agency 西安4天", account: "china@paris-travel.fr", userType: "旅行社", country: "法国", status: "已服务待评价", owner: "定制师 A", source: "Facebook", cities: "西安", serviceStart: "2026-06-05", days: 4, guests: 8, amount: 22400, createdDate: "2026-05-12", statusUpdatedDate: "2026-06-09" },
   ],
   currentProjectId: "QP-20260618-001",
+  projectSnapshots: {},
   period: "last30",
   projectFilters: { status: "", search: "", userType: "", country: "" },
   projectSort: { key: "statusUpdatedDate", dir: "desc" },
   roomTypes: [{ type: "双床房", rooms: 0 }],
   itinerary: [],
+  routeDraft: [],
   quoteVersions: [],
   activeQuote: 0,
   activeService: "vehicle",
@@ -44185,12 +44279,15 @@ const state = {
   agentQuoteItems: [],
   xiaoyiStage: "demand_empty",
   routeConfirmed: false,
+  routeSource: "AI草稿",
+  routeLastUpdatedAt: "",
   runtimeData: { loaded: false, error: "" },
   proposalEditing: false,
   workbenchEditSection: "",
   proposalConfirmed: false,
   proposalLastChangedAt: "",
   proposalAssets: [],
+  orders: [],
   assetManagerOpen: false,
   xiaoyi: {
     messages: [
@@ -44212,10 +44309,16 @@ const state = {
   order: null,
 };
 
-function init() {
+async function init() {
+  await loadSystemProductCatalog();
+  loadLocalProductState();
+  loadLocalSupplierState();
+  loadProjectState();
+  loadQuoteVersions();
+  loadOrderState();
   hydrateImportedProductCatalog();
   bindEvents();
-  resetQuoteVersions();
+  if (!state.quoteVersions.length) resetQuoteVersions();
   renderAll();
   loadRuntimeData();
   loadAiSettings();
@@ -44234,10 +44337,7 @@ function bindEvents() {
   $("#backToProjects").addEventListener("click", showProjectDashboard);
   on("#xiaoyiLauncher", "click", openXiaoyi);
   on("#closeXiaoyi", "click", closeXiaoyi);
-  on("#submitQuote", "click", () => {
-    showWorkbenchSection("q-proposal");
-    if (!$("#proposalContent")?.innerHTML.trim()) handleBuildProposal();
-  });
+  on("#submitQuote", "click", submitQuote);
   on("#confirmProposal", "click", confirmProposal);
   on("#addAssetUrl", "click", addProposalAssetFromUrl);
   on("#assetUploadInput", "change", handleProposalAssetUpload);
@@ -44260,8 +44360,13 @@ function bindEvents() {
   on("#buildChineseSource", "click", buildChineseProposalSource);
   on("#generateEnglishVersion", "click", generateEnglishProposalVersion);
   on("#checkChineseResidue", "click", checkEnglishChineseResidue);
-  on("#partialFixChinese", "click", partialFixChineseResidue);
+  on("#partialFixChinese", "click", translateChineseResidueInline);
+  on("#manualEditTranslation", "click", () => openTranslationEditModal());
   on("#saveTranslationTerms", "click", saveSuggestedTranslationTerms);
+  on("#polishProposalSection", "click", polishProposalSection);
+  on("#retranslateProposalSection", "click", retranslateProposalSection);
+  on("#polishEnglishProposal", "click", polishEnglishProposal);
+  on("#restoreProposalOriginal", "click", restoreProposalOriginal);
   on("#saveAiSettings", "click", saveAiSettings);
   on("#testAiSettings", "click", testAiSettings);
   on("#clearAiSettings", "click", clearAiSettings);
@@ -44269,14 +44374,17 @@ function bindEvents() {
     if ($("#grossMargin")) $("#grossMargin").value = event.target.value;
     renderSummary();
   });
-  ["ruleTrafficMargin", "ruleTrafficMinProfit"].forEach((id) => on(`#${id}`, "input", renderSummary));
+  ["ruleTrafficMargin", "ruleTrafficMinProfit", "trafficFeeRate"].forEach((id) => on(`#${id}`, "input", () => {
+    if (id === "trafficFeeRate" && $("#ruleTrafficMargin")) $("#ruleTrafficMargin").value = $("#trafficFeeRate").value;
+    renderSummary();
+    renderQuoteTable();
+    rebuildProposalIfNeeded();
+  }));
   on("#agentRecognizeFromEditor", "click", () => {
-    openXiaoyi();
-    agentRecognizeDemand();
+    runBusinessAction("analyzeCustomerDemand", { source: "customer_module" }).then(() => runBusinessAction("applyCustomerInfoToForm"));
   });
   on("#recognizeDemandDraft", "click", () => {
-    openXiaoyi();
-    agentRecognizeDemand();
+    runDemandPipeline();
   });
   on("#generateDemandQuestions", "click", () => {
     openXiaoyi();
@@ -44304,32 +44412,65 @@ function bindEvents() {
   });
   $("#clearProjectFilters").addEventListener("click", clearProjectFilters);
   on("#syncFeishuProducts", "click", syncFeishuProducts);
+  on("#openProductImport", "click", openProductImportModal);
   on("#addResourceItem", "click", addResourceItem);
+  on("#addProductField", "click", openAddProductFieldModal);
+  on("#batchEditProducts", "click", batchEditVisibleProducts);
+  on("#exportProducts", "click", exportProducts);
+  on("#openFieldMapping", "click", openFieldMappingModal);
+  on("#validateProducts", "click", showImportQualityReport);
+  on("#dedupeProducts", "click", dedupeProductCatalog);
+  on("#clearProductCatalog", "click", clearProductCatalog);
+  on("#productImportFile", "change", (event) => handleProductImportFile(event.target.files?.[0]));
   on("#closeProductModal", "click", closeProductModal);
   on("#cancelProductModal", "click", closeProductModal);
   on("#saveProductModal", "click", saveProductFromModal);
   on("#addSupplier", "click", addSupplier);
-  on("#resourceSearch", "input", (event) => { state.resourceFilters.search = event.target.value.trim(); renderResourceLibrary(); });
-  on("#resourceTypeFilter", "change", (event) => { state.resourceFilters.type = event.target.value; renderResourceLibrary(); });
-  on("#resourceCityFilter", "input", (event) => { state.resourceFilters.city = event.target.value.trim(); renderResourceLibrary(); });
-  on("#resourceSupplierFilter", "change", (event) => { state.resourceFilters.supplierId = event.target.value; renderResourceLibrary(); });
-  on("#resourceStatusFilter", "change", (event) => { state.resourceFilters.status = event.target.value; renderResourceLibrary(); });
+  on("#closeSupplierModal", "click", closeSupplierModal);
+  on("#cancelSupplierModal", "click", closeSupplierModal);
+  on("#saveSupplierModal", "click", saveSupplierFromModal);
+  on("#supplierImportFile", "change", (event) => handleSupplierImportFile(event.target.files?.[0]));
+  on("#exportSuppliers", "click", exportSuppliers);
+  on("#resourceSearch", "input", (event) => { state.resourceFilters.search = event.target.value.trim(); state.productPage = 1; renderResourceLibrary(); });
+  on("#resourceTypeFilter", "change", (event) => { state.resourceFilters.type = event.target.value; state.productPage = 1; renderResourceLibrary(); });
+  on("#resourceCityFilter", "input", (event) => { state.resourceFilters.city = event.target.value.trim(); state.productPage = 1; renderResourceLibrary(); });
+  on("#resourceSupplierFilter", "input", (event) => { state.resourceFilters.supplier = event.target.value.trim(); state.productPage = 1; renderResourceLibrary(); });
+  on("#resourceStatusFilter", "change", (event) => { state.resourceFilters.status = event.target.value; state.productPage = 1; renderResourceLibrary(); });
+  on("#resourceIssueFilter", "change", (event) => { state.resourceFilters.issue = event.target.value; state.productPage = 1; renderResourceLibrary(); });
   on("#supplierSearch", "input", (event) => { state.supplierFilters.search = event.target.value.trim(); renderSupplierManagement(); });
   on("#supplierCategoryFilter", "change", (event) => { state.supplierFilters.category = event.target.value; renderSupplierManagement(); });
   on("#supplierStatusFilter", "change", (event) => { state.supplierFilters.status = event.target.value; renderSupplierManagement(); });
+  on("#importSuppliers", "click", () => $("#supplierImportFile")?.click());
   on("#loadSample", "click", loadSample);
   on("#saveVersion", "click", handleSaveVersion);
+  $$("[data-save-draft]").forEach((btn) => btn.addEventListener("click", handleSaveVersion));
+  $$("[data-submit-quote]").forEach((btn) => btn.addEventListener("click", submitQuote));
+  $$("[data-convert-order]").forEach((btn) => btn.addEventListener("click", convertToOrder));
   on("#loadHistory", "click", handleLoadHistory);
   on("#generateItinerary", "click", handleGenerateItinerary);
   on("#aiImportItinerary", "click", handleAiImportItinerary);
   on("#importItineraryText", "click", importItineraryText);
   on("#addDay", "click", handleAddDay);
+  on("#openRouteEditor", "click", openRouteEditor);
+  on("#closeRouteEditor", "click", closeRouteEditor);
+  on("#saveRouteDraft", "click", saveRouteEditorDraft);
+  on("#applyRouteEditor", "click", applyRouteEditor);
   on("#addRoomTypeRow", "click", addRoomTypeRow);
   on("#newQuoteVersion", "click", newQuoteVersion);
-  on("#buildQuote", "click", buildQuote);
+  on("#buildQuote", "click", refreshQuoteDraft);
+  on("#addMiscFees", "click", addDefaultMiscFees);
+  on("#quoteMatchProducts", "click", () => buildQuote({ forceRematch: true }));
+  on("#quoteFillMissingCost", "click", openMissingCostQuickFill);
+  on("#quoteSyncCurrentRow", "click", () => openSyncQuoteItemModal());
   on("#refreshSummary", "click", renderSummary);
   on("#buildProposal", "click", handleBuildProposal);
+  $$("[data-build-proposal]").forEach((btn) => btn.addEventListener("click", handleBuildProposal));
   on("#editProposal", "click", toggleProposalEdit);
+  on("#confirmRouteDraft", "click", confirmRouteDraft);
+  on("#refreshTranslation", "click", refreshSimpleTranslation);
+  on("#fixAllResidues", "click", fixAllTranslationResidues);
+  on("#editTranslationSimple", "click", toggleProposalEdit);
+  on("#saveTranslationSimple", "click", saveSimpleTranslation);
   on("#exportPdf", "click", handleExportPdf);
   on("#exportImage", "click", handleExportImage);
   on("#convertToOrder", "click", convertToOrder);
@@ -44353,7 +44494,7 @@ function bindEvents() {
     "cities", "svcVehicle", "svcTickets", "svcGuide", "svcHotel", "svcTraffic", "svcMeals", "svcOther",
     "transferNeed", "transferVehicleType", "charterNeed", "charterVehicleType", "guideLang", "hotelLevel",
     "rooms", "hotelBreakfast", "trafficType", "mealBreakfast", "mealLunch", "mealDinner",
-    "otherInsurance", "otherHeadset", "otherWater", "otherGift",
+    "otherInsurance", "otherHeadset", "otherWater", "otherGift", "opRouteInstruction",
   ].forEach((id) => {
     $(`#${id}`).addEventListener("input", () => {
       updateProjectTitle();
@@ -44469,6 +44610,48 @@ function bindDelegatedActions() {
       addXiaoyiMessage("assistant", "已忽略这条建议，没有改动正式页面数据。");
       return;
     }
+    if (button.dataset.syncQuoteRow) {
+      event.preventDefault();
+      event.stopPropagation();
+      openSyncQuoteItemModal(button.dataset.syncQuoteRow);
+      return;
+    }
+    if (button.dataset.rematchQuoteRow) {
+      event.preventDefault();
+      event.stopPropagation();
+      rematchQuoteRow(button.dataset.rematchQuoteRow);
+      return;
+    }
+    if (button.dataset.currentOnlyRow) {
+      event.preventDefault();
+      event.stopPropagation();
+      markQuoteRowCurrentOnly(button.dataset.currentOnlyRow);
+      return;
+    }
+    if (button.dataset.applyRouteSuggestion) {
+      event.preventDefault();
+      event.stopPropagation();
+      applySuggestedRouteOrder();
+      return;
+    }
+    if (button.dataset.fixResidue) {
+      event.preventDefault();
+      event.stopPropagation();
+      fixSingleResidue(button.dataset.fixResidue);
+      return;
+    }
+    if (button.dataset.editResidue) {
+      event.preventDefault();
+      event.stopPropagation();
+      openTranslationEditModal(button.dataset.editResidue);
+      return;
+    }
+    if (button.dataset.markCleanRow) {
+      event.preventDefault();
+      event.stopPropagation();
+      markQuoteRowPendingClean(button.dataset.markCleanRow);
+      return;
+    }
     if (!action) return;
     event.preventDefault();
     event.stopPropagation();
@@ -44497,6 +44680,7 @@ function renderAll() {
   updateProjectTitle();
   renderQuoteVersionSelect();
   renderQuoteTabs();
+  renderRouteDraft();
   renderItinerary();
   renderQuoteTable();
   renderSummary();
@@ -44534,6 +44718,7 @@ function switchModule(id) {
   };
   $("#moduleTitle").textContent = titles[id] || "工作台";
   if (id === "settings") loadAiSettings();
+  if (id === "orders") renderOrders();
 }
 
 function showProjectDashboard() {
@@ -44544,6 +44729,94 @@ function showProjectDashboard() {
 
 function currentProject() {
   return state.projects.find((project) => project.id === state.currentProjectId) || null;
+}
+
+function getTodayDateString() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function currentFormSnapshot() {
+  const fieldIds = [
+    "clientName", "actualCustomerName", "clientAccount", "clientType", "clientCountry", "source", "owner", "followStatus",
+    "budgetRange", "languageNeed", "hotelPreference", "mealPreference", "aiNotes", "opNotes", "rawDemandInput",
+    "opRouteInstruction", "startDate", "serviceDays", "adults", "children", "cities", "specialNeed",
+    "transferNeed", "transferVehicleType", "charterNeed", "charterVehicleType", "guideLang", "hotelLevel",
+    "rooms", "hotelBreakfast", "trafficType", "outputLang", "grossMargin", "trafficFeeRate", "currency",
+  ];
+  const checkboxIds = ["svcVehicle", "svcTickets", "svcGuide", "svcHotel", "svcTraffic", "svcMeals", "svcOther", "mealBreakfast", "mealLunch", "mealDinner", "otherInsurance", "otherHeadset", "otherWater", "otherGift", "priceTotal", "priceAverage", "priceItemized", "proposalWatermark", "contactWhatsapp", "contactWechat", "contactEmail"];
+  return {
+    fields: fieldIds.reduce((acc, id) => {
+      const node = $(`#${id}`);
+      if (node) acc[id] = node.value;
+      return acc;
+    }, {}),
+    checks: checkboxIds.reduce((acc, id) => {
+      const node = $(`#${id}`);
+      if (node) acc[id] = Boolean(node.checked);
+      return acc;
+    }, {}),
+  };
+}
+
+function applyFormSnapshot(snapshot = {}) {
+  Object.entries(snapshot.fields || {}).forEach(([id, value]) => {
+    const node = $(`#${id}`);
+    if (node) node.value = value;
+  });
+  Object.entries(snapshot.checks || {}).forEach(([id, value]) => {
+    const node = $(`#${id}`);
+    if (node) node.checked = Boolean(value);
+  });
+}
+
+function saveCurrentProjectSnapshot() {
+  const id = state.currentProjectId || $("#projectId")?.textContent;
+  if (!id) return;
+  state.projectSnapshots[id] = {
+    savedAt: new Date().toISOString(),
+    form: currentFormSnapshot(),
+    roomTypes: state.roomTypes,
+    itinerary: state.itinerary,
+    routeConfirmed: state.routeConfirmed,
+    routeSource: state.routeSource,
+    routeLastUpdatedAt: state.routeLastUpdatedAt,
+    quoteVersions: state.quoteVersions,
+    activeQuote: state.activeQuote,
+    activeService: state.activeService,
+    proposalConfirmed: state.proposalConfirmed,
+    proposalHtml: $("#proposalContent")?.innerHTML || "",
+    proposalTitle: $("#proposalTitle")?.textContent || "",
+    proposalMeta: $("#proposalMeta")?.textContent || "",
+    proposalAssets: state.proposalAssets,
+    order: state.order,
+  };
+  saveProjectState();
+  saveQuoteVersions();
+}
+
+function restoreProjectSnapshot(id) {
+  const snapshot = state.projectSnapshots?.[id];
+  if (!snapshot) return false;
+  applyFormSnapshot(snapshot.form);
+  state.roomTypes = Array.isArray(snapshot.roomTypes) ? snapshot.roomTypes : [{ type: "双床房", rooms: 0 }];
+  state.itinerary = Array.isArray(snapshot.itinerary) ? snapshot.itinerary : [];
+  state.routeConfirmed = Boolean(snapshot.routeConfirmed);
+  state.routeSource = snapshot.routeSource || "AI草稿";
+  state.routeLastUpdatedAt = snapshot.routeLastUpdatedAt || "";
+  state.quoteVersions = Array.isArray(snapshot.quoteVersions) && snapshot.quoteVersions.length ? snapshot.quoteVersions : [{ name: "报价 V1", status: "草稿", data: emptyQuoteData() }];
+  state.activeQuote = Number.isInteger(snapshot.activeQuote) ? snapshot.activeQuote : 0;
+  state.activeService = snapshot.activeService || "vehicle";
+  state.proposalConfirmed = Boolean(snapshot.proposalConfirmed);
+  state.proposalAssets = Array.isArray(snapshot.proposalAssets) ? snapshot.proposalAssets : [];
+  state.order = snapshot.order || null;
+  if ($("#proposalContent")) $("#proposalContent").innerHTML = snapshot.proposalHtml || "";
+  if ($("#proposalTitle")) $("#proposalTitle").textContent = snapshot.proposalTitle || "等待生成客人方案";
+  if ($("#proposalMeta")) $("#proposalMeta").textContent = snapshot.proposalMeta || "报价明细同步后，可输出给客人的正式方案";
+  return true;
 }
 
 function showProjectDetail() {
@@ -44627,7 +44900,7 @@ function quoteFlowStates() {
       : { status: "not-started", label: "未开始" },
     itinerary: state.routeConfirmed
       ? { status: "done", label: "已确认" }
-      : state.itinerary.length
+      : (state.routeDraft.length || state.itinerary.length)
         ? { status: "draft", label: "草稿中" }
         : { status: "not-started", label: "未开始" },
     quote: state.agentQuoteItems?.length
@@ -44680,7 +44953,7 @@ function renderWorkbenchOverview() {
   $("#summaryOverview").innerHTML = `
     <div class="summary-lines">
       <div><span>总成本</span><strong>${money(totals.cost)}</strong></div>
-      <div><span>总卖价</span><strong>${money(totals.sell)}</strong></div>
+      <div><span>总参考售价</span><strong>${money(totals.sell)}</strong></div>
       <div><span>毛利</span><strong>${money(totals.sell - totals.cost)}</strong></div>
       <div><span>毛利率</span><strong class="${gross < 8 ? "danger-text" : "ok-text"}">${gross}%</strong></div>
       <div><span>人均价</span><strong>${money(totals.adultAvg)}</strong></div>
@@ -44753,27 +45026,29 @@ function renderProjectDashboard() {
     <div class="project-table-wrap">
       <table class="project-table">
         <thead><tr>
-          <th>项目/账号</th><th>用户类型</th><th>国家</th><th>状态</th><th>服务开始时间</th>
-          <th><button class="sort-head" data-sort-key="days">服务天数 ${sortIcon("days")}</button></th>
+          <th>项目名称</th><th>客户名称</th><th>目的地</th><th>出行日期</th>
           <th><button class="sort-head" data-sort-key="guests">人数 ${sortIcon("guests")}</button></th>
+          <th>项目状态</th>
           <th><button class="sort-head" data-sort-key="amount">报价金额 ${sortIcon("amount")}</button></th>
-          <th>状态更新日期</th><th>操作</th>
+          <th>成本</th><th>毛利</th><th>负责人</th><th>状态更新时间</th><th>操作</th>
         </tr></thead>
         <tbody>
           ${tableProjects.map((project) => `
             <tr>
-              <td><strong>${escapeHtml(project.name)}</strong><br><span>${escapeHtml(project.account || "-")}</span><span class="small-badge">${escapeHtml(project.source)}</span></td>
-              <td>${escapeHtml(project.userType || "-")}</td>
-              <td>${escapeHtml(project.country || "-")}</td>
-              <td>${escapeHtml(project.status)}</td>
+              <td><strong>${escapeHtml(project.name)}</strong><br><span>${escapeHtml(project.account || "-")}</span></td>
+              <td>${escapeHtml(project.actualCustomerName || String(project.name || "").split(/\s+/)[0] || "-")}<br><span>${escapeHtml(project.country || "-")}</span></td>
+              <td>${escapeHtml(project.cities || "-")}</td>
               <td>${escapeHtml(project.serviceStart || "-")}</td>
-              <td>${project.days}</td>
               <td>${project.guests}人</td>
+              <td>${escapeHtml(project.status)}</td>
               <td>${project.amount ? money(project.amount) : "待报价"}</td>
+              <td>${project.cost ? money(project.cost) : "-"}</td>
+              <td>${project.grossProfit ? money(project.grossProfit) : "-"}${project.grossMargin ? `<br><span>${project.grossMargin}%</span>` : ""}</td>
+              <td>${escapeHtml(project.owner || "-")}</td>
               <td>${escapeHtml(project.statusUpdatedDate || "-")}</td>
               <td><button class="secondary-btn" data-open-project="${project.id}">打开报价</button></td>
             </tr>
-          `).join("") || `<tr><td colspan="10">当前筛选条件下暂无项目</td></tr>`}
+          `).join("") || `<tr><td colspan="12">当前筛选条件下暂无项目</td></tr>`}
         </tbody>
       </table>
     </div>
@@ -44868,13 +45143,15 @@ function formatDiff(value, isMoney, isPercent = false) {
 }
 
 function renderResourceLibrary() {
-  if (!$("#resourceStats")) return;
+  if (!$("#resourceTable")) return;
   renderProductFilters();
   const category = state.activeProductCategory;
   const items = filteredProductCatalogItems(category);
-  $("#resourceStats").innerHTML = renderProductStats(category);
+  if ($("#resourceStats")) $("#resourceStats").innerHTML = renderProductStats(category);
   $("#productListTitle").textContent = `${category}列表`;
   $("#productListHint").textContent = productListHint(category);
+  if ($("#productImportLabel")) $("#productImportLabel").textContent = "一键导入产品库";
+  if ($("#productAddLabel")) $("#productAddLabel").textContent = `新增${category}资源`;
   $("#productTableFilters").innerHTML = renderCatalogExtraFilters(category);
   $("#resourceTable").innerHTML = renderProductCategoryTable(category, items);
   bindProductCategoryActions();
@@ -44884,7 +45161,9 @@ function renderResourceLibrary() {
 function renderResourceSupplierOptions() {
   if ($("#resourceSearch")) $("#resourceSearch").value = state.resourceFilters.search;
   if ($("#resourceCityFilter")) $("#resourceCityFilter").value = state.resourceFilters.city;
+  if ($("#resourceSupplierFilter")) $("#resourceSupplierFilter").value = state.resourceFilters.supplier;
   if ($("#resourceStatusFilter")) $("#resourceStatusFilter").value = state.resourceFilters.status;
+  if ($("#resourceIssueFilter")) $("#resourceIssueFilter").value = state.resourceFilters.issue;
 }
 
 function renderProductFilters() {
@@ -44899,6 +45178,7 @@ function renderProductFilters() {
     state.activeProductId = "";
     state.resourceFilters.status = "";
     state.productColumnFilter = { column: "", value: "" };
+    state.productPage = 1;
     renderResourceLibrary();
   }));
   renderCatalogMainFilters();
@@ -44917,33 +45197,36 @@ function renderCatalogMainFilters() {
 }
 
 function productFilterOptions(category) {
-  if (category === "线路产品") return { label: "产品类型", allLabel: "全部类型", values: unique(state.productCatalog.routes.map((item) => item.productType)) };
-  if (category === "用车") return { label: "用车类型", allLabel: "全部类型", values: unique(state.productCatalog.vehicles.map((item) => item.vehicleType)) };
-  if (category === "导游") return { label: "语种", allLabel: "全部语种", values: unique(state.productCatalog.guides.map((item) => item.language)) };
-  if (category === "酒店") return { label: "酒店等级", allLabel: "全部等级", values: unique(state.productCatalog.hotels.map((item) => item.star)) };
-  if (category === "餐") return { label: "是否清真", allLabel: "全部", values: ["是", "否"] };
-  if (category === "大交通") return { label: "交通类型", allLabel: "全部类型", values: unique((state.productCatalog.transports || []).map((item) => item.type || item.transportType)) };
-  if (category === "景点门票") return { label: "景区类型", allLabel: "全部类型", values: unique(state.productCatalog.tickets.map((item) => item.type)) };
-  return { label: "城市", allLabel: "全部城市", values: unique(productCatalogItems(category).map((item) => item.city)) };
+  return { label: "状态", allLabel: "全部状态", values: productStatusOptions };
 }
 
 function productCatalogItems(category) {
+  if (category === "全部") {
+    return productCategories
+      .filter((item) => item !== "全部")
+      .flatMap((item) => productCatalogItems(item).map((product) => ({ ...product, __category: item })));
+  }
   const map = {
     线路产品: state.productCatalog.routes,
     用车: state.productCatalog.vehicles,
     特色体验: state.productCatalog.experiences,
     景点门票: state.productCatalog.tickets,
+    门票: state.productCatalog.tickets,
     导游: state.productCatalog.guides,
     酒店: state.productCatalog.hotels,
     餐: state.productCatalog.meals,
+    餐厅: state.productCatalog.meals,
     大交通: state.productCatalog.transports || [],
+    其他: state.productCatalog.others || (state.productCatalog.others = []),
   };
   return map[category] || [];
 }
 
-const IMPORTED_PENDING_SUPPLIER = "飞书导入待绑定供应商";
+const IMPORTED_PENDING_SUPPLIER = "待绑定供应商";
+const IMPORT_AUTO_CATEGORY = "按 Sheet 自动分类";
 const IMPORT_VALID_FROM = "2026-06-21";
 const IMPORT_VALID_TO = "2027-12-31";
+const SYSTEM_PRODUCT_CATALOG_URL = "data/products/youyixing-product-catalog.json";
 
 function hydrateImportedProductCatalog() {
   state.productCatalog.routes.forEach((route, index) => {
@@ -44952,6 +45235,34 @@ function hydrateImportedProductCatalog() {
     route.projectId = "";
   });
   refreshQuoteResources();
+}
+
+async function loadSystemProductCatalog() {
+  const payload = await fetchOptionalJson(SYSTEM_PRODUCT_CATALOG_URL, null);
+  if (!payload?.productCatalog) {
+    state.systemProductCatalog = { loaded: false, error: "系统产品库文件未找到" };
+    return false;
+  }
+  replaceSystemProductCatalog(payload.productCatalog);
+  state.systemProductCatalog = {
+    loaded: true,
+    sourceFile: payload.meta?.sourceFile || "",
+    generatedAt: payload.meta?.generatedAt || "",
+    mode: payload.meta?.mode || "system_excel_overwrite",
+    report: payload.report || null,
+  };
+  state.productCatalogLocalState = {
+    loaded: false,
+    systemBaseLoaded: true,
+    sourceFile: state.systemProductCatalog.sourceFile,
+  };
+  return true;
+}
+
+function replaceSystemProductCatalog(catalog = {}) {
+  Object.keys(productCatalogKeyCategory).forEach((key) => {
+    if (Array.isArray(state.productCatalog[key])) state.productCatalog[key] = Array.isArray(catalog[key]) ? catalog[key] : [];
+  });
 }
 
 async function loadRuntimeData() {
@@ -44969,7 +45280,14 @@ async function loadRuntimeData() {
       fetchOptionalJson("data/user-translation-memory.json", []),
       fetchOptionalJson("data/xiaoyi-memory.json", []),
     ]);
-    mergeRuntimeProducts({ attractions, vehicles, guides, hotels, transports, routes, pricingRules, profitStrategies });
+    if (state.systemProductCatalog?.loaded) {
+      state.productCatalog.transports = transports || [];
+      appendRuntimeHistoricalRoutes(routes || []);
+      state.pricingRules = pricingRules || {};
+      state.profitStrategies = profitStrategies || [];
+    } else {
+      mergeRuntimeProducts({ attractions, vehicles, guides, hotels, transports, routes, pricingRules, profitStrategies });
+    }
     state.translation.glossary = mergeLocalTranslationMemory(glossary, "youyixing_translation_glossary");
     state.translation.memory = mergeLocalTranslationMemory(translationMemory, "youyixing_translation_memory");
     state.xiaoyi.memories = mergeLocalTranslationMemory(xiaoyiMemory, "youyixing_xiaoyi_memory");
@@ -45041,6 +45359,34 @@ function appendUnique(target, items, key) {
   });
 }
 
+const productCatalogKeyCategory = {
+  routes: "线路产品",
+  vehicles: "用车",
+  experiences: "特色体验",
+  tickets: "景点门票",
+  guides: "导游",
+  hotels: "酒店",
+  meals: "餐",
+  transports: "大交通",
+  others: "其他",
+};
+
+function productCatalogHasCallableItems(catalog = {}) {
+  return Object.keys(productCatalogKeyCategory).some((key) => Array.isArray(catalog[key]) && catalog[key].length > 0);
+}
+
+function mergeLocalCatalogItems(defaultItems = [], localItems = [], category = "") {
+  const rows = [];
+  const seen = new Set();
+  [...localItems, ...defaultItems].filter(Boolean).forEach((item) => {
+    const key = productDedupeKey(item, category) || item.runtimeId || item.sourceProductId || item.id || JSON.stringify(item);
+    if (seen.has(key)) return;
+    seen.add(key);
+    rows.push(item);
+  });
+  return rows;
+}
+
 function runtimeAttractionToTicket(item) {
   return {
     runtimeId: item.id,
@@ -45056,23 +45402,38 @@ function runtimeAttractionToTicket(item) {
     offDiscount: valueOrEmpty(item.child_price),
     freePolicy: item.guide_ticket_free ? "导游免票" : "",
     remark: [item.requires_reservation ? `需提前${item.reservation_days_before || ""}天预约` : "", item.suitable_for].filter(Boolean).join("；"),
-    supplierName: "清洗产品库",
+    supplierName: item.supplier_id || "待绑定供应商",
+    status: item.status === "active" ? "可报价" : "待清洗",
     source: item.source || "本地清洗数据",
   };
 }
 
 function runtimeVehicleToProduct(item) {
-  const model = item.seat_count ? `${item.seat_count}座车` : `${item.vehicle_type || "用车"}`;
+  const model = normalizeVehicleModel(item.model || item.vehicle_type || (item.seat_count ? `${item.seat_count}座车` : "7座车"));
+  const seatCount = parseSeatCount(model || item.vehicle_type || item.seat_count);
   return {
     runtimeId: item.id,
     city: item.city || "",
-    vehicleType: item.vehicle_type || "包车",
-    route: item.vehicle_type || "市区包车",
+    category: "vehicle",
+    vehicleType: inferVehicleServiceTypeFromText(`${item.service_type || ""} ${item.route || ""}`, "包车"),
+    serviceType: inferVehicleServiceTypeFromText(`${item.service_type || ""} ${item.route || ""}`, "包车"),
+    route: item.route || "市区",
     model,
-    costPrice: valueOrEmpty(item.full_day_price || item.airport_transfer_price || item.half_day_price),
+    seatCount,
+    costPrice: valueOrEmpty(item.full_day_price || item.cost_price || item.costPrice),
+    lowSeasonCost: valueOrEmpty(item.full_day_price),
+    highSeasonCost: valueOrEmpty(item.full_day_price),
+    dayCost: valueOrEmpty(item.full_day_price),
+    halfDayCost: valueOrEmpty(item.half_day_price),
+    airportTransferCost: valueOrEmpty(item.airport_transfer_price),
+    stationTransferCost: valueOrEmpty(item.station_transfer_price),
     salePrice: "",
-    supplierName: "清洗产品库",
+    saleReferencePrice: 0,
+    pricingUnit: "per_day",
+    supplierName: item.supplier_id || "待绑定供应商",
+    status: item.status === "active" ? "可报价" : "待清洗",
     source: item.source || "本地清洗数据",
+    raw: item,
   };
 }
 
@@ -45082,30 +45443,44 @@ function runtimeGuideToProduct(item) {
     runtimeId: item.id,
     city: item.city || "",
     language,
+    guideType: item.guide_type || "地陪",
     lowSeasonCost: valueOrEmpty(item.full_day_price),
     highSeasonCost: valueOrEmpty(item.full_day_price),
+    fullDayCost: valueOrEmpty(item.full_day_price),
+    halfDayCost: valueOrEmpty(item.half_day_price),
+    airportPickupCost: valueOrEmpty(item.airport_pickup_price),
     lowSeasonSale: "",
     highSeasonSale: "",
     needsTicket: item.has_license ? "有导游证" : "",
-    supplierName: item.name_cn || "清洗导游库",
+    supplierName: item.supplier_id || item.name_cn || "清洗导游库",
+    status: item.status === "active" ? "可报价" : "待清洗",
     source: item.source || "本地清洗数据",
   };
 }
 
 function runtimeHotelToProduct(item) {
+  const noteCost = extractCostFromText([item.internal_notes, item.notes, item.remark].filter(Boolean).join("；"));
+  const cost = firstPresent(item.cost_price, item.costPrice, item.nightly_cost, item.nightlyCost, noteCost, item.nightly_price, item.reference_price);
   return {
     runtimeId: item.id,
     city: item.city || "",
     hotelName: item.name_cn || item.name_en || "",
     star: item.star_rating || "",
     roomType: item.room_type || "双床房",
-    costPrice: valueOrEmpty(item.nightly_price),
-    salePrice: "",
+    costPrice: valueOrEmpty(cost),
+    nightlyCost: valueOrEmpty(firstPresent(item.nightly_cost, item.nightlyCost, noteCost)),
+    lowSeasonCost: valueOrEmpty(firstPresent(item.lowSeasonCost, item.low_season_cost, item.nightly_price)),
+    highSeasonCost: valueOrEmpty(firstPresent(item.highSeasonCost, item.high_season_cost, item.nightly_price)),
+    agreementCost: valueOrEmpty(cost),
+    salePrice: valueOrEmpty(item.reference_price),
     breakfast: item.breakfast_included ? "含早" : "不含早",
     hasAgreement: item.cooperation_status || "",
     agreementFixed: "",
-    supplierName: "清洗酒店库",
+    supplierName: item.supplier_id || "待绑定酒店供应商",
+    status: item.status === "active" ? "可报价" : "待清洗",
     source: item.source || "本地清洗数据",
+    internalNotes: item.internal_notes || item.notes || item.remark || "",
+    raw: item,
   };
 }
 
@@ -45137,33 +45512,63 @@ function quoteResources() {
   return state.quoteResources;
 }
 
+function vehicleQuoteVariants(item, index) {
+  const seq = String(index + 1).padStart(5, "0");
+  const model = normalizeVehicleModel(item.model || item.vehicle_type || item.vehicleType || (item.seatCount ? `${item.seatCount}座` : ""));
+  const seatCount = item.seatCount || parseSeatCount(model);
+  const baseServiceType = normalizeVehicleTypeFromResource(item);
+  const dayCost = firstPresent(item.dayCost, item.full_day_price, baseServiceType === "包车" ? item.costPrice : "", item.lowSeasonCost, item.highSeasonCost);
+  const airportCost = firstPresent(item.airportTransferCost, item.airport_transfer_price, baseServiceType === "接送机" ? item.costPrice : "");
+  const stationCost = firstPresent(item.stationTransferCost, item.station_transfer_price, baseServiceType === "接送站" ? item.costPrice : "");
+  const rawText = vehicleRawSearchText(item);
+  const base = {
+    type: "vehicle",
+    city: item.city,
+    salePrice: valueOrEmpty(firstPresent(item.salePrice, item.saleReferencePrice)),
+    supplierName: item.supplierName || IMPORTED_PENDING_SUPPLIER,
+    sourceCategory: "用车",
+    sourceProductId: item.id || item.runtimeId || `VEH-${index + 1}`,
+    tags: [item.vehicleType, item.serviceType, item.route, item.model, model, seatCount ? `${seatCount}座` : "", rawText],
+    matchKeys: [item.city, item.vehicleType, item.serviceType, item.route, item.model, model, rawText],
+    model,
+    seatCount,
+    raw: item,
+  };
+  const variants = [
+    { key: "DAY", serviceType: "包车", route: item.route || "市区", unit: "天", pricingUnit: "per_day", cost: dayCost },
+    { key: "HALF", serviceType: "包车", route: "半天用车", unit: "半天", pricingUnit: "per_half_day", cost: firstPresent(item.halfDayCost, item.half_day_price) },
+    { key: "AIR", serviceType: "接送机", route: item.airportRoute || item.route || "机场", unit: "次", pricingUnit: "per_trip", cost: airportCost },
+    { key: "STA", serviceType: "接送站", route: item.stationRoute || item.route || "高铁站/火车站", unit: "次", pricingUnit: "per_trip", cost: stationCost },
+  ].filter((variant, variantIndex, list) => {
+    if (variant.cost !== "" && variant.cost != null) return true;
+    return variantIndex === 0 && !list.some((candidate) => candidate.cost !== "" && candidate.cost != null);
+  });
+  return variants.map((variant) => ({
+    ...base,
+    id: `QR-VEH-${seq}-${variant.key}`,
+    name: `${item.city || ""}${variant.serviceType} ${variant.route || ""} ${model || ""}`.trim(),
+    unit: variant.unit,
+    pricingUnit: variant.pricingUnit,
+    cost: valueOrEmpty(variant.cost),
+    status: variant.cost === "" || variant.cost == null ? "待补成本" : "可用",
+    vehicleType: normalizeVehicleType(variant.serviceType),
+    serviceType: normalizeVehicleType(variant.serviceType),
+    route: variant.route,
+    tags: [...base.tags, variant.serviceType, variant.route, normalizeVehicleType(variant.serviceType)],
+    matchKeys: [...base.matchKeys, variant.serviceType, variant.route, normalizeVehicleType(variant.serviceType)],
+  }));
+}
+
 function generateQuoteResources() {
   const resources = [];
   state.productCatalog.vehicles.forEach((item, index) => {
-    resources.push(makeQuoteResource({
-      id: `QR-VEH-${String(index + 1).padStart(5, "0")}`,
-      type: "vehicle",
-      city: item.city,
-      name: `${item.route} ${item.model}`,
-      unit: item.vehicleType?.includes("接送") ? "次" : "天",
-      cost: valueOrEmpty(item.costPrice),
-      salePrice: valueOrEmpty(item.salePrice),
-      supplierName: item.supplierName || IMPORTED_PENDING_SUPPLIER,
-      sourceProductId: `VEH-${index + 1}`,
-      sourceCategory: "用车",
-      status: item.costPrice === "" || item.costPrice == null ? "待补成本" : "可用",
-      tags: [item.vehicleType, item.route, item.model, normalizeVehicleType(item.vehicleType), normalizeVehicleModel(item.model)],
-      matchKeys: [item.city, item.vehicleType, item.route, item.model],
-      vehicleType: normalizeVehicleType(item.vehicleType),
-      model: normalizeVehicleModel(item.model),
-      route: item.route,
-      raw: item,
-    }));
+    vehicleQuoteVariants(item, index).forEach((variant) => resources.push(makeQuoteResource(variant)));
   });
 
   state.productCatalog.tickets.forEach((item, index) => {
     const adultCost = ticketAdultCost(item, getDemandSafe().startDate);
     const childCost = ticketChildCost(item, getDemandSafe().startDate);
+    const isFree = isFreeTicket(item, adultCost);
     resources.push(makeQuoteResource({
       id: `QR-TIC-${String(index + 1).padStart(5, "0")}`,
       type: "ticket",
@@ -45174,12 +45579,13 @@ function generateQuoteResources() {
       salePrice: valueOrEmpty(adultCost),
       childCost: valueOrEmpty(childCost),
       childPrice: valueOrEmpty(childCost),
+      isFree,
       supplierName: item.supplierName || IMPORTED_PENDING_SUPPLIER,
       sourceProductId: `TICKET-${index + 1}`,
       sourceCategory: "景点门票",
-      status: adultCost === "" ? "待补成本" : "可用",
-      tags: [item.scenicName, item.ticketType, item.type, item.freePolicy, item.remark],
-      matchKeys: [item.city, item.scenicName, item.ticketType, shortTicketName(item.scenicName)],
+      status: adultCost === "" && !isFree ? "待补成本" : "可用",
+      tags: [item.scenicName, item.ticketType, item.type, item.freePolicy, item.remark, ...(ticketAliases(item.scenicName) || [])],
+      matchKeys: [item.city, item.scenicName, item.ticketType, shortTicketName(item.scenicName), ...(ticketAliases(item.scenicName) || [])],
       scenicName: item.scenicName,
       ticketType: normalizeTicketType(item.ticketType),
       raw: item,
@@ -45211,13 +45617,13 @@ function generateQuoteResources() {
 
   state.productCatalog.guides.forEach((item, index) => {
     const d = getDemandSafe();
-    const cost = isPeakSeason(d.startDate) ? firstPresent(item.highSeasonCost, item.lowSeasonCost) : firstPresent(item.lowSeasonCost, item.highSeasonCost);
+    const cost = isPeakSeason(d.startDate) ? firstPresent(item.highSeasonCost, item.fullDayCost, item.lowSeasonCost, item.full_day_price) : firstPresent(item.lowSeasonCost, item.fullDayCost, item.highSeasonCost, item.full_day_price);
     const sale = isPeakSeason(d.startDate) ? firstPresent(item.highSeasonSale, item.lowSeasonSale) : firstPresent(item.lowSeasonSale, item.highSeasonSale);
     resources.push(makeQuoteResource({
       id: `QR-GUI-${String(index + 1).padStart(5, "0")}`,
       type: "guide",
       city: item.city,
-      name: `${item.language}导游服务`,
+      name: `${normalizeGuideLanguage(item.language)}导游服务`,
       unit: "天",
       cost: valueOrEmpty(cost),
       salePrice: valueOrEmpty(sale),
@@ -45225,26 +45631,28 @@ function generateQuoteResources() {
       sourceProductId: `GUIDE-${index + 1}`,
       sourceCategory: "导游",
       status: cost === "" ? "待补成本" : "可用",
-      tags: [item.language, item.needsTicket],
-      matchKeys: [item.city, item.language, `${item.language}导游`],
-      language: item.language,
+      tags: [normalizeGuideLanguage(item.language), item.needsTicket],
+      matchKeys: [item.city, normalizeGuideLanguage(item.language), `${normalizeGuideLanguage(item.language)}导游`],
+      language: normalizeGuideLanguage(item.language),
       raw: item,
     }));
   });
 
   state.productCatalog.hotels.forEach((item, index) => {
+    const noteCost = extractCostFromText([item.internalNotes, item.internal_notes, item.notes, item.remark].filter(Boolean).join("；"));
+    const hotelCost = firstPresent(item.costPrice, item.cost_price, item.nightlyCost, item.nightly_cost, noteCost, isPeakSeason(getDemandSafe().startDate) ? item.highSeasonCost : item.lowSeasonCost, item.agreementCost, item.nightly_price, item.reference_price);
     resources.push(makeQuoteResource({
       id: `QR-HOT-${String(index + 1).padStart(5, "0")}`,
       type: "hotel",
       city: item.city,
       name: item.hotelName,
       unit: "间夜",
-      cost: valueOrEmpty(item.costPrice),
+      cost: valueOrEmpty(hotelCost),
       salePrice: valueOrEmpty(item.salePrice),
       supplierName: item.supplierName || IMPORTED_PENDING_SUPPLIER,
       sourceProductId: `HOTEL-${index + 1}`,
       sourceCategory: "酒店",
-      status: item.costPrice === "" || item.costPrice == null ? "待补成本" : "可用",
+      status: hotelCost === "" || hotelCost == null ? "待补成本" : "可用",
       tags: [item.hotelName, item.star, item.roomType, item.breakfast, item.hasAgreement, item.agreementFixed],
       matchKeys: [item.city, item.hotelName, item.star, normalizeHotelStar(item.star), item.roomType],
       star: normalizeHotelStar(item.star),
@@ -45281,7 +45689,60 @@ function generateQuoteResources() {
       raw: item,
     }));
   });
+  state.suppliers
+    .filter((supplier) => supplier.status === "启用")
+    .forEach((supplier) => {
+      (supplier.serviceDetails || []).forEach((detail) => {
+        const resource = supplierServiceDetailToQuoteResource(supplier, detail);
+        if (resource) resources.push(resource);
+      });
+    });
   return resources;
+}
+
+function supplierServiceDetailToQuoteResource(supplier, detail) {
+  const category = supplier.category;
+  const type = categoryToType[category] || "other";
+  const city = detail.city || detail.fromCity || supplier.city || supplier.cities?.[0] || "";
+  const name = serviceDetailName(detail, category);
+  const base = {
+    id: detail.id || `SD-${supplier.id}-${name}`,
+    type,
+    city,
+    name,
+    unit: supplierDetailUnit(category, detail),
+    cost: valueOrEmpty(firstPresent(detail.costPrice, detail.packageCostPrice, detail.dailyCostPrice)),
+    salePrice: valueOrEmpty(detail.salePrice),
+    supplierId: supplier.id,
+    supplierName: supplier.name,
+    sourceProductId: "",
+    sourceResourceId: detail.id || "",
+    sourceCategory: category,
+    status: firstPresent(detail.costPrice, detail.packageCostPrice, detail.dailyCostPrice, detail.perPersonCost) === "" ? "待补成本" : "可用",
+    validFrom: detail.validFrom || IMPORT_VALID_FROM,
+    validTo: detail.validTo || IMPORT_VALID_TO,
+    tags: [category, detail.serviceCategory, detail.routeName, detail.vehicleModel, detail.roomTypeName, detail.languages, detail.ticketTypeName, detail.remark],
+    matchKeys: [city, name, detail.routeName, detail.vehicleModel, detail.roomTypeName, detail.languages, detail.attractionName],
+    costSource: "供应商服务明细",
+    serviceDetailId: detail.id || "",
+    serviceDetailName: name,
+    raw: detail,
+  };
+  if (category === "酒店") Object.assign(base, { roomType: normalizeRoomType(detail.roomTypeName), star: normalizeHotelStar(detail.star || detail.hotelLevel || ""), breakfast: detail.breakfastIncluded || "" });
+  if (category === "包车") Object.assign(base, { vehicleType: normalizeVehicleType(detail.serviceCategory || detail.routeName || name), serviceType: normalizeVehicleType(detail.serviceCategory || detail.routeName || name), model: normalizeVehicleModel(detail.vehicleModel), route: detail.routeName || name, cost: valueOrEmpty(firstPresent(detail.packageCostPrice, detail.costPrice)) });
+  if (category === "导游") Object.assign(base, { language: detail.languages || "英语", cost: valueOrEmpty(firstPresent(detail.dailyCostPrice, detail.costPrice)) });
+  if (category === "门票") Object.assign(base, { scenicName: detail.attractionName || name, ticketType: normalizeTicketType(detail.ticketTypeName || "景区门票"), childCost: valueOrEmpty(detail.childCostPrice || detail.childCost) });
+  if (category === "餐") Object.assign(base, { restaurant: detail.restaurantName || name, cuisine: detail.cuisine || "", halal: detail.halalFriendly || "否", cost: valueOrEmpty(firstPresent(detail.perPersonCost, detail.costPrice)) });
+  if (category === "特色体验") Object.assign(base, { experienceName: detail.experienceName || name, ticketType: normalizeTicketType(detail.audience || "体验") });
+  return makeQuoteResource(base);
+}
+
+function supplierDetailUnit(category, detail) {
+  if (category === "酒店") return "间夜";
+  if (category === "包车") return detail.serviceCategory?.includes("接送") ? "次" : "天";
+  if (category === "导游") return "天";
+  if (category === "门票" || category === "餐" || category === "特色体验") return "人";
+  return detail.billingMethod || "次";
 }
 
 function makeQuoteResource(resource) {
@@ -45298,6 +45759,7 @@ function makeQuoteResource(resource) {
     normalizedName,
     ...resource,
     supplierName: resource.supplierName || IMPORTED_PENDING_SUPPLIER,
+    costSource: resource.costSource || "产品库",
     normalizedName,
     matchKeys,
   };
@@ -45340,13 +45802,63 @@ function normalizeVehicleModel(value) {
   return text || "";
 }
 
+function parseSeatCount(value) {
+  const match = String(value || "").match(/(\d+)\s*座/);
+  return match ? Number(match[1]) : null;
+}
+
+function inferVehicleServiceTypeFromText(text = "", fallback = "包车") {
+  const value = String(text || "");
+  if (/机场|接机|送机|抵达|大兴|首都机场|airport/i.test(value)) return "接送机";
+  if (/高铁|火车站|接站|送站|station|train/i.test(value)) return "接送站";
+  if (/市区|市内|当日用车|本地|本地游|一日游|全天|半天|包车|用车|8小时|9小时|武隆/.test(value)) return "包车";
+  return fallback;
+}
+
 function normalizeVehicleType(value) {
   const text = String(value || "");
-  if (/接送机|接机|送机|机场/.test(text)) return "接送机";
-  if (/接送站|接站|送站|火车站|高铁站/.test(text)) return "接送站";
+  if (/接送机|接机|送机|机场|大兴|首都机场|airport/i.test(text)) return "接送机";
+  if (/接送站|接站|送站|火车站|高铁站|station|train/i.test(text)) return "接送站";
   if (/城际|周边|跨城/.test(text)) return "城际/周边";
-  if (/包车|一日游|两日游|三日游|四日游|用车/.test(text)) return "包车";
+  if (/包车|一日游|两日游|三日游|四日游|用车|市区|市内|本地游|8小时|9小时|武隆/.test(text)) return "包车";
   return text || "包车";
+}
+
+function vehicleRawSearchText(item = {}) {
+  const raw = item.rawFields || item.raw || {};
+  const rawText = raw && typeof raw === "object" ? Object.values(raw).join(" ") : "";
+  return [
+    item.name,
+    item.route,
+    item.serviceType,
+    item.vehicleType,
+    item.vehicle_type,
+    item.routeName,
+    item.remark,
+    item.notes,
+    rawText,
+  ].filter(Boolean).join(" ");
+}
+
+function normalizeVehicleTypeFromResource(item = {}, fallback = "") {
+  const explicit = item.serviceType || item.vehicleType || item.vehicle_type || "";
+  const normalizedExplicit = explicit ? normalizeVehicleType(explicit) : "";
+  if (["包车", "接送机", "接送站", "城际/周边"].includes(normalizedExplicit)) return normalizedExplicit;
+  return inferVehicleServiceTypeFromText(vehicleRawSearchText(item), fallback || normalizedExplicit || "包车");
+}
+
+function normalizeGuideLanguage(value) {
+  const text = String(value || "").trim();
+  if (!text) return "英语";
+  if (/英|english/i.test(text)) return "英语";
+  if (/西|spanish|español/i.test(text)) return "西语";
+  if (/意|italian/i.test(text)) return "意语";
+  if (/德|german/i.test(text)) return "德语";
+  if (/法|french/i.test(text)) return "法语";
+  if (/日|japanese/i.test(text)) return "日语";
+  if (/韩|korean/i.test(text)) return "韩语";
+  if (/俄|russian/i.test(text)) return "俄语";
+  return text;
 }
 
 function normalizeHotelStar(value) {
@@ -45371,6 +45883,41 @@ function normalizeTicketType(value) {
   return normalizeResourceText(value || "景区门票");
 }
 
+function extractCostFromText(text) {
+  if (!text) return null;
+  const patterns = [
+    /成本[:：]\s*(\d+(?:\.\d+)?)/,
+    /成本价[:：]\s*(\d+(?:\.\d+)?)/,
+    /底价[:：]\s*(\d+(?:\.\d+)?)/,
+    /协议成本[:：]\s*(\d+(?:\.\d+)?)/,
+    /淡季成本[:：]\s*(\d+(?:\.\d+)?)/,
+    /旺季成本[:：]\s*(\d+(?:\.\d+)?)/,
+  ];
+  for (const pattern of patterns) {
+    const match = String(text).match(pattern);
+    if (match) return Number(match[1]);
+  }
+  return null;
+}
+
+function isValidCost(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0;
+}
+
+function isFreeTicket(item, adultCost = ticketAdultCost(item, getDemandSafe().startDate)) {
+  const text = [item?.ticketType, item?.type, item?.scenicName].join(" ");
+  return Number(adultCost) === 0 || /免费票|免票票种|free ticket/i.test(text);
+}
+
+function isFreeResource(resource) {
+  return Boolean(resource?.isFree) || (resource?.type === "ticket" && Number(resource?.cost) === 0);
+}
+
+function hasUsableCost(resource) {
+  return isValidCost(resource?.cost) || isFreeResource(resource);
+}
+
 function isPeakSeason(date) {
   const month = Number(String(date || "").slice(5, 7));
   return month >= 6 && month <= 8;
@@ -45393,51 +45940,91 @@ function ticketChildCost(item, date) {
 function sourceFromResource(resource, sourceType = "产品库") {
   if (!resource) return { source: "待补价", sourceType: "待补价" };
   const supplier = resource.supplierName || supplierById(resource.supplierId)?.name || IMPORTED_PENDING_SUPPLIER;
+  const resolvedType = resource.costSource || sourceType;
+  const expiry = resource.validTo && daysUntil(resource.validTo) < 0 ? " / 价格已过期" : resource.validTo && daysUntil(resource.validTo) <= 30 ? " / 即将过期" : "";
   return {
-    source: `${sourceType} / ${supplier} / ${resource.name}`,
-    sourceType,
+    source: `${resolvedType} / ${supplier} / ${resource.name}${expiry}`,
+    sourceType: resolvedType,
     sourceResourceId: resource.id,
     sourceProductId: resource.sourceProductId,
     sourceName: resource.name,
+    supplierId: resource.supplierId || "",
+    supplierName: supplier,
+    serviceDetailId: resource.serviceDetailId || "",
+    serviceDetailName: resource.serviceDetailName || "",
+    priceExpired: resource.validTo ? daysUntil(resource.validTo) < 0 : false,
+    priceExpiringSoon: resource.validTo ? daysUntil(resource.validTo) <= 30 && daysUntil(resource.validTo) >= 0 : false,
   };
 }
 
 function resourceResult(resource, costField = "cost") {
   if (!resource) return pendingResult("待补价");
+  const cost = valueOrEmpty(resource[costField]);
+  const hasCost = isValidCost(cost) || isFreeResource(resource);
   return {
-    cost: valueOrEmpty(resource[costField]),
+    cost,
     salePrice: valueOrEmpty(resource.salePrice),
     childCost: valueOrEmpty(resource.childCost),
     childPrice: valueOrEmpty(resource.childPrice),
     candidates: [],
     ...sourceFromResource(resource),
     resource,
+    isFree: isFreeResource(resource),
+    matchStatus: hasCost ? "matched" : "need_price",
+    matchConfidence: hasCost ? "high" : "medium",
   };
 }
 
 function pendingResult(source, candidates = []) {
+  const sourceType = source.includes("未找到") ? "未匹配" : source.includes("待选择") ? "待选择资源" : "待补价";
   return {
     cost: "",
     salePrice: "",
     childCost: "",
     childPrice: "",
     source,
-    sourceType: source.includes("待选择") ? "待选择资源" : "待补价",
+    sourceType,
     candidates,
     sourceResourceId: "",
     sourceProductId: "",
     sourceName: "",
+    resource: null,
+    matchStatus: sourceType === "未匹配" ? "unmatched" : sourceType === "待选择资源" ? "need_confirm" : "need_price",
+    matchConfidence: sourceType === "未匹配" ? "low" : "low",
   };
 }
 
 function traceFields(result, fallbackType = "") {
   const resource = result?.resource || {};
   return {
+    resourceId: result?.sourceResourceId || resource.id || "",
+    resourceName: result?.sourceName || resource.name || "",
+    category: resource.sourceCategory || typeToCategory[resource.type] || "",
+    city: resource.city || "",
+    serviceType: resource.serviceType || resource.vehicleType || resource.ticketType || resource.sourceCategory || typeToCategory[resource.type] || resource.type || "",
+    productName: result?.sourceName || resource.name || "",
+    unitCost: result?.cost ?? result?.adultCost ?? "",
+    pricingUnit: resource.pricingUnit || resource.unit || "",
+    matchStatus: result?.matchStatus || (result?.sourceType === "待补价" ? "need_price" : result?.sourceType === "未匹配" ? "unmatched" : ""),
+    matchConfidence: result?.matchConfidence || "",
     sourceProductId: result?.sourceProductId || resource.sourceProductId || "",
     sourceResourceId: result?.sourceResourceId || resource.id || "",
     sourceName: result?.sourceName || resource.name || "",
     sourceType: result?.sourceType || fallbackType || "",
     candidates: result?.candidates || [],
+    supplierId: result?.supplierId || resource.supplierId || "",
+    supplierName: result?.supplierName || resource.supplierName || "",
+    serviceDetailId: result?.serviceDetailId || resource.serviceDetailId || "",
+    serviceDetailName: result?.serviceDetailName || resource.serviceDetailName || "",
+    costSource: result?.sourceType || resource.costSource || fallbackType || "",
+    matchReason: result?.matchReason || "",
+    cityCandidateCount: result?.cityCandidateCount ?? "",
+    typeCandidateCount: result?.typeCandidateCount ?? "",
+    modelCandidateCount: result?.modelCandidateCount ?? "",
+    finalCandidateCount: result?.finalCandidateCount ?? "",
+    isFree: Boolean(result?.isFree || resource.isFree),
+    priceExpired: Boolean(result?.priceExpired || resource.validTo && daysUntil(resource.validTo) < 0),
+    priceExpiringSoon: Boolean(result?.priceExpiringSoon || resource.validTo && daysUntil(resource.validTo) <= 30 && daysUntil(resource.validTo) >= 0),
   };
 }
 
@@ -45464,7 +46051,22 @@ function candidateSummary(candidates) {
 }
 
 function activeQuoteResource(resource) {
-  return resource && resource.status !== "停用" && daysUntil(resource.validTo) >= 0;
+  return resource && resource.status !== "停用";
+}
+
+function bestResourceCandidate(candidates = []) {
+  const active = candidates.filter(Boolean);
+  const priced = active.filter(hasUsableCost);
+  const pool = priced.length ? priced : active;
+  return pool
+    .slice()
+    .sort((a, b) => {
+      const priorityA = a.costSource === "供应商服务明细" ? 0 : a.costSource === "产品库" ? 1 : 2;
+      const priorityB = b.costSource === "供应商服务明细" ? 0 : b.costSource === "产品库" ? 1 : 2;
+      if (priorityA !== priorityB) return priorityA - priorityB;
+      if (hasUsableCost(a) !== hasUsableCost(b)) return hasUsableCost(a) ? -1 : 1;
+      return (isFreeResource(a) ? 0 : Number(a.cost || Number.POSITIVE_INFINITY)) - (isFreeResource(b) ? 0 : Number(b.cost || Number.POSITIVE_INFINITY));
+    })[0];
 }
 
 function sameCity(resource, city) {
@@ -45485,52 +46087,121 @@ function textMatchesRoute(resource, text) {
 }
 
 function airportKeyword(text) {
-  const keywords = ["首都机场", "大兴机场", "浦东", "虹桥", "萧山", "双流", "天府", "咸阳", "白云", "宝安", "机场"];
+  const keywords = ["大兴机场", "首都机场", "浦东", "虹桥", "萧山", "双流", "天府", "咸阳", "白云", "宝安", "机场"];
   return keywords.find((keyword) => String(text || "").includes(keyword)) || "";
 }
 
 function lookupVehicleResource({ city, vehicleType, model, text = "" }) {
-  const normalizedType = normalizeVehicleType(vehicleType);
+  const requestedText = [vehicleType, model, text].filter(Boolean).join(" ");
+  const normalizedType = normalizeVehicleType(vehicleType || inferVehicleServiceTypeFromText(requestedText));
   const normalizedModel = normalizeVehicleModel(model);
-  let candidates = quoteResources().filter((resource) => {
-    return resource.type === "vehicle"
-      && sameCity(resource, city)
-      && resource.vehicleType === normalizedType
-      && resource.model === normalizedModel
-      && activeQuoteResource(resource);
+  const allVehicles = quoteResources().filter((resource) => resource.type === "vehicle" && activeQuoteResource(resource));
+  const cityCandidates = allVehicles.filter((resource) => sameCity(resource, city));
+  const diagnosticBase = {
+    cityCandidateCount: cityCandidates.length,
+    typeCandidateCount: 0,
+    modelCandidateCount: 0,
+    finalCandidateCount: 0,
+  };
+  const withDiagnostics = (result, extra = {}) => ({ ...diagnosticBase, ...extra, ...result });
+  if (!cityCandidates.length) {
+    return withDiagnostics({ ...pendingResult("待补价：城市不匹配"), matchReason: "城市不匹配" });
+  }
+
+  const typeCandidates = cityCandidates.filter((resource) => {
+    const inferred = normalizeVehicleTypeFromResource(resource.raw || resource, resource.vehicleType || resource.serviceType);
+    return resource.vehicleType === normalizedType || resource.serviceType === normalizedType || inferred === normalizedType;
   });
-  const airport = airportKeyword(text);
+  if (!typeCandidates.length) {
+    return withDiagnostics(
+      { ...pendingResult(`待补价：服务类型不匹配 / 候选资源：${candidateSummary(cityCandidates)}`, cityCandidates.slice(0, 8)), matchReason: "服务类型不匹配" },
+      { typeCandidateCount: 0, finalCandidateCount: cityCandidates.length },
+    );
+  }
+
+  const modelCandidates = normalizedModel
+    ? typeCandidates.filter((resource) => resource.model === normalizedModel || normalizeVehicleModel(resource.raw?.model || resource.raw?.vehicleModel || "") === normalizedModel)
+    : typeCandidates;
+  if (!modelCandidates.length) {
+    return withDiagnostics(
+      { ...pendingResult(`待补价：车型缺失 / 候选资源：${candidateSummary(typeCandidates)}`, typeCandidates.slice(0, 8)), matchReason: "车型缺失" },
+      { typeCandidateCount: typeCandidates.length, modelCandidateCount: 0, finalCandidateCount: typeCandidates.length },
+    );
+  }
+
+  let candidates = modelCandidates;
+  let routeMatched = false;
+  const airport = airportKeyword(requestedText);
   if (normalizedType === "接送机" && airport) {
-    const airportMatches = candidates.filter((resource) => normalizeResourceText(resource.route).includes(normalizeResourceText(airport)));
-    if (airportMatches.length) candidates = airportMatches;
+    const airportMatches = candidates.filter((resource) => normalizeResourceText(resource.route).includes(normalizeResourceText(airport)) || normalizeResourceText(resource.name).includes(normalizeResourceText(airport)));
+    if (airportMatches.length) {
+      candidates = airportMatches;
+      routeMatched = true;
+    }
   }
-  const routeMatches = candidates.filter((resource) => textMatchesRoute(resource, text));
-  if (routeMatches.length) candidates = routeMatches;
-  if (!candidates.length) return pendingResult("待补价：未找到匹配车型资源");
-  if (candidates.length > 1 && !routeMatches.length && !airport) {
-    return pendingResult(`待选择资源：${candidateSummary(candidates)}`, candidates);
+  const routeMatches = candidates.filter((resource) => textMatchesRoute(resource, requestedText));
+  if (routeMatches.length) {
+    candidates = routeMatches;
+    routeMatched = true;
   }
-  const selected = candidates
-    .slice()
-    .sort((a, b) => number(a.cost) - number(b.cost))[0];
+  const selected = bestResourceCandidate(candidates);
   const result = resourceResult(selected);
   result.candidates = candidates;
-  result.source = `${result.source}${candidates.length > 1 ? ` / 候选${candidates.length}条` : ""}`;
+  result.cityCandidateCount = cityCandidates.length;
+  result.typeCandidateCount = typeCandidates.length;
+  result.modelCandidateCount = modelCandidates.length;
+  result.finalCandidateCount = candidates.length;
+  if (!hasUsableCost(selected)) {
+    result.source = `待补成本 / ${selected.supplierName || IMPORTED_PENDING_SUPPLIER} / ${selected.name}${candidates.length > 1 ? ` / 候选${candidates.length}条` : ""}`;
+    result.sourceType = "待补价";
+    result.matchStatus = "need_price";
+    result.matchConfidence = "medium";
+    result.matchReason = "成本价为空";
+    return result;
+  }
+  if (!routeMatched && modelCandidates.length) {
+    result.matchStatus = candidates.length > 1 ? "need_confirm" : "need_confirm";
+    result.matchConfidence = "medium";
+    result.matchReason = "城市、服务类型和车型命中，路线需确认";
+  }
+  if (candidates.length > 1) result.source = `${result.source} / 候选${candidates.length}条`;
   return result;
 }
 
 function lookupGuideResource(city, language, date) {
-  const candidates = quoteResources().filter((resource) => {
+  const normalizedLanguage = normalizeGuideLanguage(language);
+  let candidates = quoteResources().filter((resource) => {
     return resource.type === "guide"
       && sameCity(resource, city)
-      && normalizeResourceText(resource.language) === normalizeResourceText(language)
+      && normalizeGuideLanguage(resource.language) === normalizedLanguage
       && activeQuoteResource(resource);
   });
+  let languageFallback = false;
+  if (!candidates.length && normalizedLanguage !== "英语") {
+    candidates = quoteResources().filter((resource) => resource.type === "guide" && sameCity(resource, city) && normalizeGuideLanguage(resource.language) === "英语" && activeQuoteResource(resource));
+    languageFallback = Boolean(candidates.length);
+  }
   if (!candidates.length) return pendingResult("待补价：未找到导游资源");
-  const selected = candidates[0];
+  const selected = bestResourceCandidate(candidates);
   const raw = selected.raw || {};
   const cost = isPeakSeason(date) ? firstPresent(raw.highSeasonCost, raw.lowSeasonCost, selected.cost) : firstPresent(raw.lowSeasonCost, raw.highSeasonCost, selected.cost);
-  return { ...resourceResult(selected), cost };
+  const result = { ...resourceResult(selected), cost, candidates };
+  if (!isValidCost(cost)) {
+    result.source = `待补成本 / ${selected.supplierName || IMPORTED_PENDING_SUPPLIER} / ${selected.name}`;
+    result.sourceType = "待补价";
+    result.matchStatus = "need_price";
+  } else if (candidates.length > 1) {
+    result.matchStatus = "need_confirm";
+    result.matchConfidence = "medium";
+    result.source = `${result.source} / 候选${candidates.length}位`;
+  }
+  if (languageFallback) {
+    result.matchStatus = "need_confirm";
+    result.matchConfidence = "medium";
+    result.matchReason = "语言未识别，默认英语待确认";
+    result.source = `${result.source} / 语言待确认`;
+  }
+  return result;
 }
 
 function lookupHotelResource({ city, star, roomType }) {
@@ -45543,9 +46214,20 @@ function lookupHotelResource({ city, star, roomType }) {
   const roomMatches = candidates.filter((resource) => resource.roomType === normalizedRoom || resource.raw?.roomType?.includes(roomType));
   if (roomMatches.length) candidates = roomMatches;
   if (!candidates.length) return pendingResult("待补价：未找到匹配酒店资源");
-  const selected = candidates.slice().sort((a, b) => number(a.cost) - number(b.cost))[0];
+  const selected = bestResourceCandidate(candidates);
   const result = resourceResult(selected);
   result.candidates = candidates;
+  if (!hasUsableCost(selected)) {
+    result.source = `待补成本 / ${selected.supplierName || IMPORTED_PENDING_SUPPLIER} / ${selected.name}${selected.salePrice ? ` / 参考售价${money(selected.salePrice)}` : ""}`;
+    result.sourceType = "待补价";
+    result.matchStatus = "need_price";
+    result.matchConfidence = "medium";
+    return result;
+  }
+  if (candidates.length > 1) {
+    result.matchStatus = "need_confirm";
+    result.matchConfidence = "medium";
+  }
   result.source = `${result.source} / ${selected.raw?.star || normalizedStar} / ${selected.raw?.roomType || roomType}${candidates.length > 1 ? ` / 候选${candidates.length}家` : ""}`;
   return result;
 }
@@ -45575,14 +46257,19 @@ function lookupMealResource({ city, meal, demand }) {
       sourceType: "旧标准价",
     };
   }
-  const withCost = candidates.filter((resource) => resource.cost !== "" && resource.cost != null);
-  const selected = (withCost.length ? withCost : candidates).slice().sort((a, b) => number(a.cost || a.salePrice) - number(b.cost || b.salePrice))[0];
+  const withCost = candidates.filter(hasUsableCost);
+  const selected = bestResourceCandidate(withCost.length ? withCost : candidates);
   const result = resourceResult(selected);
   result.candidates = candidates;
-  if (selected.cost === "" || selected.cost == null) {
-    result.source = `待补成本 / ${selected.supplierName} / ${selected.name}${selected.salePrice ? ` / 卖价参考${money(selected.salePrice)}` : ""}`;
+  if (!hasUsableCost(selected)) {
+    result.source = `待补成本 / ${selected.supplierName} / ${selected.name}${selected.salePrice ? ` / 参考售价${money(selected.salePrice)}` : ""}`;
     result.sourceType = "待补价";
+    result.matchStatus = "need_price";
   } else {
+    if (candidates.length > 1) {
+      result.matchStatus = "need_confirm";
+      result.matchConfidence = "medium";
+    }
     result.source = `${result.source}${needHalalMeal(demand) ? " / 清真优先" : ""}${candidates.length > 1 ? ` / 候选${candidates.length}家` : ""}`;
   }
   return result;
@@ -45601,14 +46288,18 @@ function lookupTicketResource(name, city, date, ticketType = "景区门票") {
     const mainTicket = candidates.filter((resource) => /景区门票|门票/.test(resource.raw?.ticketType || "") && !/馆|索道|缆车|夜场|演出|优速通/.test(resource.raw?.ticketType || ""));
     if (mainTicket.length) candidates = mainTicket;
   }
-  const selected = candidates[0];
+  const selected = bestResourceCandidate(candidates);
   const adultCost = ticketAdultCost(selected.raw || {}, date);
   const childCost = ticketChildCost(selected.raw || {}, date);
+  const isFree = isFreeResource(selected) || Number(adultCost) === 0;
   return {
     ...resourceResult(selected),
     cost: valueOrEmpty(adultCost),
     childCost: valueOrEmpty(childCost),
     candidates,
+    isFree,
+    matchStatus: adultCost === "" && !isFree ? "need_price" : (candidates.length > 1 ? "need_confirm" : "matched"),
+    matchConfidence: candidates.length > 1 ? "medium" : "high",
     source: `${sourceFromResource(selected).source} / ${selected.raw?.ticketType || ticketType}${candidates.length > 1 ? ` / 候选${candidates.length}个票种` : ""}`,
   };
 }
@@ -45622,7 +46313,7 @@ function lookupExperienceResource({ city, name, ticketType }) {
       && activeQuoteResource(resource);
   });
   if (!candidates.length) return pendingResult("待补价：未找到体验资源");
-  return resourceResult(candidates[0]);
+  return resourceResult(bestResourceCandidate(candidates));
 }
 
 function routeProductById(id) {
@@ -45656,7 +46347,7 @@ function buildImportQualityReport() {
     meals: { label: "餐", items: state.productCatalog.meals, resources: quoteResourcesRaw("meal") },
   };
   const rows = Object.entries(categories).map(([key, item]) => qualityRow(key, item.label, item.items, item.resources));
-  return { rows, generatedAt: "2026-06-21" };
+  return { rows, generatedAt: getTodayDateString() };
 }
 
 function quoteResourcesRaw(type) {
@@ -45685,12 +46376,13 @@ function qualityRow(key, label, items, resources) {
       status: missingCost ? "可展示但需补成本" : "可直接报价",
     };
   }
-  const missingCost = resources.filter((resource) => resource.cost === "" || resource.cost == null).length;
+  const missingCost = resources.filter((resource) => !hasUsableCost(resource)).length;
   const missingChild = resources.filter((resource) => ["ticket", "experience"].includes(resource.type) && (resource.childCost === "" || resource.childCost == null)).length;
   const missingSupplier = resources.filter((resource) => !resource.supplierId && resource.supplierName === IMPORTED_PENDING_SUPPLIER).length;
+  const missingCity = resources.filter((resource) => !resource.city || resource.city === "待补城市").length;
   const duplicateCount = duplicateResourceCount(resources);
   const keyMissing = qualityMissingFields(key, items);
-  const quoteable = resources.filter((resource) => resource.status === "可用" && resource.cost !== "" && resource.cost != null).length;
+  const quoteable = resources.filter((resource) => resource.status === "可用" && hasUsableCost(resource)).length;
   const notQuoteable = Math.max(items.length - quoteable, 0);
   return {
     key,
@@ -45700,6 +46392,7 @@ function qualityRow(key, label, items, resources) {
     missingCost,
     missingChild,
     missingSupplier,
+    missingCity,
     duplicateCount,
     notQuoteable,
     keyMissing,
@@ -45739,9 +46432,15 @@ function filteredProductCatalogItems(category) {
   return productCatalogItems(category).filter((item) => {
     const haystack = Object.values(item).join(" ").toLowerCase();
     const mainHit = !f.status || productMainFilterValue(category, item) === f.status;
+    const supplierHit = !f.supplier || String(item.supplierName || item.supplier || item.supplier_id || item.supplierId || "").toLowerCase().includes(f.supplier.toLowerCase());
+    const issueHit = !f.issue
+      || (f.issue === "missingCost" && productStatus(item, category) === "缺成本")
+      || (f.issue === "missingSupplier" && productStatus(item, category) === "缺供应商");
     const columnHit = productColumnFilterHit(category, item);
     return (!f.search || haystack.includes(f.search.toLowerCase()))
       && (!f.city || String(item.city || "").includes(f.city))
+      && supplierHit
+      && issueHit
       && mainHit
       && columnHit;
   });
@@ -45757,7 +46456,7 @@ function productColumnFilterHit(category, item) {
 }
 
 function productColumnKeyMap(category) {
-  if (category === "景点门票") {
+  if (category === "景点门票" || category === "门票") {
     return { 城市: "city", 景点名称: "scenicName", 类型: "type", 票种: "ticketType", 免费政策: "freePolicy", 备注: "remark" };
   }
   if (category === "特色体验") {
@@ -45767,19 +46466,13 @@ function productColumnKeyMap(category) {
 }
 
 function productMainFilterValue(category, item) {
-  if (category === "线路产品") return item.productType;
-  if (category === "用车") return item.vehicleType;
-  if (category === "导游") return item.language;
-  if (category === "酒店") return item.star;
-  if (category === "餐") return item.halal;
-  if (category === "景点门票") return item.type;
-  return item.city;
+  return productStatus(item, category);
 }
 
 function productListHint(category) {
   const hints = {
     线路产品: "产品详情可进入对应报价项目详情，后续可承接行程、报价和客人方案。",
-    用车: "卖价和成本价可联动用车供应商，操作可跳转供应商列表。",
+    用车: "参考售价和成本价可联动用车供应商，操作可跳转供应商列表。",
     导游: "按城市和语种维护旺季、淡季与超时费。",
     酒店: "按城市、星级、房型和协议价状态维护酒店资源。",
     餐: "按城市、菜品和是否清真维护餐厅资源。",
@@ -45796,6 +46489,7 @@ function renderProductStats(category) {
     ["产品资源总数", `${items.length} 条`],
     ["可报价资源", `${quality.quoteable} 条`],
     ["缺成本资源", `${quality.missingCost} 条`],
+    ["缺城市资源", `${quality.missingCity || 0} 条`],
     ["缺供应商资源", `${quality.missingSupplier} 条`],
     ["待清洗资源", `${quality.notQuoteable} 条`],
     ["最近更新时间", quality.updated || "-"],
@@ -45803,7 +46497,18 @@ function renderProductStats(category) {
 }
 
 function productQualityForCategory(category) {
-  const keyMap = { 线路产品: "routes", 用车: "vehicles", 特色体验: "experiences", 景点门票: "tickets", 导游: "guides", 酒店: "hotels", 餐: "meals" };
+  if (category === "全部") {
+    const report = state.importQuality || buildImportQualityReport();
+    return {
+      quoteable: report.rows.reduce((sum, row) => sum + number(row.quoteable), 0),
+      missingCost: report.rows.reduce((sum, row) => sum + number(row.missingCost), 0),
+      missingSupplier: report.rows.reduce((sum, row) => sum + number(row.missingSupplier), 0),
+      missingCity: report.rows.reduce((sum, row) => sum + number(row.missingCity), 0),
+      notQuoteable: report.rows.reduce((sum, row) => sum + number(row.notQuoteable), 0),
+      updated: report.generatedAt || "2026-06-25",
+    };
+  }
+  const keyMap = { 线路产品: "routes", 用车: "vehicles", 特色体验: "experiences", 景点门票: "tickets", 门票: "tickets", 导游: "guides", 酒店: "hotels", 餐: "meals", 餐厅: "meals" };
   const report = state.importQuality || buildImportQualityReport();
   const row = report.rows.find((item) => item.key === keyMap[category]);
   if (row) return { ...row, updated: report.generatedAt || "2026-06-25" };
@@ -45812,9 +46517,72 @@ function productQualityForCategory(category) {
     quoteable: items.filter((item) => firstPresent(item.cost, item.costPrice, item.adultCost, item.adultSale, item.minSale, item.salePrice) !== "").length,
     missingCost: items.filter((item) => firstPresent(item.cost, item.costPrice, item.adultCost, item.adultSale, item.minSale, item.salePrice) === "").length,
     missingSupplier: items.filter((item) => !item.supplierId && !item.supplierName).length,
+    missingCity: items.filter((item) => !item.city || item.city === "待补城市").length,
     notQuoteable: items.filter((item) => firstPresent(item.cost, item.costPrice, item.adultCost, item.adultSale, item.minSale, item.salePrice) === "").length,
     updated: "2026-06-25",
   };
+}
+
+function productName(item, category) {
+  if (category === "全部") return productName(item, item.__category || "其他");
+  if (category === "酒店") return item.hotelName || item.name_cn || item.name || "未命名酒店";
+  if (category === "导游") return `${item.city || ""}${item.language || item.languages || ""}导游`.trim() || item.name_cn || "未命名导游";
+  if (category === "用车") return [item.route, item.model || item.vehicle_type || item.vehicleType].filter(Boolean).join(" ") || item.name_cn || "未命名用车";
+  if (category === "门票" || category === "景点门票") return item.scenicName || item.name_cn || item.name || "未命名门票";
+  if (category === "餐厅" || category === "餐") return item.restaurant || item.name_cn || item.name || "未命名餐厅";
+  if (category === "特色体验") return item.experienceName || item.name_cn || item.name || "未命名体验";
+  if (category === "大交通") return item.name_cn || item.name || `${item.from || item.departure || ""}-${item.to || item.arrival || ""}` || "大交通手动项";
+  if (category === "线路产品") return item.name || "未命名线路";
+  return item.name || item.name_cn || "未命名产品";
+}
+
+function productCostValue(item, category) {
+  if (category === "全部") return productCostValue(item, item.__category || "其他");
+  if (category === "酒店") return firstPresent(item.costPrice, item.nightly_price, item.protocolCost, item.agreementCost);
+  if (category === "导游") return firstPresent(item.fullDayCost, item.full_day_price, item.lowSeasonCost, item.highSeasonCost, item.halfDayCost);
+  if (category === "用车") return firstPresent(item.costPrice, item.full_day_price, item.dayCost, item.airportTransferCost, item.airport_transfer_price);
+  if (category === "门票" || category === "景点门票") return firstPresent(item.agencyAdult, item.adult_price, item.offAdult, item.peakAdult);
+  if (category === "特色体验") return firstPresent(item.adultCost, item.costPrice);
+  if (category === "餐厅" || category === "餐") return firstPresent(item.costPrice, item.minCost);
+  if (category === "大交通") return firstPresent(item.adultCost, item.cost);
+  return firstPresent(item.costPrice, item.cost, item.salePrice);
+}
+
+function productSaleValue(item, category) {
+  if (category === "全部") return productSaleValue(item, item.__category || "其他");
+  return firstPresent(item.salePrice, item.suggestedSale, item.adultSale, item.minSale, item.recommendedSale, item.suggested_sale);
+}
+
+function productSupplierName(item) {
+  return item.supplierName || item.supplier || item.supplier_id || item.supplierId || "";
+}
+
+function productStatus(item, category) {
+  if (category === "全部") return productStatus(item, item.__category || "其他");
+  if (item.status === "停用" || item.status === "inactive" || item.disabled) return "停用";
+  if (item.status === "待清洗" || item.status === "pending" || (item.missing_fields || item.missingFields || []).length) return "待清洗";
+  if (productCostValue(item, category) === "" || productCostValue(item, category) == null) return "缺成本";
+  if (!productSupplierName(item)) return "缺供应商";
+  return item.quoteStatus || "可报价";
+}
+
+function productSeasonValue(item, season) {
+  if (season === "low") return firstPresent(item.lowSeasonCost, item.offAdult, item.offDiscount, item.lowSeasonSale, item.low_season_cost);
+  return firstPresent(item.highSeasonCost, item.peakAdult, item.peakDiscount, item.highSeasonSale, item.high_season_cost);
+}
+
+function productAdultPrice(item, category) {
+  if (category === "门票" || category === "景点门票") return firstPresent(item.agencyAdult, item.adult_price, item.peakAdult, item.offAdult);
+  return firstPresent(item.adultSale, item.salePrice, item.suggestedSale);
+}
+
+function productChildPrice(item, category) {
+  if (category === "门票" || category === "景点门票") return firstPresent(item.agencyDiscount, item.child_price, item.peakDiscount, item.offDiscount);
+  return firstPresent(item.childSale, item.childCost, item.childPrice);
+}
+
+function productUpdatedAt(item) {
+  return item.updated_at || item.updatedAt || item.updated || new Date().toISOString().slice(0, 10);
 }
 
 function statTile([label, value]) {
@@ -45834,7 +46602,7 @@ function countText(counts) {
 }
 
 function renderCatalogExtraFilters(category) {
-  if (category !== "景点门票" && category !== "特色体验") return "";
+  if (category !== "景点门票" && category !== "门票" && category !== "特色体验") return "";
   const fields = Object.keys(productColumnKeyMap(category));
   return `<div class="table-filter-bar">
     <label>表头字段<select id="productColumnSelect"><option value="">选择字段</option>${fields.map((field) => `<option ${state.productColumnFilter.column === field ? "selected" : ""}>${field}</option>`).join("")}</select></label>
@@ -45844,90 +46612,105 @@ function renderCatalogExtraFilters(category) {
 }
 
 function renderProductCategoryTable(category, items) {
-  const empty = `<tr><td colspan="20">当前筛选条件下暂无数据。</td></tr>`;
-  if (category === "线路产品") {
-    return tableWrap(["产品编号", "产品类型", "城市", "线路天数", "产品名", "报价包含项", "操作"], items.map((item) => [
-      item.code,
-      item.productType,
-      item.city,
-      `${item.days}天`,
-      item.name,
-      item.includes.map((x) => `<span class="small-badge">${escapeHtml(x)}</span>`).join(""),
-      `<div class="row-actions"><button class="secondary-btn" data-view-route-product="${item.routeProductId || item.code}">产品详情</button><button class="primary-btn" data-use-route-product="${item.routeProductId || item.code}">用于报价</button></div>`,
-    ]), empty);
-  }
-  if (category === "用车") {
-    return tableWrap(["城市", "用车类型", "行程", "服务时长", "车型", "卖价", "成本价", "操作"], items.map((item) => [
-      item.city,
-      item.vehicleType,
-      item.route,
-      item.duration,
-      item.model,
-      money(item.salePrice),
-      money(item.costPrice),
-      `<button class="secondary-btn" data-open-supplier-category="用车">对应供应商</button>`,
-    ]), empty);
-  }
-  if (category === "导游") {
-    return tableWrap(["城市", "语种", "旺季卖价", "淡季卖价", "超时费", "操作"], items.map((item) => [
-      item.city,
-      item.language,
-      money(item.highSeasonSale),
-      money(item.lowSeasonSale),
-      money(item.overtimeFee),
-      `<button class="secondary-btn" data-open-supplier-category="导游">对应供应商</button>`,
-    ]), empty);
-  }
-  if (category === "酒店") {
-    return tableWrap(["城市", "酒店名", "星级", "酒店位置优势", "酒店携程链接", "是否有协议价", "协议价是否固定", "房型", "卖价", "是否含双早", "操作"], items.map((item) => [
-      item.city,
-      item.hotelName,
-      item.star,
-      item.advantage,
-      `<span class="table-link">${escapeHtml(item.ctripLink)}</span>`,
-      item.hasAgreement,
-      item.agreementFixed,
-      item.roomType,
-      money(item.salePrice),
-      item.breakfast,
-      `<button class="secondary-btn" data-open-supplier-category="酒店">对应供应商</button>`,
-    ]), empty);
-  }
-  if (category === "餐") {
-    return tableWrap(["城市", "菜品", "是否清真", "饭店名字", "人均最低卖价", "操作"], items.map((item) => [
-      item.city,
-      item.cuisine,
-      item.halal,
-      item.restaurant,
-      money(item.minSale),
-      `<button class="secondary-btn" data-open-supplier-category="餐">对应供应商</button>`,
-    ]), empty);
-  }
-  if (category === "大交通") {
-    return tableWrap(["类型", "出发地", "到达地", "车次/航班号", "舱位/座位等级", "成人成本", "儿童成本", "利润率", "最低利润", "状态"], items.map((item) => [
-      item.type || item.transportType || "高铁 / 火车 / 航班",
-      item.from || item.departure || item.startCity || "-",
-      item.to || item.arrival || item.endCity || "-",
-      item.no || item.trainNo || item.flightNo || "-",
-      item.seatClass || item.cabin || item.class || "-",
-      priceCell(item.adultCost || item.cost),
-      priceCell(item.childCost),
-      item.marginRate || "按规则",
-      item.minimumProfit || 30,
-      item.status || "待确认",
-    ]), empty, "wide-product-table");
-  }
-  if (category === "景点门票") {
-    return tableWrap(["城市", "景点名称", "类型", "票种", "淡季成人票价", "淡季优待票价", "旺季成人票价", "旺季优待票价", "旅行社成人合作价", "旅行社优待合作价", "免费政策", "备注"], items.map((item) => [
-      item.city, item.scenicName, item.type, item.ticketType, priceCell(item.offAdult), priceCell(item.offDiscount), priceCell(item.peakAdult), priceCell(item.peakDiscount), priceCell(item.agencyAdult), priceCell(item.agencyDiscount), item.freePolicy, item.remark,
-    ]), empty, "wide-product-table");
-  }
-  if (category === "特色体验") {
-    return tableWrap(["城市", "体验名称", "票种", "体验时间", "体验介绍信息", "成人卖价", "儿童卖价", "官网价格", "官网儿童价格", "成人成本价", "儿童成本价", "备注", "操作"], items.map((item) => [
-      item.city, item.experienceName, item.ticketType, item.duration, item.intro, priceCell(item.adultSale), priceCell(item.childSale), priceCell(item.officialAdult), priceCell(item.officialChild), priceCell(item.adultCost), priceCell(item.childCost), item.remark, `<button class="secondary-btn" data-open-supplier-category="特色体验">对应供应商</button>`,
-    ]), empty, "wide-product-table");
-  }
-  return `<div class="empty">当前品类暂未配置表头。</div>`;
+  const headers = [
+    "资源名称", "品类", "城市", "服务类型", "规格", "成本价", "参考售价", "淡季成本", "旺季成本", "供应商", "状态", "来源", "备注", "操作",
+  ];
+  const pageSize = state.productPageSize || 100;
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  state.productPage = Math.min(Math.max(1, state.productPage || 1), totalPages);
+  const start = (state.productPage - 1) * pageSize;
+  const visibleItems = items.slice(start, start + pageSize);
+  const rows = visibleItems.map((item, index) => {
+    const rowCategory = category === "全部" ? (item.__category || "其他") : category;
+    const status = productStatus(item, rowCategory);
+    const token = productEditToken(rowCategory, item, index);
+    const row = [
+      `<strong>${escapeHtml(productName(item, rowCategory))}</strong>${productExtraBadges(item, rowCategory)}`,
+      escapeHtml(rowCategory),
+      editableProductCell(token, "city", item.city || item.startCity || item.from || ""),
+      editableProductCell(token, "serviceType", productServiceValue(item, rowCategory)),
+      editableProductCell(token, "spec", productSpecValue(item, rowCategory)),
+      editableProductCell(token, "cost", productCostValue(item, rowCategory), "number"),
+      editableProductCell(token, "sale", productSaleValue(item, rowCategory), "number"),
+      editableProductCell(token, "lowSeasonCost", productSeasonValue(item, "low"), "number"),
+      editableProductCell(token, "highSeasonCost", productSeasonValue(item, "high"), "number"),
+      editableProductCell(token, "supplier", productSupplierName(item)),
+      editableProductStatusCell(token, status),
+      escapeHtml(item.source || item.costSource || "本地"),
+      editableProductCell(token, "notes", item.notes || item.internalNotes || item.remark || ""),
+      productRowActions(rowCategory, item, productCatalogItems(rowCategory).findIndex((candidate) => candidate === item || productDedupeKey(candidate, rowCategory) === productDedupeKey(item, rowCategory))),
+    ];
+    return row;
+  });
+  const empty = `<tr><td colspan="${headers.length}">当前筛选条件下暂无数据。</td></tr>`;
+  return `${renderProductPager(items.length, start, visibleItems.length, totalPages)}${tableWrap(headers, rows, empty, "wide-product-table")}${renderProductPager(items.length, start, visibleItems.length, totalPages)}`;
+}
+
+function renderProductPager(total, start, count, totalPages) {
+  if (total <= (state.productPageSize || 100)) return "";
+  const end = start + count;
+  return `<div class="product-pager">
+    <span>显示 ${start + 1}-${end} / ${total} 条</span>
+    <div>
+      <button class="secondary-btn" data-product-page="${state.productPage - 1}" ${state.productPage <= 1 ? "disabled" : ""}>上一页</button>
+      <strong>${state.productPage} / ${totalPages}</strong>
+      <button class="secondary-btn" data-product-page="${state.productPage + 1}" ${state.productPage >= totalPages ? "disabled" : ""}>下一页</button>
+    </div>
+  </div>`;
+}
+
+function productEditToken(category, item, fallbackIndex = 0) {
+  const index = productCatalogItems(category).findIndex((candidate) => candidate === item || productDedupeKey(candidate, category) === productDedupeKey(item, category));
+  return `${category}:${index >= 0 ? index : fallbackIndex}`;
+}
+
+function editableProductCell(token, field, value, type = "text") {
+  return `<input class="product-inline-input" data-product-inline="${escapeHtml(`${token}:${field}`)}" type="${type}" value="${escapeHtml(value ?? "")}" />`;
+}
+
+function editableProductStatusCell(token, status) {
+  return `<select class="product-inline-input" data-product-inline="${escapeHtml(`${token}:status`)}">${productStatusOptions.map((item) => `<option ${item === status ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}</select>`;
+}
+
+function productServiceValue(item, category) {
+  if (category === "用车") return item.serviceType || item.vehicleType || item.vehicle_type || "";
+  if (category === "酒店") return item.star || item.star_rating || "";
+  if (category === "导游") return item.guideType || item.guide_type || "";
+  if (category === "景点门票" || category === "门票") return item.ticketType || item.type || "";
+  if (category === "餐厅" || category === "餐") return item.cuisine || "";
+  return item.serviceType || item.category || "";
+}
+
+function productSpecValue(item, category) {
+  if (category === "用车") return item.model || item.vehicle_type || "";
+  if (category === "酒店") return item.roomType || item.room_type || "";
+  if (category === "导游") return item.language || item.languages || "";
+  if (category === "景点门票" || category === "门票") return item.ticketType || "";
+  if (category === "餐厅" || category === "餐") return item.mealStandard || item.area || "";
+  return item.spec || "";
+}
+
+function productExtraBadges(item, category) {
+  const tags = [];
+  if (category === "酒店") tags.push(item.star || normalizeHotelStar(item.star_rating), item.roomType || item.room_type, item.breakfast || (item.breakfast_included ? "含早" : ""));
+  if (category === "导游") tags.push(item.language || (Array.isArray(item.languages) ? item.languages.join("/") : item.languages), item.guide_type || item.guideType);
+  if (category === "用车") tags.push(item.vehicleType || item.vehicle_type, item.model || (item.seat_count ? `${item.seat_count}座` : ""));
+  if (category === "门票") tags.push(item.ticketType || item.category, item.requires_reservation ? "需预约" : "");
+  return tags.filter(Boolean).slice(0, 3).map((tag) => `<span class="small-badge">${escapeHtml(tag)}</span>`).join("");
+}
+
+function productRowActions(category, item, index) {
+  const supplierCategory = category === "门票" ? "景点门票" : category === "餐厅" ? "餐" : category;
+  const routeAction = category === "线路产品"
+    ? `<button class="secondary-btn" data-view-route-product="${escapeHtml(item.routeProductId || item.code || "")}">详情</button><button class="primary-btn" data-use-route-product="${escapeHtml(item.routeProductId || item.code || "")}">用于报价</button>`
+    : "";
+  return `<div class="row-actions">
+    ${routeAction}
+    <button class="secondary-btn" data-view-product-raw="${escapeHtml(category)}:${index}">原始字段</button>
+    <button class="secondary-btn" data-edit-product="${escapeHtml(category)}:${index}">编辑</button>
+    <button class="secondary-btn" data-clean-product="${escapeHtml(category)}:${index}">AI清洗当前数据</button>
+    <button class="ghost-btn" data-open-supplier-category="${escapeHtml(supplierCategory)}">供应商</button>
+  </div>`;
 }
 
 function priceCell(value) {
@@ -45944,16 +46727,24 @@ function tableWrap(headers, rows, emptyRow, extraClass = "") {
 }
 
 function bindProductCategoryActions() {
+  $$("[data-product-page]").forEach((btn) => btn.addEventListener("click", () => {
+    state.productPage = Number(btn.dataset.productPage) || 1;
+    renderResourceLibrary();
+  }));
+  $$("[data-product-inline]").forEach((input) => input.addEventListener("change", () => applyProductInlineEdit(input.dataset.productInline, input.value)));
   on("#productColumnSelect", "change", (event) => {
     state.productColumnFilter.column = event.target.value;
+    state.productPage = 1;
     renderResourceLibrary();
   });
   on("#productColumnValue", "change", (event) => {
     state.productColumnFilter.value = event.target.value.trim();
+    state.productPage = 1;
     renderResourceLibrary();
   });
   on("#clearProductColumnFilter", "click", () => {
     state.productColumnFilter = { column: "", value: "" };
+    state.productPage = 1;
     renderResourceLibrary();
   });
   $$("[data-open-supplier-category]").forEach((btn) => btn.addEventListener("click", () => {
@@ -45965,6 +46756,162 @@ function bindProductCategoryActions() {
   $$("[data-view-route-product]").forEach((btn) => btn.addEventListener("click", () => showRouteProductDetail(btn.dataset.viewRouteProduct)));
   $$("[data-use-route-product]").forEach((btn) => btn.addEventListener("click", () => useRouteProductInQuote(btn.dataset.useRouteProduct)));
   $$("[data-open-project]").forEach((btn) => btn.addEventListener("click", () => openProject(btn.dataset.openProject)));
+  $$("[data-view-product-raw]").forEach((btn) => btn.addEventListener("click", () => showProductRawFields(btn.dataset.viewProductRaw)));
+  $$("[data-edit-product]").forEach((btn) => btn.addEventListener("click", () => quickEditProduct(btn.dataset.editProduct)));
+  $$("[data-clean-product]").forEach((btn) => btn.addEventListener("click", () => cleanProductRow(btn.dataset.cleanProduct)));
+}
+
+function applyProductInlineEdit(token, value) {
+  const [category, indexText, field] = String(token || "").split(":");
+  const item = productCatalogItems(category)[Number(indexText)];
+  if (!item || !field) return;
+  const numeric = ["cost", "sale", "lowSeasonCost", "highSeasonCost"].includes(field);
+  const next = numeric ? optionalNumber(value) : value;
+  if (field === "city") item.city = value.trim();
+  if (field === "serviceType") {
+    if (category === "用车") {
+      item.serviceType = inferVehicleServiceTypeFromText(value, value);
+      item.vehicleType = item.serviceType;
+    } else if (category === "酒店") item.star = value;
+    else if (category === "导游") item.guideType = value;
+    else if (category === "餐厅" || category === "餐") item.cuisine = value;
+    else item.serviceType = value;
+  }
+  if (field === "spec") {
+    if (category === "用车") {
+      item.model = normalizeVehicleModel(value);
+      item.seatCount = parseSeatCount(item.model);
+    } else if (category === "酒店") item.roomType = value;
+    else if (category === "导游") item.language = value;
+    else if (category === "景点门票" || category === "门票") item.ticketType = value;
+    else item.spec = value;
+  }
+  if (field === "cost") {
+    item.costPrice = next;
+    if (category === "景点门票" || category === "门票") item.agencyAdult = next;
+    if (category === "导游") item.fullDayCost = next;
+    if (category === "酒店") item.agreementCost = next;
+    if (category === "用车") item.dayCost = next;
+    if (category === "餐厅" || category === "餐") item.minSale = item.minSale || next;
+  }
+  if (field === "sale") item.salePrice = next;
+  if (field === "lowSeasonCost") item.lowSeasonCost = next;
+  if (field === "highSeasonCost") item.highSeasonCost = next;
+  if (field === "supplier") item.supplierName = value.trim();
+  if (field === "status") item.status = value;
+  if (field === "notes") {
+    item.notes = value;
+    item.internalNotes = value;
+    const noteCost = extractCostFromText(value);
+    if (noteCost && !isValidCost(productCostValue(item, category))) item.costPrice = noteCost;
+  }
+  if (productStatus(item, category) === "可报价") item.status = "可报价";
+  item.updatedAt = getTodayDateString();
+  saveLocalProductState();
+  refreshQuoteResources();
+  renderResourceLibrary();
+}
+
+function quickEditProduct(token) {
+  const [category, indexText] = String(token || "").split(":");
+  const item = productCatalogItems(category)[Number(indexText)];
+  if (!item) return;
+  const currentName = productName(item, category);
+  const name = window.prompt("产品名称", currentName);
+  if (name === null) return;
+  const cost = window.prompt("成本价", productCostValue(item, category));
+  if (cost === null) return;
+  const supplier = window.prompt("供应商", productSupplierName(item));
+  if (supplier === null) return;
+  applyBasicProductEdit(item, category, { name, cost, supplier });
+  item.updatedAt = new Date().toISOString().slice(0, 10);
+  saveLocalProductState();
+  refreshQuoteResources();
+  renderResourceLibrary();
+}
+
+function showProductRawFields(token) {
+  const [category, indexText] = String(token || "").split(":");
+  const item = productCatalogItems(category)[Number(indexText)];
+  if (!item) return;
+  const modal = ensureProductRawModal();
+  const raw = item.rawFields && Object.keys(item.rawFields).length ? item.rawFields : {};
+  const extra = item.extraFields && Object.keys(item.extraFields).length ? item.extraFields : {};
+  modal.querySelector("[data-product-raw-body]").innerHTML = `
+    <div class="quality-summary-grid">
+      ${[
+        ["品类", category],
+        ["名称", productName(item, category)],
+        ["城市", item.city || "-"],
+        ["来源 Sheet", item.sourceSheet || item.importSheetName || "-"],
+        ["来源行", item.sourceRow || item.importRowNumber || "-"],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    <div class="quality-table-wrap">
+      <table class="simple-table quality-table">
+        <thead><tr><th>字段</th><th>原始值</th></tr></thead>
+        <tbody>${Object.entries(raw).map(([key, value]) => `<tr><td>${escapeHtml(key)}</td><td>${escapeHtml(value)}</td></tr>`).join("") || `<tr><td colspan="2">暂无 rawFields。</td></tr>`}</tbody>
+      </table>
+    </div>
+    ${Object.keys(extra).length ? `<div class="quality-detail-list"><div><strong>未映射字段</strong>${Object.entries(extra).map(([key, value]) => `<span>${escapeHtml(key)}：${escapeHtml(value)}</span>`).join("")}</div></div>` : ""}
+  `;
+  modal.classList.remove("hidden");
+  renderIcons();
+}
+
+function ensureProductRawModal() {
+  let modal = $("#productRawModal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "productRawModal";
+  modal.className = "modal-backdrop hidden";
+  modal.innerHTML = `
+    <div class="modal-card wide-modal">
+      <div class="modal-head">
+        <div><h3>产品原始字段</h3><p>标准字段用于报价匹配，原始字段用于详情查看和后续清洗。</p></div>
+        <button class="icon-btn" data-close-product-raw aria-label="关闭"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body quality-modal-body" data-product-raw-body></div>
+      <div class="modal-actions"><button class="primary-btn" data-close-product-raw>关闭</button></div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.querySelectorAll("[data-close-product-raw]").forEach((btn) => btn.addEventListener("click", () => modal.classList.add("hidden")));
+  return modal;
+}
+
+function applyBasicProductEdit(item, category, data) {
+  if (category === "酒店") item.hotelName = data.name;
+  else if (category === "门票" || category === "景点门票") item.scenicName = data.name;
+  else if (category === "餐厅" || category === "餐") item.restaurant = data.name;
+  else if (category === "特色体验") item.experienceName = data.name;
+  else if (category === "用车") item.route = data.name;
+  else item.name = data.name;
+  item.costPrice = optionalNumber(data.cost);
+  item.supplierName = data.supplier;
+  if (item.status === "缺成本" && item.costPrice !== "") item.status = productSupplierName(item) ? "可报价" : "缺供应商";
+}
+
+function cleanProductRow(token) {
+  const [category, indexText] = String(token || "").split(":");
+  const item = productCatalogItems(category)[Number(indexText)];
+  if (!item) return;
+  item.status = productStatus(item, category) === "可报价" ? "可报价" : "待清洗";
+  item.aiCleanSuggestion = {
+    summary: "AI 清洗草稿：已标准化名称、城市、成本和状态，确认后可作为正式产品。",
+    updatedAt: new Date().toISOString(),
+  };
+  saveLocalProductState();
+  renderResourceLibrary();
+  setXiaoyiStructuredResult({
+    reply: `已为「${productName(item, category)}」生成清洗草稿，状态已标记为${item.status}。`,
+    intent: "clean_product_resource",
+    suggestions: [{ type: "product_cleaning", summary: item.aiCleanSuggestion.summary, before: item, after: { status: item.status }, reason: "产品资源行内 AI 清洗入口触发" }],
+    actions: [{ id: "confirm_product_cleaning", label: "确认清洗结果", requiresConfirmation: true }],
+    requiredFields: productStatus(item, category) === "缺成本" ? ["成本价"] : [],
+    draft: { category, item },
+    canApply: true,
+    nextSteps: ["补齐缺失成本或供应商", "重新匹配报价项目"],
+  });
 }
 
 function productCostLines(product) {
@@ -46086,21 +47033,18 @@ function renderSupplierManagement() {
   renderSupplierCategoryTabs();
   const suppliers = filteredSuppliers();
   const category = state.activeSupplierCategory;
-  const categoryType = categoryToType[category];
-  const categoryResources = quoteResources().filter((item) => item.type === categoryType);
-  const active = state.suppliers.filter((supplier) => supplier.category === category && supplier.status === "合作中");
-  const boundCount = categoryResources.filter((item) => item.supplierId || (item.supplierName && item.supplierName !== IMPORTED_PENDING_SUPPLIER)).length;
-  const unboundCount = Math.max(categoryResources.length - boundCount, 0);
-  const matchRate = categoryResources.length ? Math.round((boundCount / categoryResources.length) * 100) : 0;
-  const pending = state.suppliers.filter((supplier) => supplier.category === category && ["待确认", "待补资料"].includes(supplier.status)).length;
-  const stopped = state.suppliers.filter((supplier) => supplier.category === category && ["暂停合作", "黑名单"].includes(supplier.status)).length;
+  const visibleSuppliers = category === "全部" ? state.suppliers : state.suppliers.filter((supplier) => supplier.category === category);
+  const serviceCount = visibleSuppliers.reduce((sum, supplier) => sum + (supplier.serviceDetails?.length || 0), 0);
+  const active = visibleSuppliers.filter((supplier) => supplier.status === "启用");
+  const expired = visibleSuppliers.reduce((sum, supplier) => sum + (supplier.serviceDetails || []).filter((detail) => daysUntil(detail.validTo) < 0).length, 0);
+  const expiring = visibleSuppliers.reduce((sum, supplier) => sum + (supplier.serviceDetails || []).filter((detail) => daysUntil(detail.validTo) >= 0 && daysUntil(detail.validTo) <= 30).length, 0);
   $("#supplierStats").innerHTML = [
-    ["已绑定供应商资源", `${boundCount} 条`],
-    ["未绑定供应商资源", `${unboundCount} 条`],
-    ["成本匹配率", `${matchRate}%`],
-    ["合作中", `${active.length} 家`],
-    ["待确认/待补资料", `${pending} 家`],
-    ["停用/黑名单", `${stopped} 家`],
+    ["供应商总数", `${visibleSuppliers.length} 家`],
+    ["启用供应商", `${active.length} 家`],
+    ["服务明细", `${serviceCount} 条`],
+    ["价格已过期", `${expired} 条`],
+    ["即将过期", `${expiring} 条`],
+    ["报价调用记录", `${state.supplierCallRecords.length} 条`],
   ].map(([label, value]) => `<div class="stat-tile"><span>${label}</span><strong>${value}</strong></div>`).join("");
 
   if (!suppliers.some((supplier) => supplier.id === state.activeSupplierId)) {
@@ -46110,48 +47054,65 @@ function renderSupplierManagement() {
   if ($("#supplierSearch")) $("#supplierSearch").value = state.supplierFilters.search;
   if ($("#supplierStatusFilter")) $("#supplierStatusFilter").value = state.supplierFilters.status;
   $("#supplierTable").innerHTML = `
-    <div class="supplier-card-list">
-      ${suppliers.map((supplier) => {
-        const count = state.resourceItems.filter((item) => item.supplierId === supplier.id && item.type === categoryType).length;
-        const details = supplierCategoryValues(supplier).slice(0, 3).map(([label, value]) => `<span class="field-pill">${escapeHtml(label)}：${escapeHtml(value)}</span>`).join("");
-        return `<button class="supplier-row ${supplier.id === state.activeSupplierId ? "active" : ""}" data-view-supplier="${supplier.id}">
-          <div>
-            <strong>${escapeHtml(supplier.name)}</strong>
-            <span>${escapeHtml(supplier.id)} · ${escapeHtml(supplier.cities.join("、"))}</span>
-          </div>
-          <div class="field-pill-group">${details}</div>
-          <div class="supplier-row-tail">
-            <span class="resource-status ${supplier.status === "合作中" ? "ok" : "warn"}">${escapeHtml(supplier.status)}</span>
-            <span>${escapeHtml(supplier.settlement)} · ${count} 条成本</span>
-            <span>${escapeHtml(supplier.contact)} · ${escapeHtml(supplier.phone || "待补电话")}</span>
-          </div>
-        </button>`;
-      }).join("") || `<div class="empty">当前品类下暂无供应商。</div>`}
+    <div class="supplier-table-wrap">
+      <table class="project-table supplier-table wide-supplier-table">
+        <thead><tr>${["供应商名称","供应商品类","来源类型","所在城市","可服务范围","主要联系人","联系方式","合作状态","服务明细数量","最低成本价","价格有效期","历史服务次数","评分 / 标签","更新时间","操作"].map((header) => `<th>${header}</th>`).join("")}</tr></thead>
+        <tbody>${suppliers.map((supplier) => {
+          const primary = supplier.contacts.find((item) => item.primary) || supplier.contacts[0] || {};
+          const details = supplier.serviceDetails || [];
+          const minCost = minSupplierCost(details);
+          return `<tr class="${supplier.id === state.activeSupplierId ? "active-row" : ""}">
+            <td><strong>${escapeHtml(supplier.name)}</strong><span>${escapeHtml(supplier.id)}</span></td>
+            <td>${escapeHtml(supplier.category)}</td>
+            <td>${escapeHtml(supplier.sourceType)}</td>
+            <td>${escapeHtml(supplier.city || "-")}</td>
+            <td>${escapeHtml(supplier.serviceScope || supplier.cities.join("、") || "-")}</td>
+            <td>${escapeHtml(primary.name || "待补")}<span>${escapeHtml(primary.role || "")}</span></td>
+            <td>${escapeHtml(primary.phone || primary.wechat || primary.whatsapp || "-")}</td>
+            <td><span class="resource-status ${supplier.status === "启用" ? "ok" : "warn"}">${escapeHtml(supplier.status)}</span></td>
+            <td>${details.length}</td>
+            <td>${minCost === "" ? "缺成本" : money(minCost)}</td>
+            <td>${supplierValidityText(details)}</td>
+            <td>${number(supplier.historicalServiceCount)}</td>
+            <td>${escapeHtml(supplier.ratingTags || "-")}</td>
+            <td>${escapeHtml(supplier.updatedAt || "-")}</td>
+            <td class="row-actions">
+              <button class="link-btn" data-view-supplier="${supplier.id}">查看</button>
+              <button class="link-btn" data-edit-supplier="${supplier.id}">编辑</button>
+              <button class="link-btn" data-toggle-supplier="${supplier.id}">${supplier.status === "启用" ? "停用" : "启用"}</button>
+              <button class="link-btn" data-export-supplier="${supplier.id}">导出</button>
+            </td>
+          </tr>`;
+        }).join("") || `<tr><td colspan="15">当前品类下暂无供应商。</td></tr>`}</tbody>
+      </table>
     </div>
   `;
   $$("[data-view-supplier]").forEach((btn) => btn.addEventListener("click", () => {
     state.activeSupplierId = btn.dataset.viewSupplier;
     renderSupplierResources();
   }));
+  $$("[data-edit-supplier]").forEach((btn) => btn.addEventListener("click", () => openSupplierModal(btn.dataset.editSupplier)));
+  $$("[data-toggle-supplier]").forEach((btn) => btn.addEventListener("click", () => toggleSupplierStatus(btn.dataset.toggleSupplier)));
+  $$("[data-export-supplier]").forEach((btn) => btn.addEventListener("click", () => exportSupplier(btn.dataset.exportSupplier)));
   renderSupplierResources();
   renderIcons();
 }
 
 function filteredSuppliers() {
   const f = state.supplierFilters;
-  const category = state.activeSupplierCategory || f.category || "用车";
+  const category = state.activeSupplierCategory || f.category || "全部";
   return state.suppliers.filter((supplier) => {
-    const haystack = [supplier.name, supplier.category, supplier.cities.join(" "), supplier.contact, supplier.phone].join(" ").toLowerCase();
+    const primary = supplier.contacts?.find((item) => item.primary) || supplier.contacts?.[0] || {};
+    const haystack = [supplier.name, supplier.category, supplier.cities.join(" "), primary.name, primary.phone, primary.wechat, primary.whatsapp].join(" ").toLowerCase();
     return (!f.search || haystack.includes(f.search.toLowerCase()))
-      && supplier.category === category
+      && (category === "全部" || supplier.category === category)
       && (!f.status || supplier.status === f.status);
   });
 }
 
 function renderSupplierCategoryTabs() {
-  const categories = productCategories.filter((category) => category !== "线路产品");
-  $("#supplierCategoryTabs").innerHTML = categories.map((category) => {
-    const count = state.suppliers.filter((supplier) => supplier.category === category).length;
+  $("#supplierCategoryTabs").innerHTML = supplierCategories.map((category) => {
+    const count = category === "全部" ? state.suppliers.length : state.suppliers.filter((supplier) => supplier.category === category).length;
     return `<button class="category-tab ${state.activeSupplierCategory === category ? "active" : ""}" data-supplier-category="${category}">
       <span>${category}</span><strong>${count}</strong>
     </button>`;
@@ -46196,21 +47157,225 @@ function renderSupplierResources() {
     $("#supplierResourceTable").textContent = "请选择左侧供应商。";
     return;
   }
-  const category = state.activeSupplierCategory;
-  const meta = supplierCategoryMeta[category] || supplierCategoryMeta.其他;
-  const items = state.resourceItems.filter((item) => item.supplierId === supplier.id && item.type === categoryToType[category]);
+  const category = supplier.category;
+  const primary = supplier.contacts.find((item) => item.primary) || supplier.contacts[0] || {};
   $("#supplierResourceTitle").textContent = supplier.name;
-  $("#supplierResourceHint").textContent = `${category} · ${supplier.cities.join("、")} · ${supplier.settlement}`;
+  $("#supplierResourceHint").textContent = `${category} · ${supplier.cities.join("、") || supplier.city} · ${supplier.status}`;
   $("#supplierResourceTable").className = "";
   $("#supplierResourceTable").innerHTML = `
-    <div class="category-fields">
-      ${supplierCategoryValues(supplier).map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    <div class="supplier-detail-sections">
+      <section>
+        <h5>基础信息</h5>
+        <div class="category-fields">
+          ${[
+            ["供应商类型", supplier.category],
+            ["来源类型", supplier.sourceType],
+            ["所在城市", supplier.city || "-"],
+            ["可服务范围", supplier.serviceScope || supplier.cities.join("、") || "-"],
+            ["合作状态", supplier.status],
+            ["取消规则", supplier.cancelRule || "-"],
+            ["历史服务次数", number(supplier.historicalServiceCount)],
+            ["备注", supplier.remark || "-"],
+          ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+        </div>
+      </section>
+      <section>
+        <h5>联系人</h5>
+        <table class="simple-table"><thead><tr>${["联系人姓名","角色","手机","微信","WhatsApp","邮箱","主要联系人","备注"].map((header) => `<th>${header}</th>`).join("")}</tr></thead>
+          <tbody>${supplier.contacts.map((contact) => `<tr><td>${escapeHtml(contact.name || "待补")}</td><td>${escapeHtml(contact.role)}</td><td>${escapeHtml(contact.phone || "-")}</td><td>${escapeHtml(contact.wechat || "-")}</td><td>${escapeHtml(contact.whatsapp || "-")}</td><td>${escapeHtml(contact.email || "-")}</td><td>${contact.primary ? "是" : "否"}</td><td>${escapeHtml(contact.note || "")}</td></tr>`).join("")}</tbody>
+        </table>
+      </section>
+      <section>
+        <h5>服务明细</h5>
+        <table class="simple-table"><thead><tr>${supplierDetailHeaders(category).map((header) => `<th>${header}</th>`).join("")}</tr></thead>
+          <tbody>${(supplier.serviceDetails || []).map((detail) => `<tr>${supplierDetailCells(detail, category).map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${supplierDetailHeaders(category).length}">暂无服务明细。</td></tr>`}</tbody>
+        </table>
+      </section>
+      <section>
+        <h5>轻量预留</h5>
+        <div class="category-fields">
+          ${[["结算信息", supplier.settlement || "待补"], ["附件与资质", supplier.qualification || "待上传"], ["评分与标签", supplier.ratingTags || "-"], ["操作日志", `报价调用 ${state.supplierCallRecords.filter((item) => item.supplierId === supplier.id).length} 次`]].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+        </div>
+      </section>
     </div>
-    <table class="simple-table">
-      <thead><tr>${meta.costHeaders.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead>
-      <tbody>${items.map((item) => `<tr>${supplierCostCells(item, category).map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${meta.costHeaders.length}">该供应商暂无本品类成本。</td></tr>`}</tbody>
-    </table>
   `;
+  if (primary && !primary.phone && !primary.wechat && !primary.whatsapp) {
+    $("#supplierResourceHint").textContent = `${$("#supplierResourceHint").textContent} · 联系方式待补`;
+  }
+}
+
+function supplierDetailHeaders(category) {
+  const map = {
+    酒店: ["房型名称", "床型", "可住人数", "是否含早", "成本价", "参考售价", "价格有效期", "取消规则", "备注"],
+    包车: ["服务品类", "线路名称", "出发城市", "到达城市 / 区域", "车型", "座位数", "包车价成本价", "包车价参考售价", "价格有效期", "备注"],
+    导游: ["导游姓名", "可服务城市", "服务语言", "服务类型", "每日导游服务成本价", "服务时长", "是否可司机兼导游", "价格有效期", "备注"],
+    门票: ["景点名称", "城市", "票种名称", "适用人群", "成本价", "参考售价", "价格有效期", "取消规则", "备注"],
+    大交通: ["交通类型", "代理范围", "服务费规则", "退改签规则", "联系人", "合作状态", "备注"],
+    餐: ["餐厅名称", "城市", "餐标名称", "菜系", "人均成本价", "人均参考售价", "清真友好", "适合团队", "取消规则", "备注"],
+    特色体验: ["体验项目名称", "城市", "适用人群", "服务时长", "成本价", "参考售价", "价格有效期", "取消规则", "备注"],
+    其他: ["项目名称", "城市 / 适用范围", "计费方式", "成本价", "参考售价", "价格有效期", "备注"],
+  };
+  return map[category] || map.其他;
+}
+
+function supplierDetailCells(detail, category) {
+  const priceStatus = detail.validTo && daysUntil(detail.validTo) < 0 ? `<span class="resource-status danger">价格已过期</span>` : detail.validTo && daysUntil(detail.validTo) <= 30 ? `<span class="resource-status warn">即将过期</span>` : escapeHtml(detail.validTo || "-");
+  const cost = detail.costPrice === "" || detail.costPrice == null ? "缺成本" : money(detail.costPrice);
+  const sale = detail.salePrice === "" || detail.salePrice == null ? "-" : money(detail.salePrice);
+  if (category === "酒店") return [escapeHtml(detail.roomTypeName || detail.name), escapeHtml(detail.bedType || ""), escapeHtml(detail.capacity || ""), escapeHtml(detail.breakfastIncluded || ""), cost, sale, priceStatus, escapeHtml(detail.cancelRule || ""), escapeHtml(detail.remark || "")];
+  if (category === "包车") return [escapeHtml(detail.serviceCategory || ""), escapeHtml(detail.routeName || detail.name), escapeHtml(detail.fromCity || ""), escapeHtml(detail.toArea || ""), escapeHtml(detail.vehicleModel || ""), escapeHtml(detail.seats || ""), cost, sale, priceStatus, escapeHtml(detail.remark || "")];
+  if (category === "导游") return [escapeHtml(detail.guideName || detail.name), escapeHtml(detail.serviceCities || ""), escapeHtml(detail.languages || ""), escapeHtml(detail.serviceType || ""), cost, escapeHtml(detail.serviceHours || ""), escapeHtml(detail.driverGuide || ""), priceStatus, escapeHtml(detail.remark || "")];
+  if (category === "门票") return [escapeHtml(detail.attractionName || detail.name), escapeHtml(detail.city || ""), escapeHtml(detail.ticketTypeName || ""), escapeHtml(detail.audience || ""), cost, sale, priceStatus, escapeHtml(detail.cancelRule || ""), escapeHtml(detail.remark || "")];
+  if (category === "大交通") return [escapeHtml(detail.trafficType || ""), escapeHtml(detail.agentScope || ""), escapeHtml(detail.serviceFeeRule || ""), escapeHtml(detail.refundRule || ""), escapeHtml(detail.contact || ""), escapeHtml(detail.status || "启用"), escapeHtml(detail.remark || "")];
+  if (category === "餐") return [escapeHtml(detail.restaurantName || detail.name), escapeHtml(detail.city || ""), escapeHtml(detail.mealStandardName || ""), escapeHtml(detail.cuisine || ""), cost, sale, escapeHtml(detail.halalFriendly || ""), escapeHtml(detail.teamFriendly || ""), escapeHtml(detail.cancelRule || ""), escapeHtml(detail.remark || "")];
+  if (category === "特色体验") return [escapeHtml(detail.experienceName || detail.name), escapeHtml(detail.city || ""), escapeHtml(detail.audience || ""), escapeHtml(detail.serviceDuration || ""), cost, sale, priceStatus, escapeHtml(detail.cancelRule || ""), escapeHtml(detail.remark || "")];
+  return [escapeHtml(detail.name || ""), escapeHtml(detail.scope || detail.city || ""), escapeHtml(detail.billingMethod || ""), cost, sale, priceStatus, escapeHtml(detail.remark || "")];
+}
+
+function minSupplierCost(details = []) {
+  const costs = details.map((detail) => number(firstPresent(detail.costPrice, detail.packageCostPrice, detail.dailyCostPrice))).filter((value) => value > 0);
+  return costs.length ? Math.min(...costs) : "";
+}
+
+function supplierValidityText(details = []) {
+  if (!details.length) return "-";
+  const expired = details.filter((detail) => detail.validTo && daysUntil(detail.validTo) < 0).length;
+  if (expired) return `<span class="resource-status danger">已过期 ${expired}</span>`;
+  const expiring = details.filter((detail) => detail.validTo && daysUntil(detail.validTo) <= 30).length;
+  if (expiring) return `<span class="resource-status warn">即将过期 ${expiring}</span>`;
+  return escapeHtml(details.map((detail) => detail.validTo).filter(Boolean).sort()[0] || "-");
+}
+
+function toggleSupplierStatus(id) {
+  const supplier = supplierById(id);
+  if (!supplier) return;
+  supplier.status = supplier.status === "启用" ? "停用" : "启用";
+  supplier.updatedAt = new Date().toISOString().slice(0, 10);
+  saveLocalSupplierState();
+  refreshQuoteResources();
+  renderSupplierManagement();
+}
+
+function exportSupplier(id) {
+  const supplier = supplierById(id);
+  if (!supplier) return;
+  downloadTextFile(`youyixing-supplier-${supplier.id}.json`, JSON.stringify(supplier, null, 2), "application/json");
+}
+
+function exportSuppliers() {
+  downloadTextFile(`youyixing-suppliers-${Date.now()}.json`, JSON.stringify(state.suppliers, null, 2), "application/json");
+}
+
+function handleSupplierImportFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const text = String(reader.result || "");
+      const rows = file.name.endsWith(".json") ? JSON.parse(text) : parseCsvRows(text);
+      const suppliers = normalizeSupplierImportRows(Array.isArray(rows) ? rows : rows.suppliers || []);
+      if (!suppliers.length) return alert("未识别到可导入的供应商数据。");
+      const duplicateNames = new Set(state.suppliers.map((item) => item.name));
+      const duplicates = suppliers.filter((item) => duplicateNames.has(item.name));
+      const ok = window.confirm(`识别到 ${suppliers.length} 家供应商，重复 ${duplicates.length} 家。确认导入？`);
+      if (!ok) return;
+      suppliers.forEach((supplier) => {
+        const existing = state.suppliers.findIndex((item) => item.name === supplier.name && item.category === supplier.category);
+        if (existing >= 0) state.suppliers[existing] = { ...state.suppliers[existing], ...supplier, id: state.suppliers[existing].id, updatedAt: new Date().toISOString().slice(0, 10) };
+        else state.suppliers.unshift(supplier);
+      });
+      saveLocalSupplierState();
+      refreshQuoteResources();
+      renderSupplierManagement();
+      renderQuoteTable();
+      alert(`已导入 ${suppliers.length} 家供应商，服务明细可用于报价成本匹配。`);
+    } catch (error) {
+      alert(`供应商导入失败：${error.message}`);
+    } finally {
+      if ($("#supplierImportFile")) $("#supplierImportFile").value = "";
+    }
+  };
+  reader.readAsText(file, "utf-8");
+}
+
+function parseCsvRows(text) {
+  const lines = String(text || "").split(/\r?\n/).filter((line) => line.trim());
+  if (!lines.length) return [];
+  const headers = splitCsvLine(lines[0]).map((item) => item.trim());
+  return lines.slice(1).map((line) => {
+    const cells = splitCsvLine(line);
+    return headers.reduce((row, header, index) => {
+      row[header] = cells[index] || "";
+      return row;
+    }, {});
+  });
+}
+
+function splitCsvLine(line) {
+  const cells = [];
+  let current = "";
+  let quoted = false;
+  String(line || "").split("").forEach((char) => {
+    if (char === '"') {
+      quoted = !quoted;
+      return;
+    }
+    if (char === "," && !quoted) {
+      cells.push(current.trim());
+      current = "";
+      return;
+    }
+    current += char;
+  });
+  cells.push(current.trim());
+  return cells;
+}
+
+function normalizeSupplierImportRows(rows = []) {
+  return rows.map((row) => {
+    const category = normalizeSupplierCategory(row["供应商品类"] || row["品类"] || row.category);
+    const detail = normalizeServiceDetail({
+      name: row["服务明细名称"] || row["项目名称"] || row["房型名称"] || row["线路名称"] || row["景点名称"] || row["导游姓名"] || row.name,
+      city: row["所在城市"] || row["城市"] || row.city,
+      costPrice: row["成本价"] || row["包车价成本价"] || row["每日导游服务成本价"] || row.costPrice,
+      salePrice: row["参考售价"] || row["包车价参考售价"] || row.salePrice,
+      validTo: row["价格有效期"] || row.validTo || IMPORT_VALID_TO,
+      roomTypeName: row["房型名称"],
+      routeName: row["线路名称"],
+      serviceCategory: row["服务品类"],
+      vehicleModel: row["车型"],
+      seats: row["座位数"],
+      guideName: row["导游姓名"],
+      attractionName: row["景点名称"],
+      ticketTypeName: row["票种名称"],
+      restaurantName: row["餐厅名称"],
+      mealStandardName: row["餐标名称"],
+      experienceName: row["体验项目名称"],
+      remark: row["备注"] || row.remark,
+    }, category);
+    return normalizeSupplier({
+      category,
+      sourceType: row["来源类型"] || row.sourceType,
+      name: row["供应商名称"] || row["酒店名称"] || row["供应商"] || row.supplierName || row.name,
+      city: row["所在城市"] || row["城市"] || row.city,
+      serviceScope: row["可服务范围"] || row.scope,
+      status: row["合作状态"] || row.status,
+      cancelRule: row["取消规则"] || row.cancelRule,
+      remark: row["备注"] || row.remark,
+      historicalServiceCount: row["历史服务次数"],
+      ratingTags: row["评分 / 标签"] || row["标签"],
+      contacts: [{
+        name: row["主要联系人"] || row["联系人姓名"] || row.contactName,
+        role: row["联系人角色"] || row.contactRole || "销售",
+        phone: row["联系方式"] || row["手机"] || row.phone,
+        wechat: row["微信"] || row.wechat,
+        whatsapp: row["WhatsApp"] || row.whatsapp,
+        email: row["邮箱"] || row.email,
+        primary: true,
+      }],
+      serviceDetails: [detail],
+    });
+  }).filter((supplier) => supplier.name && supplier.name !== "未命名供应商");
 }
 
 function supplierCostCells(item, category) {
@@ -46226,7 +47391,1295 @@ function supplierCostCells(item, category) {
 
 function syncFeishuProducts() {
   refreshQuoteResources();
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    syncConfig: state.productSyncConfig,
+    warning: "MVP 模拟同步：供应商成本、联系方式、内部利润规则不会进入客户可见内容。",
+    products: productCategories.reduce((acc, category) => {
+      acc[category] = productCatalogItems(category).map((item) => publicProductPayload(item, category));
+      return acc;
+    }, {}),
+  };
+  downloadTextFile(`youyixing-product-sync-${Date.now()}.json`, JSON.stringify(payload, null, 2), "application/json");
   showImportQualityReport();
+}
+
+function publicProductPayload(item, category) {
+  const visible = {
+    name: productName(item, category),
+    category,
+    city: item.city || "",
+    status: productStatus(item, category),
+    customerVisible: Boolean(item.customerVisible || item.customer_visible),
+    salesVisible: item.salesVisible !== false,
+    aiCallable: item.aiCallable !== false,
+    syncFeishu: item.syncFeishu !== false,
+    syncKnowledge: item.syncKnowledge !== false,
+  };
+  if (state.productSyncConfig.customerVisible) {
+    visible.salePrice = productSaleValue(item, category);
+    visible.adultPrice = productAdultPrice(item, category);
+    visible.childPrice = productChildPrice(item, category);
+  } else {
+    visible.internalCostHidden = true;
+  }
+  return visible;
+}
+
+function loadLocalProductState() {
+  const saved = safeJsonParse(localStorage.getItem("youyixing_product_state"), null);
+  if (!saved) return;
+  state.customProductFields = Array.isArray(saved.customProductFields) ? saved.customProductFields : [];
+  const savedCatalog = saved.productCatalog || {};
+  const hasSavedProducts = productCatalogHasCallableItems(savedCatalog);
+  state.productCatalogLocalState = {
+    loaded: true,
+    ignoredEmptyCatalog: !hasSavedProducts,
+    systemBaseLoaded: Boolean(state.systemProductCatalog?.loaded),
+    mergedKeys: [],
+    emptyKeysKeptFromDefault: [],
+  };
+  if (!hasSavedProducts) return;
+  Object.entries(savedCatalog).forEach(([key, items]) => {
+    if (!Array.isArray(state.productCatalog[key]) || !Array.isArray(items)) return;
+    if (!items.length) {
+      state.productCatalogLocalState.emptyKeysKeptFromDefault.push(key);
+      return;
+    }
+    state.productCatalog[key] = mergeLocalCatalogItems(state.productCatalog[key], items, productCatalogKeyCategory[key] || key);
+    state.productCatalogLocalState.mergedKeys.push(key);
+  });
+}
+
+function saveLocalProductState() {
+  localStorage.setItem("youyixing_product_state", JSON.stringify({
+    customProductFields: state.customProductFields,
+    productCatalog: {
+      routes: state.productCatalog.routes,
+      vehicles: state.productCatalog.vehicles,
+      experiences: state.productCatalog.experiences,
+      tickets: state.productCatalog.tickets,
+      guides: state.productCatalog.guides,
+      hotels: state.productCatalog.hotels,
+      meals: state.productCatalog.meals,
+      transports: state.productCatalog.transports || [],
+      others: state.productCatalog.others || [],
+    },
+  }));
+}
+
+function loadLocalSupplierState() {
+  const saved = safeJsonParse(localStorage.getItem("youyixing_supplier_state"), null);
+  if (!saved) return;
+  state.suppliers = Array.isArray(saved.suppliers)
+    ? saved.suppliers.filter((supplier) => supplier.name !== "上海真实酒店供应商测试").map(normalizeSupplier)
+    : [];
+  state.supplierCallRecords = Array.isArray(saved.supplierCallRecords) ? saved.supplierCallRecords : [];
+}
+
+function saveLocalSupplierState() {
+  localStorage.setItem("youyixing_supplier_state", JSON.stringify({
+    suppliers: state.suppliers,
+    supplierCallRecords: state.supplierCallRecords,
+  }));
+}
+
+function loadProjectState() {
+  const saved = safeJsonParse(localStorage.getItem("youyixing_project_state"), null);
+  if (!saved) return;
+  if (Array.isArray(saved.projects) && saved.projects.length) state.projects = saved.projects;
+  if (saved.currentProjectId) state.currentProjectId = saved.currentProjectId;
+  state.projectSnapshots = saved.projectSnapshots && typeof saved.projectSnapshots === "object" ? saved.projectSnapshots : {};
+}
+
+function saveProjectState() {
+  localStorage.setItem("youyixing_project_state", JSON.stringify({
+    projects: state.projects,
+    currentProjectId: state.currentProjectId,
+    projectSnapshots: state.projectSnapshots || {},
+  }));
+}
+
+function loadQuoteVersions() {
+  const saved = safeJsonParse(localStorage.getItem("youyixing_quote_versions"), null);
+  if (!saved) return;
+  if (Array.isArray(saved.quoteVersions)) state.quoteVersions = saved.quoteVersions;
+  if (Number.isInteger(saved.activeQuote)) state.activeQuote = saved.activeQuote;
+}
+
+function saveQuoteVersions() {
+  localStorage.setItem("youyixing_quote_versions", JSON.stringify({
+    currentProjectId: state.currentProjectId,
+    activeQuote: state.activeQuote,
+    quoteVersions: state.quoteVersions,
+  }));
+}
+
+function loadOrderState() {
+  const saved = safeJsonParse(localStorage.getItem("youyixing_order_state"), null);
+  if (!saved) return;
+  state.orders = Array.isArray(saved.orders) ? saved.orders : [];
+  state.order = saved.order || state.orders[0] || null;
+}
+
+function saveOrderState() {
+  localStorage.setItem("youyixing_order_state", JSON.stringify({
+    order: state.order,
+    orders: state.orders || [],
+  }));
+}
+
+function openAddProductFieldModal() {
+  const name = window.prompt("字段名，例如：是否客户可见 / 供应商联系人 / 内部备注");
+  if (!name) return;
+  const type = window.prompt(`字段类型：${productFieldTypes.join(" / ")}`, "文本") || "文本";
+  const field = {
+    id: `field_${Date.now()}`,
+    key: `custom_${Date.now()}`,
+    name: name.trim(),
+    type: productFieldTypes.includes(type.trim()) ? type.trim() : "文本",
+    category: state.activeProductCategory || "全部",
+    required: window.confirm("这个字段是否必填？"),
+    quoteable: window.confirm("这个字段是否用于报价？"),
+    syncKnowledge: window.confirm("是否同步知识库？"),
+    customerVisible: window.confirm("是否客户可见？"),
+    createdAt: new Date().toISOString(),
+  };
+  state.customProductFields.push(field);
+  saveLocalProductState();
+  renderResourceLibrary();
+}
+
+function batchEditVisibleProducts() {
+  const status = window.prompt(`批量设置当前筛选结果状态：${productStatusOptions.join(" / ")}`, "待清洗");
+  if (!status) return;
+  const normalized = productStatusOptions.includes(status.trim()) ? status.trim() : "待清洗";
+  filteredProductCatalogItems(state.activeProductCategory).forEach((item) => {
+    item.status = normalized;
+    item.updatedAt = new Date().toISOString().slice(0, 10);
+  });
+  saveLocalProductState();
+  renderResourceLibrary();
+}
+
+function exportProducts() {
+  const category = state.activeProductCategory;
+  const rows = filteredProductCatalogItems(category).map((item) => ({
+    产品名称: productName(item, category),
+    品类: category,
+    城市: item.city || "",
+    供应商: productSupplierName(item),
+    成本价: productCostValue(item, category),
+    参考售价: productSaleValue(item, category),
+    淡季成本: productSeasonValue(item, "low"),
+    旺季成本: productSeasonValue(item, "high"),
+    成人价: productAdultPrice(item, category),
+    儿童价: productChildPrice(item, category),
+    状态: productStatus(item, category),
+    更新时间: productUpdatedAt(item),
+  }));
+  downloadTextFile(`youyixing-${category}-products.csv`, toCsv(rows), "text/csv;charset=utf-8");
+}
+
+function openFieldMappingModal() {
+  const modal = ensureProductImportModal();
+  if (!state.productImport.rows.length) return openProductImportModal();
+  modal.querySelector("[data-import-body]").innerHTML = renderFieldMappingBody(state.productImport.rows, state.productImport.mapping, state.productImport.category || IMPORT_AUTO_CATEGORY);
+  modal.classList.remove("hidden");
+  bindImportModalActions(modal);
+  renderIcons();
+}
+
+function openProductImportModal() {
+  const modal = ensureProductImportModal();
+  const category = IMPORT_AUTO_CATEGORY;
+  const categoryOptions = [IMPORT_AUTO_CATEGORY, ...productCategories.filter((item) => item !== "全部")];
+  modal.querySelector("[data-import-body]").innerHTML = `
+    <div class="import-grid">
+      <label>导入品类<select data-import-start-category>${categoryOptions.map((item) => `<option ${item === category ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}</select></label>
+      <label>上传 Excel / CSV / JSON<input data-import-file type="file" accept=".csv,.json,.xls,.xlsx,text/csv,application/json" /></label>
+    </div>
+    <label class="checkbox-line"><input data-force-import-category type="checkbox" />强制导入到所选固定品类</label>
+    <label class="wide-label">粘贴文本 / CSV / JSON<textarea data-import-paste class="large-text" placeholder="可粘贴表格文本、CSV 或 JSON。第一行会作为字段名。"></textarea></label>
+    <div class="modal-actions">
+      <button class="secondary-btn" data-close-import>取消</button>
+      <button class="secondary-btn" data-pick-import-file>选择文件</button>
+      <button class="primary-btn" data-parse-import>自动识别字段</button>
+    </div>
+  `;
+  modal.classList.remove("hidden");
+  modal.querySelector("[data-import-file]")?.addEventListener("change", (event) => handleProductImportFile(event.target.files?.[0]));
+  modal.querySelector("[data-pick-import-file]")?.addEventListener("click", () => modal.querySelector("[data-import-file]")?.click());
+  modal.querySelector("[data-parse-import]")?.addEventListener("click", () => parsePastedProductImport(modal));
+  bindImportModalActions(modal);
+  renderIcons();
+}
+
+async function handleProductImportFile(file, forcedCategory = "") {
+  if (!file) return;
+  const ext = file.name.split(".").pop().toLowerCase();
+  let rows = [];
+  try {
+    if (ext === "json") rows = normalizeImportedRows(JSON.parse(await file.text()));
+    else if (ext === "csv") rows = parseCsv(await file.text());
+    else if (["xls", "xlsx"].includes(ext) && window.XLSX) rows = await parseYouyixingProductWorkbook(file, "");
+    else if (["xls", "xlsx"].includes(ext)) {
+      alert("Excel 解析库未加载，请刷新页面后重试。");
+      return;
+    }
+  } catch (error) {
+    alert(`导入失败：${error.message}`);
+    return;
+  }
+  state.productImport.forceCategory = false;
+  const categories = unique(rows.map((row) => row.__importCategory).filter(Boolean));
+  const category = forcedCategory || IMPORT_AUTO_CATEGORY || (categories.length > 1 ? IMPORT_AUTO_CATEGORY : categories[0]) || inferImportCategory(rows, file.name);
+  const mapping = inferFieldMapping(rows[0] || {}, category);
+  state.productImport = {
+    rows,
+    mapping,
+    category,
+    duplicates: findImportDuplicates(rows, category, mapping),
+    missing: findImportIssues(rows, category, mapping),
+    mode: "merge",
+    sourceFile: file.name,
+    templateMode: rows.some((row) => row.__templateProduct),
+    templateReport: rows.__templateReport || null,
+  };
+  openFieldMappingModal();
+}
+
+async function parseExcelWorkbook(file, forcedCategory = "") {
+  const buffer = await file.arrayBuffer();
+  const workbook = window.XLSX.read(buffer, { type: "array" });
+  return workbook.SheetNames.flatMap((sheetName) => {
+    const category = forcedCategory || inferSheetImportCategory(sheetName);
+    return window.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: "" }).map((row, index) => ({
+      ...row,
+      __sheetName: sheetName,
+      __rowNumber: index + 2,
+      __importCategory: category,
+    }));
+  });
+}
+
+async function parseYouyixingProductWorkbook(file, forcedCategory = "") {
+  const buffer = await file.arrayBuffer();
+  const workbook = window.XLSX.read(buffer, { type: "array" });
+  const templateSheets = workbook.SheetNames.filter(isYouyixingProductSheet);
+  if (!templateSheets.length) return parseExcelWorkbookFromWorkbook(workbook, forcedCategory);
+  const report = createTemplateImportReport(file.name);
+  const rows = [];
+  workbook.SheetNames.forEach((sheetName) => {
+    if (!isYouyixingProductSheet(sheetName)) {
+      rows.push(...parseGenericSheetFromWorkbook(workbook, sheetName, forcedCategory));
+      return;
+    }
+    const sheetRows = sheetRowsArray(workbook.Sheets[sheetName]);
+    const before = rows.length;
+    const parsed = parseYouyixingProductSheet(sheetName, sheetRows, report);
+    rows.push(...parsed);
+    const sheetReport = report.sheets[sheetName] || ensureTemplateSheetReport(report, sheetName, inferSheetImportCategory(sheetName));
+    sheetReport.recognized = true;
+    sheetReport.imported = rows.length - before;
+  });
+  rows.__templateReport = report;
+  return rows;
+}
+
+function parseExcelWorkbookFromWorkbook(workbook, forcedCategory = "") {
+  return workbook.SheetNames.flatMap((sheetName) => parseGenericSheetFromWorkbook(workbook, sheetName, forcedCategory));
+}
+
+function parseGenericSheetFromWorkbook(workbook, sheetName, forcedCategory = "") {
+  const category = forcedCategory || inferSheetImportCategory(sheetName);
+  return window.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: "" }).map((row, index) => ({
+    ...row,
+    __sheetName: sheetName,
+    __rowNumber: index + 2,
+    __importCategory: category,
+    __rawFields: rawFieldsFromImportRow(row),
+  }));
+}
+
+function isYouyixingProductSheet(sheetName = "") {
+  return /线路报价|仅包车报价|导游报价|特色体验价|门票报价|^餐$|酒店/.test(String(sheetName || ""));
+}
+
+function sheetRowsArray(sheet) {
+  return window.XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", blankrows: false });
+}
+
+function parseYouyixingProductSheet(sheetName, rows, report) {
+  if (/线路报价/.test(sheetName)) return parseRoutePriceSheet(sheetName, rows, report);
+  if (/仅包车报价/.test(sheetName)) return parseVehiclePriceSheet(sheetName, rows, report);
+  if (/导游报价/.test(sheetName)) return parseGuidePriceSheet(sheetName, rows, report);
+  if (/特色体验价/.test(sheetName)) return parseExperiencePriceSheet(sheetName, rows, report);
+  if (/门票报价/.test(sheetName)) return parseTicketPriceSheet(sheetName, rows, report);
+  if (/^餐$|餐厅/.test(sheetName)) return parseMealPriceSheet(sheetName, rows, report);
+  if (/酒店/.test(sheetName)) return parseHotelPriceSheet(sheetName, rows, report);
+  return [];
+}
+
+function createTemplateImportReport(sourceFile = "") {
+  return { sourceFile, sheets: {}, categories: {}, skippedEmptyRows: 0, abnormalRows: 0, issues: [] };
+}
+
+function ensureTemplateSheetReport(report, sheetName, category) {
+  report.sheets[sheetName] = report.sheets[sheetName] || { sheetName, category, recognized: false, imported: 0, skippedEmptyRows: 0, abnormalRows: 0 };
+  return report.sheets[sheetName];
+}
+
+function templateIssue(report, sheetName, rowNumber, category, message) {
+  const sheet = ensureTemplateSheetReport(report, sheetName, category);
+  sheet.abnormalRows += 1;
+  report.abnormalRows += 1;
+  if (report.issues.length < 50) report.issues.push({ sheet: sheetName, rowNumber, category, message });
+}
+
+function templateSkip(report, sheetName, category) {
+  const sheet = ensureTemplateSheetReport(report, sheetName, category);
+  sheet.skippedEmptyRows += 1;
+  report.skippedEmptyRows += 1;
+}
+
+function templateRow(sheetName, rowNumber, category, item, rawFields, importWarnings = []) {
+  const normalized = normalizeImportedProductItem({
+    ...item,
+    category,
+    source: "Excel导入",
+    sourceSheet: sheetName,
+    sourceRow: rowNumber,
+    importSheetName: sheetName,
+    importRowNumber: rowNumber,
+    rawFields,
+    importWarnings,
+  }, category);
+  return {
+    __templateProduct: true,
+    __productItem: normalized,
+    __sheetName: sheetName,
+    __rowNumber: rowNumber,
+    __importCategory: category,
+    __rawFields: rawFields,
+    产品名称: productName(normalized, category),
+    城市: normalized.city,
+    服务类型: normalized.serviceType || normalized.vehicleType || normalized.ticketType || normalized.star || normalized.language || "",
+    规格: normalized.model || normalized.roomType || normalized.ticketType || normalized.language || normalized.spec || "",
+    成本价: productCostValue(normalized, category),
+    参考售价: productSaleValue(normalized, category),
+    供应商: normalized.supplierName,
+    状态: normalized.status,
+  };
+}
+
+function normalizeImportedProductItem(item, category) {
+  const cost = strictPriceNumber(firstPresent(item.costPrice, item.cost, ""));
+  const sale = strictPriceNumber(firstPresent(item.salePrice, item.sale, ""));
+  const supplierName = item.supplierName || IMPORTED_PENDING_SUPPLIER;
+  const base = {
+    id: item.id || `${category}-${item.sourceSheet || "sheet"}-${item.sourceRow || Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
+    category,
+    city: normalizeRouteCity(item.city) || item.city || "",
+    name: item.name || "",
+    serviceType: item.serviceType || "",
+    route: item.route || "",
+    model: item.model ? normalizeVehicleModel(item.model) : "",
+    spec: item.spec || "",
+    supplierName,
+    costPrice: cost,
+    salePrice: sale,
+    lowSeasonCost: strictPriceNumber(item.lowSeasonCost),
+    highSeasonCost: strictPriceNumber(item.highSeasonCost),
+    adultCost: strictPriceNumber(item.adultCost),
+    childCost: strictPriceNumber(item.childCost),
+    pricingUnit: item.pricingUnit || "",
+    source: "Excel导入",
+    sourceSheet: item.sourceSheet || "",
+    sourceRow: item.sourceRow || "",
+    rawFields: item.rawFields || {},
+    importWarnings: item.importWarnings || [],
+    updatedAt: getTodayDateString(),
+    ...item,
+  };
+  base.costPrice = cost;
+  base.salePrice = sale;
+  base.lowSeasonCost = strictPriceNumber(item.lowSeasonCost);
+  base.highSeasonCost = strictPriceNumber(item.highSeasonCost);
+  base.adultCost = strictPriceNumber(item.adultCost);
+  base.childCost = strictPriceNumber(item.childCost);
+  base.category = category;
+  base.city = normalizeRouteCity(item.city) || item.city || "";
+  base.model = item.model ? normalizeVehicleModel(item.model) : "";
+  base.supplierName = supplierName;
+  base.status = item.status || (productCostValue(base, category) !== "" ? "可报价" : "待补成本");
+  return base;
+}
+
+function strictPriceNumber(value) {
+  if (value === "" || value == null) return "";
+  if (typeof value === "number") return Number.isFinite(value) ? value : "";
+  const text = String(value).trim();
+  if (!text) return "";
+  const cleaned = text.replace(/[¥￥,\s]/g, "");
+  return /^-?\d+(?:\.\d+)?$/.test(cleaned) ? Number(cleaned) : "";
+}
+
+function rowIsEmpty(row = []) {
+  return !row.some((value) => String(value ?? "").trim());
+}
+
+function fixedRawFields(labels, row) {
+  return labels.reduce((acc, label, index) => {
+    if (!label) return acc;
+    acc[label] = row[index] ?? "";
+    return acc;
+  }, {});
+}
+
+function parseRoutePriceSheet(sheetName, rows, report) {
+  const category = "线路产品";
+  ensureTemplateSheetReport(report, sheetName, category);
+  const labels = ["产品编号", "产品类型", "产品城市", "线路天数", "产品名", "产品详情链接", "产品展示信息", "报价包含", "C端2~3人", "C端4~5人", "C端6~8人", "C端9~13人", "C端14~18人", "国内B端2~3人", "国内B端4~5人", "国内B端6~8人", "国内B端9~13人", "国内B端14~18人", "空列", "成本2~3人", "成本4~5人", "成本6~8人", "成本9~13人", "成本14~18人", "成本详情链接"];
+  const tierLabels = ["2~3人（5座车）", "4~5人（7~8座车）", "6~8人（9~12座车）", "9~13人（14~17座车）", "14~18人（22座车）"];
+  return rows.slice(2).flatMap((row, offset) => {
+    const rowNumber = offset + 3;
+    if (rowIsEmpty(row)) { templateSkip(report, sheetName, category); return []; }
+    if (!row[0] && !row[4]) { templateIssue(report, sheetName, rowNumber, category, "缺产品编号或产品名"); return []; }
+    const rawFields = fixedRawFields(labels, row);
+    const costTiers = Object.fromEntries(tierLabels.map((label, index) => [label, strictPriceNumber(row[19 + index])]));
+    const priceTiers = {
+      foreignSale: Object.fromEntries(tierLabels.map((label, index) => [label, strictPriceNumber(row[8 + index])])),
+      domesticSale: Object.fromEntries(tierLabels.map((label, index) => [label, strictPriceNumber(row[13 + index])])),
+      cost: costTiers,
+    };
+    return [templateRow(sheetName, rowNumber, category, {
+      code: String(row[0] || "").trim(),
+      routeProductId: `ROUTE-${String(row[0] || rowNumber).trim()}`,
+      productType: row[1] || "",
+      city: row[2] || "",
+      days: strictPriceNumber(row[3]) || "",
+      name: row[4] || "",
+      detailLink: row[5] || "",
+      displayLink: row[6] || "",
+      displayInfo: row[6] || "",
+      includes: String(row[7] || "").split(/[、\s]+/).filter(Boolean),
+      quoteIncludes: row[7] || "",
+      priceTiers,
+      costTiers,
+      costDetailLink: row[24] || "",
+      costPrice: firstPresent(...Object.values(costTiers)),
+    }, rawFields)];
+  });
+}
+
+function parseVehiclePriceSheet(sheetName, rows, report) {
+  const category = "用车";
+  ensureTemplateSheetReport(report, sheetName, category);
+  const labels = ["城市", "订单类型", "行程", "卖价5座", "卖价7座", "卖价9座", "卖价14座~17座", "卖价22座", "卖价36~38座", "卖价51~55座", "司机兼导游卖价5座", "司机兼导游卖价7座", "空列", "成本5座", "成本7座", "成本9座", "成本14座~17座", "成本22座", "成本36~38座", "成本51~55座", "司机兼导游成本5座", "司机兼导游成本7座"];
+  const models = ["5座", "7座", "9座", "14座~17座", "22座", "36~38座", "51~55座"];
+  let currentCity = "";
+  return rows.slice(6).flatMap((row, offset) => {
+    const rowNumber = offset + 7;
+    if (rowIsEmpty(row)) { templateSkip(report, sheetName, category); return []; }
+    if (row[0]) currentCity = normalizeRouteCity(row[0]) || row[0];
+    const serviceType = normalizeVehicleType(row[1] || row[2]);
+    const route = row[2] || row[1] || serviceType;
+    if (!currentCity || !serviceType) { templateIssue(report, sheetName, rowNumber, category, "缺城市或服务类型"); return []; }
+    const rawFields = fixedRawFields(labels, row);
+    return models.flatMap((model, index) => {
+      const salePrice = strictPriceNumber(row[3 + index]);
+      const costPrice = strictPriceNumber(row[13 + index]);
+      if (salePrice === "" && costPrice === "") return [];
+      const pricingUnit = serviceType === "接送机" || serviceType === "接送站" ? "per_trip" : "per_day";
+      const item = {
+        city: currentCity,
+        name: `${currentCity}${serviceType}${route}${model}`,
+        serviceType,
+        vehicleType: serviceType,
+        route,
+        model,
+        seatCount: parseSeatCount(model),
+        costPrice,
+        salePrice,
+        dayCost: serviceType === "包车" ? costPrice : "",
+        airportTransferCost: serviceType === "接送机" ? costPrice : "",
+        stationTransferCost: serviceType === "接送站" ? costPrice : "",
+        airportRoute: serviceType === "接送机" ? route : "",
+        stationRoute: serviceType === "接送站" ? route : "",
+        pricingUnit,
+        status: costPrice !== "" ? "可报价" : "待补成本",
+      };
+      return [templateRow(sheetName, rowNumber, category, item, rawFields)];
+    });
+  });
+}
+
+function parseGuidePriceSheet(sheetName, rows, report) {
+  const category = "导游";
+  ensureTemplateSheetReport(report, sheetName, category);
+  const labels = ["城市", "语种", "淡季卖价", "淡季超时费", "淡季住宿费", "旺季卖价", "旺季超时费", "旺季住宿费", "导游是否需要门票", "空列", "淡季成本", "淡季成本超时费", "淡季成本住宿费", "旺季成本", "旺季成本超时费", "旺季成本住宿费"];
+  let currentCity = "";
+  return rows.slice(2).flatMap((row, offset) => {
+    const rowNumber = offset + 3;
+    if (rowIsEmpty(row)) { templateSkip(report, sheetName, category); return []; }
+    if (row[0]) currentCity = normalizeRouteCity(row[0]) || row[0];
+    const language = normalizeGuideLanguage(row[1]);
+    if (!currentCity || !language) { templateIssue(report, sheetName, rowNumber, category, "缺城市或语种"); return []; }
+    const rawFields = fixedRawFields(labels, row);
+    return [templateRow(sheetName, rowNumber, category, {
+      city: currentCity,
+      name: `${currentCity}${language}导游`,
+      language,
+      guideType: "地陪",
+      lowSeasonSale: strictPriceNumber(row[2]),
+      lowSeasonOvertimeFee: strictPriceNumber(row[3]),
+      lowSeasonAccommodation: strictPriceNumber(row[4]),
+      highSeasonSale: strictPriceNumber(row[5]),
+      highSeasonOvertimeFee: strictPriceNumber(row[6]),
+      highSeasonAccommodation: strictPriceNumber(row[7]),
+      needsTicket: row[8] || "",
+      lowSeasonCost: strictPriceNumber(row[10]),
+      lowSeasonCostOvertime: strictPriceNumber(row[11]),
+      lowSeasonCostAccommodation: strictPriceNumber(row[12]),
+      highSeasonCost: strictPriceNumber(row[13]),
+      highSeasonCostOvertime: strictPriceNumber(row[14]),
+      highSeasonCostAccommodation: strictPriceNumber(row[15]),
+      fullDayCost: firstPresent(strictPriceNumber(row[10]), strictPriceNumber(row[13])),
+      costPrice: firstPresent(strictPriceNumber(row[10]), strictPriceNumber(row[13])),
+      salePrice: firstPresent(strictPriceNumber(row[2]), strictPriceNumber(row[5])),
+    }, rawFields)];
+  });
+}
+
+function parseExperiencePriceSheet(sheetName, rows, report) {
+  const category = "特色体验";
+  ensureTemplateSheetReport(report, sheetName, category);
+  const labels = ["城市", "体验名称", "票种", "体验时间", "体验介绍信息", "成人卖价", "儿童卖价", "官网价格", "官网儿童价格", "成人成本价", "儿童成本价", "空列", "备注"];
+  let currentCity = "";
+  let currentExperience = "";
+  return rows.slice(1).flatMap((row, offset) => {
+    const rowNumber = offset + 2;
+    if (rowIsEmpty(row)) { templateSkip(report, sheetName, category); return []; }
+    if (row[0]) currentCity = normalizeRouteCity(row[0]) || row[0];
+    if (row[1]) currentExperience = row[1];
+    if (!currentCity || !currentExperience || !row[2]) { templateIssue(report, sheetName, rowNumber, category, "缺城市、体验名称或票种"); return []; }
+    const rawFields = fixedRawFields(labels, row);
+    return [templateRow(sheetName, rowNumber, category, {
+      city: currentCity,
+      name: `${currentExperience}${row[2]}`,
+      experienceName: currentExperience,
+      ticketType: row[2] || "",
+      duration: row[3] || "",
+      introLink: row[4] || "",
+      intro: row[4] || "",
+      adultSale: strictPriceNumber(row[5]),
+      childSale: strictPriceNumber(row[6]),
+      officialPrice: strictPriceNumber(row[7]),
+      officialChildPrice: strictPriceNumber(row[8]),
+      adultCost: strictPriceNumber(row[9]),
+      childCost: strictPriceNumber(row[10]),
+      costPrice: strictPriceNumber(row[9]),
+      salePrice: strictPriceNumber(row[5]),
+      remark: row[12] || "",
+    }, rawFields)];
+  });
+}
+
+function parseTicketPriceSheet(sheetName, rows, report) {
+  const category = "景点门票";
+  ensureTemplateSheetReport(report, sheetName, category);
+  const labels = ["城市", "景点名称", "类型", "票种", "淡季成人", "淡季儿童", "旺季成人", "旺季儿童", "旅行社成人", "旅行社儿童", "免费政策", "备注", "保票政策", "保票联系人姓名", "保票联系人电话"];
+  let currentCity = "";
+  let currentScenic = "";
+  return rows.slice(2).flatMap((row, offset) => {
+    const rowNumber = offset + 3;
+    if (rowIsEmpty(row)) { templateSkip(report, sheetName, category); return []; }
+    if (row[0]) currentCity = normalizeRouteCity(row[0]) || row[0];
+    if (row[1]) currentScenic = row[1];
+    if (!currentCity || !currentScenic || !row[3]) { templateIssue(report, sheetName, rowNumber, category, "缺城市、景点名称或票种"); return []; }
+    const rawFields = fixedRawFields(labels, row);
+    return [templateRow(sheetName, rowNumber, category, {
+      city: currentCity,
+      name: currentScenic,
+      scenicName: currentScenic,
+      attractionLevel: row[2] || "",
+      type: row[2] || "",
+      ticketType: row[3] || "景区门票",
+      offAdult: strictPriceNumber(row[4]),
+      offChild: strictPriceNumber(row[5]),
+      offDiscount: strictPriceNumber(row[5]),
+      peakAdult: strictPriceNumber(row[6]),
+      peakChild: strictPriceNumber(row[7]),
+      peakDiscount: strictPriceNumber(row[7]),
+      agencyAdult: strictPriceNumber(row[8]),
+      agencyChild: strictPriceNumber(row[9]),
+      agencyDiscount: strictPriceNumber(row[9]),
+      freePolicy: row[10] || "",
+      remark: row[11] || "",
+      guaranteePolicy: row[12] || "",
+      guaranteeContactName: row[13] || "",
+      guaranteeContactPhone: row[14] || "",
+      costPrice: firstPresent(strictPriceNumber(row[8]), strictPriceNumber(row[6]), strictPriceNumber(row[4])),
+      salePrice: firstPresent(strictPriceNumber(row[6]), strictPriceNumber(row[4]), strictPriceNumber(row[8])),
+    }, rawFields)];
+  });
+}
+
+function parseMealPriceSheet(sheetName, rows, report) {
+  const category = "餐厅";
+  ensureTemplateSheetReport(report, sheetName, category);
+  const labels = ["城市", "菜品", "是否清真", "饭店", "人均最低卖价", "电话", "地段", "空列", "建议卖价", "人均最低成本", "建议卖价2", "备注"];
+  let currentCity = "";
+  let currentCuisine = "";
+  let currentHalal = "";
+  return rows.slice(1).flatMap((row, offset) => {
+    const rowNumber = offset + 2;
+    if (rowIsEmpty(row)) { templateSkip(report, sheetName, category); return []; }
+    if (row[0]) currentCity = normalizeRouteCity(row[0]) || row[0];
+    if (row[1]) currentCuisine = row[1];
+    if (row[2]) currentHalal = row[2];
+    if (!currentCity || !row[3]) { templateIssue(report, sheetName, rowNumber, category, "缺城市或饭店"); return []; }
+    const rawFields = fixedRawFields(labels, row);
+    return [templateRow(sheetName, rowNumber, category, {
+      city: currentCity,
+      name: row[3] || "",
+      cuisine: currentCuisine,
+      halal: currentHalal || "否",
+      restaurant: row[3] || "",
+      minSale: strictPriceNumber(row[4]),
+      phone: row[5] || "",
+      area: row[6] || "",
+      suggestedSale: strictPriceNumber(row[8]),
+      minCost: strictPriceNumber(row[9]),
+      costPrice: strictPriceNumber(row[9]),
+      salePrice: firstPresent(strictPriceNumber(row[8]), strictPriceNumber(row[4])),
+      remark: row[11] || "",
+      status: strictPriceNumber(row[9]) !== "" ? "可报价" : "待补成本",
+    }, rawFields)];
+  });
+}
+
+function parseHotelPriceSheet(sheetName, rows, report) {
+  const category = "酒店";
+  ensureTemplateSheetReport(report, sheetName, category);
+  const labels = ["城市", "酒店名", "星级", "酒店位置优势", "携程链接", "是否有协议价", "协议价是否固定", "房型", "卖价", "是否含双早", "其他备注", "空列1", "空列2", "成本价"];
+  return rows.slice(1).flatMap((row, offset) => {
+    const rowNumber = offset + 2;
+    if (rowIsEmpty(row)) { templateSkip(report, sheetName, category); return []; }
+    const city = normalizeRouteCity(row[0]) || row[0] || "";
+    if (!city || !row[1]) { templateIssue(report, sheetName, rowNumber, category, "缺城市或酒店名"); return []; }
+    const rawFields = fixedRawFields(labels, row);
+    return [templateRow(sheetName, rowNumber, category, {
+      city,
+      name: row[1] || "",
+      hotelName: row[1] || "",
+      star: normalizeHotelStar(row[2]),
+      locationAdvantage: row[3] || "",
+      ctripLink: row[4] || "",
+      hasAgreement: row[5] || "",
+      agreementFixed: row[6] || "",
+      roomType: row[7] || "大床或标间",
+      salePrice: strictPriceNumber(row[8]),
+      breakfast: row[9] || "",
+      remark: row[10] || "",
+      internalNotes: row[10] || "",
+      costPrice: strictPriceNumber(row[13]),
+      agreementCost: strictPriceNumber(row[13]),
+      status: strictPriceNumber(row[13]) !== "" ? "可报价" : "待补成本",
+    }, rawFields)];
+  });
+}
+
+function parsePastedProductImport(modal) {
+  const text = modal.querySelector("[data-import-paste]")?.value.trim() || "";
+  if (!text) {
+    alert("请先粘贴文本、CSV 或 JSON。");
+    return;
+  }
+  let rows = [];
+  try {
+    if (/^\s*[\[{]/.test(text)) rows = normalizeImportedRows(JSON.parse(text));
+    else rows = parseCsv(text);
+  } catch (error) {
+    alert(`粘贴内容解析失败：${error.message}`);
+    return;
+  }
+  state.productImport.forceCategory = false;
+  const category = modal.querySelector("[data-import-start-category]")?.value || inferImportCategory(rows, "paste");
+  const mapping = inferFieldMapping(rows[0] || {}, category);
+  state.productImport = { rows, mapping, category, duplicates: findImportDuplicates(rows, category, mapping), missing: findImportIssues(rows, category, mapping), mode: "merge", sourceFile: "paste" };
+  openFieldMappingModal();
+}
+
+function normalizeImportedRows(value) {
+  const rows = Array.isArray(value)
+    ? value
+    : Array.isArray(value.rows)
+      ? value.rows
+      : Array.isArray(value.data)
+        ? value.data
+        : Object.values(value).find(Array.isArray) || [];
+  return rows.map((row) => ({ ...row, __rawFields: rawFieldsFromImportRow(row) }));
+}
+
+function parseCsv(text) {
+  const lines = String(text || "").replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
+  if (!lines.length) return [];
+  const delimiter = lines[0].includes("\t") ? "\t" : ",";
+  const headers = splitDelimitedLine(lines[0], delimiter);
+  return lines.slice(1).map((line) => {
+    const cells = splitDelimitedLine(line, delimiter);
+    const row = headers.reduce((acc, header, index) => ({ ...acc, [header]: cells[index] ?? "" }), {});
+    row.__rawFields = rawFieldsFromImportRow(row);
+    return row;
+  });
+}
+
+function splitDelimitedLine(line, delimiter) {
+  const cells = [];
+  let current = "";
+  let quote = false;
+  String(line || "").split("").forEach((char, index, arr) => {
+    if (char === "\"") {
+      if (quote && arr[index + 1] === "\"") current += "\"";
+      quote = !quote;
+      return;
+    }
+    if (char === delimiter && !quote) {
+      cells.push(current.trim());
+      current = "";
+      return;
+    }
+    current += char;
+  });
+  cells.push(current.trim());
+  return cells;
+}
+
+function inferImportCategory(rows, fileName = "") {
+  const text = `${fileName} ${Object.keys(rows[0] || {}).join(" ")} ${Object.values(rows[0] || {}).join(" ")}`;
+  return inferSheetImportCategory(text, state.activeProductCategory || "其他");
+}
+
+function inferSheetImportCategory(sheetName = "", fallback = "待确认分类") {
+  const text = String(sheetName || "");
+  if (/线路报价|线路产品|route/i.test(text)) return "线路产品";
+  if (/仅包车报价|用车|车辆|包车|vehicle|car/i.test(text)) return "用车";
+  if (/导游报价|导游|guide/i.test(text)) return "导游";
+  if (/特色体验价|特色体验|体验|experience/i.test(text)) return "特色体验";
+  if (/门票报价|门票|景点|ticket|attraction/i.test(text)) return "景点门票";
+  if (/餐厅|餐\b|restaurant|meal/i.test(text)) return "餐厅";
+  if (/酒店|hotel/i.test(text)) return "酒店";
+  if (/大交通|火车|航班|flight|train/i.test(text)) return "大交通";
+  return fallback;
+}
+
+function inferFieldMapping(sample, category) {
+  const headers = importVisibleHeaders(sample);
+  const find = (...names) => headers.find((header) => names.some((name) => normalizeResourceText(header).includes(normalizeResourceText(name)))) || "";
+  return {
+    name: find("产品名称", "景点名称", "酒店名称", "餐厅名称", "体验名称", "线路名称", "名称", "name", "hotel", "restaurant"),
+    category: find("品类", "类别", "category", "type"),
+    city: find("城市", "所在城市", "目的地", "city", "destination"),
+    supplier: find("供应商", "供应商名称", "资源方", "supplier"),
+    cost: find("成本", "成本价", "结算价", "供应商价", "协议成本", "成人成本", "cost"),
+    sale: find("售价", "报价", "门市价", "参考售价", "卖价", "建议卖价", "销售价", "sale"),
+    lowSeasonCost: find("淡季成本", "淡季", "off"),
+    highSeasonCost: find("旺季成本", "旺季", "peak"),
+    adultPrice: find("成人价", "成人票", "adult"),
+    childPrice: find("儿童价", "儿童票", "child"),
+    spec: find("车型", "房型", "语种", "票种", "餐标", "规格", "spec"),
+    notes: find("备注", "说明", "notes", "remark"),
+    status: find("状态", "status"),
+    cityFallback: category,
+  };
+}
+
+function renderFieldMappingBody(rows, mapping, category) {
+  const headers = importVisibleHeaders(rows[0] || {});
+  const targetFields = ["name", "category", "city", "supplier", "cost", "sale", "lowSeasonCost", "highSeasonCost", "adultPrice", "childPrice", "spec", "notes", "status"];
+  const issues = state.productImport.missing || [];
+  const categories = unique(rows.map((row) => row.__importCategory).filter(Boolean));
+  const categoryOptions = [IMPORT_AUTO_CATEGORY, "待确认分类", ...productCategories.filter((item) => item !== "全部")];
+  const selectedCategory = category || (categories.length > 1 ? IMPORT_AUTO_CATEGORY : categories[0] || "其他");
+  if (state.productImport.templateMode) return renderTemplateImportPreview(rows, selectedCategory);
+  return `
+    <div class="import-grid">
+      <label>导入品类<select data-import-category>${categoryOptions.map((item) => `<option ${item === selectedCategory ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}</select></label>
+      <label>重复处理<select data-import-mode><option value="merge">合并</option><option value="overwrite">覆盖</option><option value="skip">跳过</option></select></label>
+      <div><span>预览行数</span><strong>${rows.length}</strong></div>
+      <div><span>重复数据</span><strong>${state.productImport.duplicates.length}</strong></div>
+      <div><span>异常</span><strong>${issues.length}</strong></div>
+    </div>
+    <label class="checkbox-line"><input data-force-import-category type="checkbox" />强制导入到所选固定品类</label>
+    <div class="mapping-grid">
+      ${targetFields.map((field) => `<label>${importFieldLabel(field)}<select data-import-map="${field}"><option value="">不导入</option>${headers.map((header) => `<option value="${escapeHtml(header)}" ${mapping[field] === header ? "selected" : ""}>${escapeHtml(header)}</option>`).join("")}</select></label>`).join("")}
+    </div>
+    <div class="import-preview-table">${tableWrap(headers.slice(0, 12), rows.slice(0, 6).map((row) => headers.slice(0, 12).map((header) => escapeHtml(row[header]))), `<tr><td colspan="12">暂无预览</td></tr>`, "wide-product-table")}</div>
+    ${issues.length ? `<div class="import-preview-table">${tableWrap(["Sheet", "行号", "分类", "异常"], issues.slice(0, 12).map((item) => [escapeHtml(item.sheet || "-"), escapeHtml(item.rowNumber || item.index), escapeHtml(item.category || "-"), escapeHtml(item.issues.join("、"))]), `<tr><td colspan="4">暂无异常</td></tr>`, "wide-product-table")}</div>` : ""}
+    <div class="modal-actions"><button class="secondary-btn" data-close-import>取消</button><button class="primary-btn" data-confirm-import>确认导入</button></div>
+  `;
+}
+
+function renderTemplateImportPreview(rows, selectedCategory) {
+  const issues = state.productImport.templateReport?.issues || [];
+  const sheetRows = Object.values(state.productImport.templateReport?.sheets || {});
+  const categoryCounts = countBy(rows.map((row) => row.__importCategory));
+  return `
+    <div class="import-grid">
+      <label>导入品类<select data-import-category><option selected>${escapeHtml(selectedCategory || IMPORT_AUTO_CATEGORY)}</option></select></label>
+      <label>重复处理<select data-import-mode><option value="merge">合并</option><option value="overwrite">覆盖</option><option value="skip">跳过</option></select></label>
+      <div><span>模板识别</span><strong>${sheetRows.filter((row) => row.recognized).length} 个 Sheet</strong></div>
+      <div><span>预览资源</span><strong>${rows.length}</strong></div>
+      <div><span>异常行</span><strong>${issues.length}</strong></div>
+    </div>
+    <div class="quality-table-wrap">
+      <table class="simple-table quality-table">
+        <thead><tr><th>Sheet</th><th>识别品类</th><th>导入资源</th><th>跳过空行</th><th>异常行</th></tr></thead>
+        <tbody>${sheetRows.map((row) => `<tr><td>${escapeHtml(row.sheetName)}</td><td>${escapeHtml(row.category)}</td><td>${row.imported}</td><td>${row.skippedEmptyRows}</td><td>${row.abnormalRows}</td></tr>`).join("")}</tbody>
+      </table>
+    </div>
+    <div class="quality-summary-grid">
+      ${Object.entries(categoryCounts).map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${value}</strong></div>`).join("")}
+    </div>
+    <div class="import-preview-table">${tableWrap(["Sheet", "行号", "品类", "名称", "城市", "成本", "售价", "状态"], rows.slice(0, 10).map((row) => [
+      escapeHtml(row.__sheetName),
+      escapeHtml(row.__rowNumber),
+      escapeHtml(row.__importCategory),
+      escapeHtml(row["产品名称"]),
+      escapeHtml(row["城市"]),
+      escapeHtml(row["成本价"] === "" ? "待补成本" : row["成本价"]),
+      escapeHtml(row["参考售价"] === "" ? "-" : row["参考售价"]),
+      escapeHtml(row["状态"]),
+    ]), `<tr><td colspan="8">暂无预览</td></tr>`, "wide-product-table")}</div>
+    ${issues.length ? `<div class="quality-detail-list"><div><strong>前 10 条异常说明</strong>${issues.slice(0, 10).map((item) => `<span>${escapeHtml(item.sheet)} 第 ${escapeHtml(item.rowNumber)} 行：${escapeHtml(item.message)}</span>`).join("")}</div></div>` : ""}
+    <div class="modal-actions"><button class="secondary-btn" data-close-import>取消</button><button class="primary-btn" data-confirm-import>确认导入</button></div>
+  `;
+}
+
+function importFieldLabel(field) {
+  return { name: "产品名称", category: "品类", city: "城市", supplier: "供应商", cost: "成本价", sale: "参考售价", lowSeasonCost: "淡季成本", highSeasonCost: "旺季成本", adultPrice: "成人价", childPrice: "儿童价", spec: "规格", notes: "备注", status: "状态" }[field] || field;
+}
+
+function ensureProductImportModal() {
+  let modal = $("#productImportModal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "productImportModal";
+  modal.className = "modal-backdrop hidden";
+  modal.innerHTML = `<div class="modal-card wide-modal"><div class="modal-head"><div><h3>产品库导入与字段映射</h3><p>先确认字段映射和导入策略，再写入产品资源库。</p></div><button class="icon-btn" data-close-import aria-label="关闭"><i data-lucide="x"></i></button></div><div class="modal-body" data-import-body></div></div>`;
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function bindImportModalActions(modal) {
+  modal.querySelectorAll("[data-close-import]").forEach((btn) => btn.addEventListener("click", () => modal.classList.add("hidden")));
+  modal.querySelector("[data-confirm-import]")?.addEventListener("click", () => confirmProductImport(modal));
+}
+
+async function confirmProductImport(modal) {
+  const selectedCategory = modal.querySelector("[data-import-category]")?.value || state.productImport.category || "其他";
+  const forceCategory = Boolean(modal.querySelector("[data-force-import-category]")?.checked);
+  const mode = modal.querySelector("[data-import-mode]")?.value || "merge";
+  const mapping = {};
+  modal.querySelectorAll("[data-import-map]").forEach((select) => { mapping[select.dataset.importMap] = select.value; });
+  const report = buildEmptyProductImportReport(state.productImport.templateReport);
+  state.productImport.forceCategory = forceCategory;
+  state.productImport.missing = state.productImport.templateMode ? [] : findImportIssues(state.productImport.rows, selectedCategory, mapping);
+  report.issues = state.productImport.templateReport?.issues?.length || state.productImport.missing.length;
+  const cache = createProductDedupeCache();
+  for (let index = 0; index < state.productImport.rows.length; index += 1) {
+    const row = state.productImport.rows[index];
+    const category = resolveImportRowCategory(row, selectedCategory, forceCategory);
+    const item = row.__templateProduct ? row.__productItem : importedRowToProduct(row, category, mapping);
+    if (!item) continue;
+    const result = upsertImportedProduct(item, category, mode, cache);
+    report[result] += 1;
+    addImportReportItem(report, category, item, result);
+    if (index > 0 && index % 250 === 0) await nextFrame();
+  }
+  refreshQuoteResources();
+  saveLocalProductState();
+  modal.classList.add("hidden");
+  renderResourceLibrary();
+  showProductImportResultReport(report);
+}
+
+function buildEmptyProductImportReport(templateReport = null) {
+  return {
+    added: 0,
+    updated: 0,
+    skipped: 0,
+    issues: 0,
+    skippedEmptyRows: templateReport?.skippedEmptyRows || 0,
+    abnormalRows: templateReport?.abnormalRows || 0,
+    templateReport,
+    categories: {},
+    issuesList: templateReport?.issues || [],
+  };
+}
+
+function addImportReportItem(report, category, item, result) {
+  const bucket = report.categories[category] || (report.categories[category] = {
+    category,
+    imported: 0,
+    quoteable: 0,
+    missingCost: 0,
+    missingSupplier: 0,
+    skipped: 0,
+  });
+  if (result === "skipped") {
+    bucket.skipped += 1;
+    return;
+  }
+  bucket.imported += 1;
+  if (productCostValue(item, category) === "" || productCostValue(item, category) == null) bucket.missingCost += 1;
+  else bucket.quoteable += 1;
+  if (!productSupplierName(item) || productSupplierName(item) === IMPORTED_PENDING_SUPPLIER) bucket.missingSupplier += 1;
+}
+
+function showProductImportResultReport(report) {
+  const modal = ensureProductImportResultModal();
+  const categoryRows = Object.values(report.categories);
+  const sheetRows = Object.values(report.templateReport?.sheets || {});
+  modal.querySelector("[data-import-result-body]").innerHTML = `
+    <div class="quality-summary-grid">
+      ${[
+        ["新增", report.added],
+        ["更新", report.updated],
+        ["忽略重复", report.skipped],
+        ["识别 Sheet", sheetRows.filter((row) => row.recognized).length || "-"],
+        ["跳过空行", report.skippedEmptyRows],
+        ["异常行", report.abnormalRows || report.issues],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}
+    </div>
+    ${sheetRows.length ? `<div class="quality-table-wrap">
+      <table class="simple-table quality-table">
+        <thead><tr><th>Sheet</th><th>识别结果</th><th>导入数量</th><th>跳过空行</th><th>异常行</th></tr></thead>
+        <tbody>${sheetRows.map((row) => `<tr><td>${escapeHtml(row.sheetName)}</td><td>${escapeHtml(row.category)}</td><td>${row.imported}</td><td>${row.skippedEmptyRows}</td><td>${row.abnormalRows}</td></tr>`).join("")}</tbody>
+      </table>
+    </div>` : ""}
+    <div class="quality-table-wrap">
+      <table class="simple-table quality-table">
+        <thead><tr><th>品类</th><th>导入数量</th><th>可报价数量</th><th>待补成本</th><th>待绑定供应商</th><th>忽略重复</th></tr></thead>
+        <tbody>${categoryRows.map((row) => `<tr><td>${escapeHtml(row.category)}</td><td>${row.imported}</td><td>${row.quoteable}</td><td>${row.missingCost}</td><td>${row.missingSupplier}</td><td>${row.skipped}</td></tr>`).join("") || `<tr><td colspan="6">暂无导入结果。</td></tr>`}</tbody>
+      </table>
+    </div>
+    <div class="quality-detail-list">
+      <div>
+        <strong>前 10 条异常说明</strong>
+        ${report.issuesList?.length ? report.issuesList.slice(0, 10).map((item) => `<span>${escapeHtml(item.sheet)} 第 ${escapeHtml(item.rowNumber)} 行：${escapeHtml(item.message)}</span>`).join("") : "<span>暂无异常。</span>"}
+      </div>
+    </div>
+  `;
+  modal.classList.remove("hidden");
+  renderIcons();
+}
+
+function ensureProductImportResultModal() {
+  let modal = $("#productImportResultModal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "productImportResultModal";
+  modal.className = "modal-backdrop hidden";
+  modal.innerHTML = `
+    <div class="modal-card wide-modal">
+      <div class="modal-head">
+        <div><h3>产品库导入质量报告</h3><p>模板解析完成后，请按品类检查可报价和待补成本数量。</p></div>
+        <button class="icon-btn" data-close-import-result aria-label="关闭"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body quality-modal-body" data-import-result-body></div>
+      <div class="modal-actions"><button class="primary-btn" data-close-import-result>关闭</button></div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.querySelectorAll("[data-close-import-result]").forEach((btn) => btn.addEventListener("click", () => modal.classList.add("hidden")));
+  return modal;
+}
+
+function nextFrame() {
+  return new Promise((resolve) => requestAnimationFrame(resolve));
+}
+
+function createProductDedupeCache() {
+  return Object.fromEntries(productCategories.filter((category) => category !== "全部").map((category) => [
+    category,
+    new Map(productCatalogItems(category).map((item, index) => [productDedupeKey(item, category), index]).filter(([key]) => key)),
+  ]));
+}
+
+function upsertImportedProduct(item, category, mode, cache = null) {
+  const target = productCatalogItems(category);
+  const key = productDedupeKey(item, category);
+  const categoryCache = cache?.[category];
+  const existingIndex = key && categoryCache?.has(key)
+    ? categoryCache.get(key)
+    : key ? target.findIndex((candidate) => productDedupeKey(candidate, category) === key) : -1;
+  if (existingIndex < 0) {
+    target.unshift(item);
+    if (categoryCache && key) {
+      categoryCache.forEach((value, mapKey) => categoryCache.set(mapKey, value + 1));
+      categoryCache.set(key, 0);
+    }
+    return "added";
+  }
+  if (mode === "skip") return "skipped";
+  if (mode === "overwrite") {
+    target[existingIndex] = { ...target[existingIndex], ...item, importUpdatedAt: new Date().toISOString() };
+    return "updated";
+  }
+  const existing = target[existingIndex];
+  let changed = false;
+  Object.entries(item).forEach(([field, value]) => {
+    if (field === "id" || value === "" || value == null) return;
+    if (existing[field] !== value) changed = true;
+    existing[field] = value;
+  });
+  if (changed) existing.importUpdatedAt = new Date().toISOString();
+  return changed ? "updated" : "skipped";
+}
+
+function dedupeProductCatalog() {
+  let removed = 0;
+  productCategories.filter((category) => category !== "全部").forEach((category) => {
+    const items = productCatalogItems(category);
+    const seen = new Map();
+    const deduped = [];
+    items.forEach((item) => {
+      const key = productDedupeKey(item, category);
+      if (!key) {
+        deduped.push(item);
+        return;
+      }
+      if (!seen.has(key)) {
+        seen.set(key, item);
+        deduped.push(item);
+        return;
+      }
+      const existing = seen.get(key);
+      Object.assign(existing, { ...item, ...existing });
+      removed += 1;
+    });
+    replaceProductCatalogItems(category, deduped);
+  });
+  refreshQuoteResources();
+  saveLocalProductState();
+  renderResourceLibrary();
+  alert(`已清理 ${removed} 条重复产品。`);
+}
+
+async function clearProductCatalog() {
+  const ok = window.confirm("确认重置为系统产品库？这会清除浏览器里的本地导入覆盖层，不删除源码数据文件。");
+  if (!ok) return;
+  try {
+    localStorage.removeItem("youyixing_product_state");
+  } catch {}
+  await loadSystemProductCatalog();
+  refreshQuoteResources();
+  renderResourceLibrary();
+  alert("已清除本地导入覆盖层，并恢复为系统产品库。");
+}
+
+function replaceProductCatalogItems(category, items) {
+  const key = ({ 线路产品: "routes", 用车: "vehicles", 特色体验: "experiences", 景点门票: "tickets", 门票: "tickets", 导游: "guides", 酒店: "hotels", 餐: "meals", 餐厅: "meals", 大交通: "transports", 其他: "others" })[category];
+  if (key) state.productCatalog[key] = items;
+}
+
+function productDedupeKey(item, category) {
+  const sourceSheet = item.sourceSheet || item.importSheetName || item.import_sheet_name || "";
+  const sourceRow = item.sourceRow || item.importRowNumber || item.import_row_number || "";
+  if (sourceSheet && sourceRow && category !== "用车") {
+    const sourceSpecs = category === "景点门票" || category === "门票"
+        ? [item.ticketType || item.type || ""]
+        : category === "特色体验"
+          ? [item.ticketType || ""]
+          : [];
+    return normalizeResourceText([category, sourceSheet, sourceRow, ...sourceSpecs].filter(Boolean).join("|"));
+  }
+  const keyParts = {
+    用车: [item.city, item.model, item.vehicleType, item.route],
+    导游: [item.city, item.language, item.guideType],
+    门票: [item.city, item.scenicName, item.ticketType],
+    景点门票: [item.city, item.scenicName, item.ticketType],
+    酒店: [item.city, item.hotelName, item.roomType, item.season || item.validDate || item.validTo],
+    餐厅: [item.city, item.restaurant, item.mealStandard || item.minSale],
+    餐: [item.city, item.restaurant, item.mealStandard || item.minSale],
+    特色体验: [item.city, item.experienceName, item.ticketType],
+    线路产品: [item.name, item.days, item.citiesText || item.city],
+  }[category] || [category, item.city || item.departureCity || item.from || "", item.type || item.ticketType || item.vehicleType || item.star || item.language || "", productName(item, category)];
+  const normalizedParts = keyParts.map((part) => normalizeResourceText(part)).filter(Boolean);
+  if (!normalizedParts.length) return item.id || item.runtimeId || item.sourceProductId || "";
+  if (normalizedParts.length < 2 && !["线路产品", "其他", "大交通"].includes(category)) return item.id || item.runtimeId || item.sourceProductId || "";
+  return normalizeResourceText([category, ...normalizedParts].join("|"));
+}
+
+function importedRowToProduct(row, category, mapping) {
+  const pick = (key) => mapping[key] ? row[mapping[key]] : "";
+  const spec = pick("spec");
+  const notes = pick("notes");
+  const noteCost = extractCostFromText(notes || row.internal_notes || row["内部备注"] || row["备注"]);
+  const importedAt = new Date().toISOString().slice(0, 10);
+  const rawFields = row.__rawFields && typeof row.__rawFields === "object" ? row.__rawFields : rawFieldsFromImportRow(row);
+  const base = {
+    city: normalizeRouteCity(pick("city")) || "待补城市",
+    supplierName: pick("supplier") || IMPORTED_PENDING_SUPPLIER,
+    costPrice: firstPresent(importedNumber(pick("cost")), noteCost),
+    salePrice: importedNumber(pick("sale")),
+    lowSeasonCost: importedNumber(pick("lowSeasonCost")),
+    highSeasonCost: importedNumber(pick("highSeasonCost")),
+    adultPrice: importedNumber(pick("adultPrice")),
+    childPrice: importedNumber(pick("childPrice")),
+    status: pick("status") || "待清洗",
+    updatedAt: importedAt,
+    source: row.__sheetName ? `Excel导入 / ${row.__sheetName}` : "手动导入",
+    importSheetName: row.__sheetName || "",
+    importRowNumber: row.__rowNumber || "",
+    rawFields,
+    extraFields: extraFieldsFromImportRow(row, mapping),
+    notes,
+  };
+  const name = pick("name") || row.name || row["产品名称"] || "";
+  if (category === "酒店") return {
+    ...base,
+    hotelName: name || row["酒店名称"] || row.name_cn || "导入酒店",
+    star: row["星级"] || row.star || row.star_rating || "待补星级",
+    roomType: spec || row["房型"] || row.roomType || row.room_type || "房型待定",
+    breakfast: row["是否含早"] || row.breakfast || "",
+    nightlyCost: firstPresent(importedNumber(row.nightly_cost), importedNumber(row.nightlyCost), noteCost),
+    agreementCost: firstPresent(base.costPrice, noteCost),
+    internalNotes: notes || row.internal_notes || row["内部备注"] || row["备注"] || "",
+  };
+  if (category === "导游") return { ...base, language: spec || row["语种"] || row.language || "英语", guideType: row["导游类型"] || row.guideType || "地陪", fullDayCost: base.costPrice, halfDayCost: importedNumber(row["半天成本"]), airportPickupCost: importedNumber(row["接送机成本"]), overtimeFee: importedNumber(row["超时费"]) };
+  if (category === "用车") {
+    const rawModel = spec || row["车型"] || row.model || row.vehicle_type || row["车辆类型"] || name || "7座车";
+    const model = normalizeVehicleModel(rawModel);
+    const serviceText = [row["服务类型"], row.serviceType, row.vehicleType, row.route, name].filter(Boolean).join(" ");
+    const fullDay = firstPresent(importedNumber(row.full_day_price), importedNumber(row["全天价格"]), importedNumber(row["全天成本"]), base.costPrice);
+    const airport = firstPresent(importedNumber(row.airport_transfer_price), importedNumber(row["接送机价格"]), importedNumber(row["接送机成本"]));
+    const station = firstPresent(importedNumber(row.station_transfer_price), importedNumber(row["接送站价格"]), importedNumber(row["接送站成本"]));
+    const halfDay = firstPresent(importedNumber(row.half_day_price), importedNumber(row["半天价格"]), importedNumber(row["半天成本"]));
+    const serviceType = inferVehicleServiceTypeFromText(serviceText, fullDay !== "" ? "包车" : airport !== "" ? "接送机" : station !== "" ? "接送站" : "包车");
+    return {
+      ...base,
+      category: "vehicle",
+      route: row["路线"] || row.route || (serviceType === "接送机" ? "机场" : serviceType === "接送站" ? "高铁站/火车站" : "市区"),
+      vehicleType: serviceType,
+      serviceType,
+      model,
+      seatCount: parseSeatCount(model || rawModel),
+      costPrice: fullDay,
+      dayCost: fullDay,
+      halfDayCost: halfDay,
+      airportTransferCost: airport,
+      stationTransferCost: station,
+      saleReferencePrice: base.salePrice,
+      pricingUnit: serviceType === "包车" ? "per_day" : "per_trip",
+      recommendedRange: row["推荐人数范围"] || "",
+    };
+  }
+  if (category === "门票" || category === "景点门票") return { ...base, scenicName: name || "导入景点", ticketType: spec || row["票种"] || row.ticketType || "景区门票", name_en: row["英文名"] || row.name_en || "", alias: row["别名"] || "", agencyAdult: base.adultPrice || base.costPrice, agencyDiscount: base.childPrice, offAdult: base.lowSeasonCost, peakAdult: base.highSeasonCost, requiresReservation: row["是否需要预约"] || "" };
+  if (category === "餐厅" || category === "餐") return { ...base, restaurant: name || "导入餐厅", cuisine: row["菜品"] || row.cuisine || "", mealStandard: spec, minSale: base.salePrice || base.costPrice };
+  if (category === "特色体验") return { ...base, experienceName: name || "导入体验", ticketType: spec || row["票种"] || "体验", adultCost: base.costPrice, adultSale: base.salePrice, childCost: base.childPrice };
+  if (category === "大交通") return { ...base, name_cn: name || "导入大交通", adultCost: base.costPrice, childCost: base.childPrice };
+  if (category === "线路产品") return { ...base, name: name || "导入线路产品", days: importedNumber(row["天数"] || row.days), citiesText: row["城市组合"] || row.cities || base.city };
+  return { ...base, name: name || "导入产品" };
+}
+
+function findImportDuplicates(rows, category, mapping) {
+  const seen = new Set();
+  return rows.filter((row) => {
+    const rowCategory = resolveImportRowCategory(row, category, Boolean(state.productImport?.forceCategory));
+    const item = row.__templateProduct ? row.__productItem : importedRowToProduct(row, rowCategory, mapping);
+    const key = item ? productDedupeKey(item, rowCategory) : "";
+    if (!key) return false;
+    if (seen.has(key)) return true;
+    seen.add(key);
+    return productCatalogItems(rowCategory).some((candidate) => productDedupeKey(candidate, rowCategory) === key);
+  });
+}
+
+function findImportIssues(rows, category, mapping) {
+  if (rows.some((row) => row.__templateProduct)) {
+    return rows.map((row, index) => {
+      const item = row.__productItem || {};
+      const rowCategory = resolveImportRowCategory(row, category, Boolean(state.productImport?.forceCategory));
+      const issues = [
+        !productName(item, rowCategory) && "缺名称",
+        !item.city && "缺城市",
+        productCostValue(item, rowCategory) === "" && "缺成本",
+      ].filter(Boolean);
+      return { index: index + 1, rowNumber: row.__rowNumber || index + 1, sheet: row.__sheetName || "", category: rowCategory, issues };
+    }).filter((item) => item.issues.length);
+  }
+  const labels = { name: "缺名称", city: "缺城市", cost: "缺成本", supplier: "缺供应商" };
+  return rows.map((row, index) => ({
+    index: index + 1,
+    rowNumber: row.__rowNumber || index + 1,
+    sheet: row.__sheetName || "",
+    category: resolveImportRowCategory(row, category, Boolean(state.productImport?.forceCategory)),
+    issues: [
+      ...["name", "city", "cost", "supplier"].filter((field) => !mapping[field] || row[mapping[field]] === "").map((field) => labels[field] || field),
+      ...["cost", "sale", "lowSeasonCost", "highSeasonCost", "adultPrice", "childPrice"].filter((field) => mapping[field] && invalidImportPrice(row[mapping[field]])).map((field) => `${importFieldLabel(field)}格式错误`),
+    ],
+  })).filter((item) => item.issues.length);
+}
+
+function importVisibleHeaders(row = {}) {
+  return Object.keys(row || {}).filter((header) => !header.startsWith("__"));
+}
+
+function rawFieldsFromImportRow(row = {}) {
+  return Object.keys(row || {}).reduce((acc, key) => {
+    if (!key.startsWith("__")) acc[key] = row[key];
+    return acc;
+  }, {});
+}
+
+function extraFieldsFromImportRow(row = {}, mapping = {}) {
+  const mappedHeaders = new Set(Object.values(mapping || {}).filter(Boolean));
+  return Object.keys(row || {}).reduce((acc, key) => {
+    if (key.startsWith("__") || mappedHeaders.has(key)) return acc;
+    acc[key] = row[key];
+    return acc;
+  }, {});
+}
+
+function resolveImportRowCategory(row = {}, selectedCategory = "", forceCategory = Boolean(state.productImport?.forceCategory)) {
+  const isAuto = !selectedCategory || [IMPORT_AUTO_CATEGORY, "待确认分类"].includes(selectedCategory);
+  if (row.__templateProduct && row.__importCategory && !forceCategory) return row.__importCategory;
+  if (isAuto) {
+    const category = row.__importCategory || inferSheetImportCategory(`${row.__sheetName || ""} ${Object.keys(row || {}).join(" ")} ${Object.values(rawFieldsFromImportRow(row)).join(" ")}`, "其他");
+    return category === "待确认分类" ? "其他" : category;
+  }
+  if (forceCategory) return selectedCategory;
+  const category = row.__importCategory || selectedCategory || "其他";
+  return category === "待确认分类" ? "其他" : category;
+}
+
+function importedNumber(value) {
+  return strictPriceNumber(value);
+}
+
+function invalidImportPrice(value) {
+  if (value === "" || value == null) return false;
+  return importedNumber(value) === "";
+}
+
+function toCsv(rows) {
+  if (!rows.length) return "";
+  const headers = Object.keys(rows[0]);
+  const body = rows.map((row) => headers.map((header) => `"${String(row[header] ?? "").replace(/"/g, '""')}"`).join(","));
+  return [`\uFEFF${headers.join(",")}`, ...body].join("\n");
+}
+
+function downloadTextFile(filename, content, type = "text/plain") {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function showImportQualityReport() {
@@ -46238,10 +48691,11 @@ function showImportQualityReport() {
     acc.missingCost += row.missingCost;
     acc.missingChild += row.missingChild;
     acc.missingSupplier += row.missingSupplier;
+    acc.missingCity += row.missingCity || 0;
     acc.duplicateCount += row.duplicateCount;
     acc.notQuoteable += row.notQuoteable;
     return acc;
-  }, { imported: 0, quoteable: 0, missingCost: 0, missingChild: 0, missingSupplier: 0, duplicateCount: 0, notQuoteable: 0 });
+  }, { imported: 0, quoteable: 0, missingCost: 0, missingChild: 0, missingSupplier: 0, missingCity: 0, duplicateCount: 0, notQuoteable: 0 });
   modal.querySelector("[data-quality-body]").innerHTML = `
     <div class="quality-summary-grid">
       ${[
@@ -46249,6 +48703,7 @@ function showImportQualityReport() {
         ["可报价资源", totals.quoteable],
         ["缺失成本", totals.missingCost],
         ["缺失儿童价", totals.missingChild],
+        ["缺城市", totals.missingCity],
         ["缺少供应商", totals.missingSupplier],
         ["重复待合并", totals.duplicateCount],
         ["不可报价", totals.notQuoteable],
@@ -46256,7 +48711,7 @@ function showImportQualityReport() {
     </div>
     <div class="quality-table-wrap">
       <table class="simple-table quality-table">
-        <thead><tr><th>品类</th><th>导入数量</th><th>可报价数量</th><th>缺成本</th><th>缺儿童价</th><th>缺供应商</th><th>重复</th><th>不可报价</th><th>状态</th></tr></thead>
+        <thead><tr><th>品类</th><th>导入数量</th><th>可报价数量</th><th>缺成本</th><th>缺儿童价</th><th>缺城市</th><th>缺供应商</th><th>重复</th><th>不可报价</th><th>状态</th></tr></thead>
         <tbody>
           ${report.rows.map((row) => `<tr>
             <td>${escapeHtml(row.label)}</td>
@@ -46264,6 +48719,7 @@ function showImportQualityReport() {
             <td>${row.quoteable}</td>
             <td>${row.missingCost}</td>
             <td>${row.missingChild}</td>
+            <td>${row.missingCity || 0}</td>
             <td>${row.missingSupplier}</td>
             <td>${row.duplicateCount}</td>
             <td>${row.notQuoteable}</td>
@@ -46436,50 +48892,70 @@ function renderProductFormFields(category) {
   if (category === "用车") {
     return [
       inputField("city", "城市", "北京"),
-      selectField("vehicleType", "用车类型", ["接送机", "接送站", "包车"]),
-      inputField("route", "行程", "首都/大兴机场-市区酒店"),
-      inputField("duration", "服务时长", "单程 / 10小时"),
-      selectField("model", "车型", ["5座", "7座", "9座", "12~14座", "15~17座", "22座", "36~38座", "45~55座"]),
-      inputField("salePrice", "卖价", "780", "number"),
+      selectField("model", "车型", ["5座", "7座", "9座", "14座", "17座", "22座", "商务车"]),
+      inputField("recommendedRange", "推荐人数范围", "3-4人"),
+      selectField("vehicleType", "服务类型", ["接送机", "接送站", "包车", "城际/周边"]),
+      inputField("pickup", "上车点", "首都机场"),
+      inputField("dropoff", "下车点", "市区酒店"),
+      inputField("route", "路线", "首都/大兴机场-市区酒店"),
+      inputField("lowSeasonCost", "淡季成本", "520", "number"),
+      inputField("highSeasonCost", "旺季成本", "680", "number"),
+      inputField("dayCost", "日成本", "900", "number"),
+      inputField("halfDayCost", "半日成本", "500", "number"),
+      inputField("airportTransferCost", "接送机成本", "580", "number"),
+      inputField("salePrice", "参考售价", "780", "number"),
       inputField("costPrice", "成本价", "580", "number"),
+      inputField("supplierName", "供应商", "北京安途车队"),
+      selectField("status", "状态", productStatusOptions),
     ].join("");
   }
   if (category === "导游") {
     return [
       inputField("city", "城市", "北京"),
       inputField("language", "语种", "英语"),
-      inputField("highSeasonSale", "旺季卖价", "1200", "number"),
-      inputField("lowSeasonSale", "淡季卖价", "950", "number"),
+      inputField("guideType", "导游类型", "地陪"),
+      inputField("lowSeasonCost", "淡季成本", "1060", "number"),
+      inputField("highSeasonCost", "旺季成本", "1160", "number"),
+      inputField("fullDayCost", "全天成本", "1160", "number"),
+      inputField("halfDayCost", "半天成本", "680", "number"),
+      inputField("airportPickupCost", "接送机成本", "500", "number"),
       inputField("overtimeFee", "超时费", "150", "number"),
+      inputField("supplierName", "供应商", "中青外语导游中心"),
+      selectField("status", "状态", productStatusOptions),
     ].join("");
   }
   if (category === "酒店") {
     return [
       inputField("city", "城市", "北京"),
       inputField("hotelName", "酒店名", "北京4星舒适型参考酒店"),
-      selectField("star", "星级", ["3星", "4星", "5星", "精品民宿", "奢华型"]),
-      inputField("advantage", "酒店位置优势", "近核心景区，适合首次到访客人"),
-      inputField("ctripLink", "酒店携程链接", "待补链接"),
-      selectField("hasAgreement", "是否有协议价", ["是", "否"]),
-      selectField("agreementFixed", "协议价是否固定", ["固定", "随时单询"]),
+      selectField("star", "星级", ["三星", "四星", "五星", "豪华型"]),
       inputField("roomType", "房型", "双床房"),
-      inputField("salePrice", "卖价", "980", "number"),
-      selectField("breakfast", "是否含双早", ["含双早", "不含早"]),
+      selectField("breakfast", "是否含早", ["含早", "不含早"]),
+      inputField("breakfastCost", "早餐成本", "30", "number"),
+      inputField("lowSeasonCost", "淡季成本", "550", "number"),
+      inputField("highSeasonCost", "旺季成本", "680", "number"),
+      inputField("agreementCost", "协议成本", "550", "number"),
+      inputField("costPrice", "成本价", "550", "number"),
+      inputField("salePrice", "参考售价", "980", "number"),
+      inputField("supplierName", "供应商", "酒店批发商"),
+      selectField("status", "状态", productStatusOptions),
     ].join("");
   }
-  if (category === "餐") {
+  if (category === "餐" || category === "餐厅") {
     return [
       inputField("city", "城市", "北京"),
       inputField("cuisine", "菜品", "京菜"),
       selectField("halal", "是否清真", ["否", "是"]),
       inputField("restaurant", "饭店名字", "四季民福参考餐厅"),
-      inputField("minSale", "人均最低卖价", "160", "number"),
+      inputField("minSale", "人均参考售价", "160", "number"),
     ].join("");
   }
-  if (category === "景点门票") {
+  if (category === "景点门票" || category === "门票") {
     return [
       inputField("city", "城市", "北京"),
-      inputField("scenicName", "景点名称", "故宫博物院"),
+      inputField("scenicName", "景点标准中文名", "故宫博物院"),
+      inputField("nameEn", "英文名", "The Palace Museum"),
+      inputField("alias", "别名", "故宫 Forbidden City"),
       inputField("type", "类型", "5A"),
       inputField("ticketType", "票种", "景区门票"),
       inputField("offAdult", "淡季成人票价", "40", "number"),
@@ -46488,6 +48964,11 @@ function renderProductFormFields(category) {
       inputField("peakDiscount", "旺季优待票价", "30", "number"),
       inputField("agencyAdult", "旅行社成人合作价", "", "number"),
       inputField("agencyDiscount", "旅行社优待合作价", "", "number"),
+      selectField("guideFree", "导游是否免票", ["是", "否"]),
+      selectField("requiresReservation", "是否需要预约", ["是", "否"]),
+      inputField("reservationDays", "提前预约天数", "7", "number"),
+      inputField("supplierName", "供应商", "待绑定供应商"),
+      selectField("status", "状态", productStatusOptions),
       inputField("freePolicy", "免费政策", "儿童/老人按景区政策"),
       inputField("remark", "备注", "需实名预约"),
     ].join("");
@@ -46499,8 +48980,8 @@ function renderProductFormFields(category) {
       inputField("ticketType", "票种", "单人租赁（格格服）"),
       inputField("duration", "体验时间", "周一~周日 9:00~18:00"),
       textField("intro", "体验介绍信息", "图片附件或链接待补", true),
-      inputField("adultSale", "成人卖价", "268", "number"),
-      inputField("childSale", "儿童卖价", "", "number"),
+      inputField("adultSale", "成人参考售价", "268", "number"),
+      inputField("childSale", "儿童参考售价", "", "number"),
       inputField("officialAdult", "官网价格", "", "number"),
       inputField("officialChild", "官网儿童价格", "", "number"),
       inputField("adultCost", "成人成本价", "214", "number"),
@@ -46543,6 +49024,7 @@ function saveProductFromModal() {
   const product = buildProductFromForm(category);
   productCatalogItems(category).unshift(product);
   hydrateImportedProductCatalog();
+  saveLocalProductState();
   closeProductModal();
   renderResourceLibrary();
 }
@@ -46567,10 +49049,19 @@ function buildProductFromForm(category) {
       city: productFormValue("city") || "待补城市",
       vehicleType: productFormValue("vehicleType") || "包车",
       route: productFormValue("route") || "待补行程",
-      duration: productFormValue("duration") || "待补时长",
       model: productFormValue("model") || "7座",
+      recommendedRange: productFormValue("recommendedRange"),
+      pickup: productFormValue("pickup"),
+      dropoff: productFormValue("dropoff"),
+      lowSeasonCost: optionalNumber(productFormValue("lowSeasonCost")),
+      highSeasonCost: optionalNumber(productFormValue("highSeasonCost")),
+      dayCost: optionalNumber(productFormValue("dayCost")),
+      halfDayCost: optionalNumber(productFormValue("halfDayCost")),
+      airportTransferCost: optionalNumber(productFormValue("airportTransferCost")),
       salePrice: number(productFormValue("salePrice")),
       costPrice: number(productFormValue("costPrice")),
+      supplierName: productFormValue("supplierName"),
+      status: productFormValue("status") || "可报价",
       supplierCategory: "用车",
     };
   }
@@ -46578,9 +49069,15 @@ function buildProductFromForm(category) {
     return {
       city: productFormValue("city") || "待补城市",
       language: productFormValue("language") || "待补语种",
-      highSeasonSale: number(productFormValue("highSeasonSale")),
-      lowSeasonSale: number(productFormValue("lowSeasonSale")),
-      overtimeFee: number(productFormValue("overtimeFee")),
+      guideType: productFormValue("guideType") || "地陪",
+      lowSeasonCost: optionalNumber(productFormValue("lowSeasonCost")),
+      highSeasonCost: optionalNumber(productFormValue("highSeasonCost")),
+      fullDayCost: optionalNumber(productFormValue("fullDayCost")),
+      halfDayCost: optionalNumber(productFormValue("halfDayCost")),
+      airportPickupCost: optionalNumber(productFormValue("airportPickupCost")),
+      overtimeFee: optionalNumber(productFormValue("overtimeFee")),
+      supplierName: productFormValue("supplierName"),
+      status: productFormValue("status") || "可报价",
       supplierCategory: "导游",
     };
   }
@@ -46589,17 +49086,20 @@ function buildProductFromForm(category) {
       city: productFormValue("city") || "待补城市",
       hotelName: productFormValue("hotelName") || "新增酒店",
       star: productFormValue("star") || "4星",
-      advantage: productFormValue("advantage") || "待补位置优势",
-      ctripLink: productFormValue("ctripLink") || "待补链接",
-      hasAgreement: productFormValue("hasAgreement") || "否",
-      agreementFixed: productFormValue("agreementFixed") || "随时单询",
       roomType: productFormValue("roomType") || "待补房型",
-      salePrice: number(productFormValue("salePrice")),
       breakfast: productFormValue("breakfast") || "不含早",
+      breakfastCost: optionalNumber(productFormValue("breakfastCost")),
+      lowSeasonCost: optionalNumber(productFormValue("lowSeasonCost")),
+      highSeasonCost: optionalNumber(productFormValue("highSeasonCost")),
+      agreementCost: optionalNumber(productFormValue("agreementCost")),
+      costPrice: optionalNumber(productFormValue("costPrice")),
+      salePrice: number(productFormValue("salePrice")),
+      supplierName: productFormValue("supplierName"),
+      status: productFormValue("status") || "可报价",
       supplierCategory: "酒店",
     };
   }
-  if (category === "餐") {
+  if (category === "餐" || category === "餐厅") {
     return {
       city: productFormValue("city") || "待补城市",
       cuisine: productFormValue("cuisine") || "待补菜品",
@@ -46609,10 +49109,12 @@ function buildProductFromForm(category) {
       supplierCategory: "餐",
     };
   }
-  if (category === "景点门票") {
+  if (category === "景点门票" || category === "门票") {
     return {
       city: productFormValue("city") || "待补城市",
       scenicName: productFormValue("scenicName") || "新增景点",
+      name_en: productFormValue("nameEn"),
+      alias: productFormValue("alias"),
       type: productFormValue("type") || "待补类型",
       ticketType: productFormValue("ticketType") || "景区门票",
       offAdult: optionalNumber(productFormValue("offAdult")),
@@ -46621,6 +49123,11 @@ function buildProductFromForm(category) {
       peakDiscount: optionalNumber(productFormValue("peakDiscount")),
       agencyAdult: optionalNumber(productFormValue("agencyAdult")),
       agencyDiscount: optionalNumber(productFormValue("agencyDiscount")),
+      guideFree: productFormValue("guideFree"),
+      requiresReservation: productFormValue("requiresReservation"),
+      reservationDays: optionalNumber(productFormValue("reservationDays")),
+      supplierName: productFormValue("supplierName"),
+      status: productFormValue("status") || "可报价",
       freePolicy: productFormValue("freePolicy") || "按景区政策",
       remark: productFormValue("remark"),
     };
@@ -46659,23 +49166,251 @@ function nextRouteCode(productType) {
 }
 
 function addSupplier() {
-  const category = state.activeSupplierCategory || "用车";
-  const id = `SUP-${Date.now()}`;
-  state.suppliers.unshift({
-    id,
-    name: `新增${category}供应商待命名`,
+  openSupplierModal();
+}
+
+function openSupplierModal(id = "") {
+  const supplier = id ? supplierById(id) : null;
+  state.editingSupplierId = id || "";
+  $("#supplierModalTitle").textContent = supplier ? `编辑供应商：${supplier.name}` : "新增供应商";
+  $("#supplierModalFields").innerHTML = renderSupplierForm(supplier || emptySupplier());
+  $("#supplierModal").classList.remove("hidden");
+  renderIcons();
+}
+
+function closeSupplierModal() {
+  $("#supplierModal").classList.add("hidden");
+  state.editingSupplierId = "";
+}
+
+function emptySupplier() {
+  const category = state.activeSupplierCategory === "全部" ? "酒店" : state.activeSupplierCategory;
+  return normalizeSupplier({
+    id: "",
+    name: "",
     category,
-    cities: ["北京"],
-    contact: "待补充",
-    phone: "",
-    email: "",
-    settlement: "待确认",
-    rating: 0,
-    status: "待审核",
-    updated: "2026-06-18",
+    sourceType: defaultSupplierSource(category),
+    city: "",
+    serviceScope: "",
+    status: "启用",
+    cancelRule: "",
+    remark: "",
+    historicalServiceCount: 0,
+    contacts: [{ name: "", role: "销售", phone: "", wechat: "", whatsapp: "", email: "", primary: true, note: "" }],
+    serviceDetails: [emptyServiceDetail(category)],
   });
-  state.activeSupplierId = id;
+}
+
+function renderSupplierForm(supplier) {
+  const detail = supplier.serviceDetails?.[0] || emptyServiceDetail(supplier.category);
+  const contact = supplier.contacts?.find((item) => item.primary) || supplier.contacts?.[0] || {};
+  return `
+    <label><span>供应商品类</span><select data-supplier-field="category">${supplierCategories.filter((item) => item !== "全部").map((item) => `<option ${supplier.category === item ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}</select></label>
+    <label><span>来源类型</span><input data-supplier-field="sourceType" value="${escapeHtml(supplier.sourceType || "")}" placeholder="酒店直签 / 车队 / 个人 / 代理" /></label>
+    <label><span>供应商名称</span><input data-supplier-field="name" value="${escapeHtml(supplier.name || "")}" /></label>
+    <label><span>所在城市</span><input data-supplier-field="city" value="${escapeHtml(supplier.city || supplier.cities?.[0] || "")}" /></label>
+    <label><span>可服务范围</span><input data-supplier-field="serviceScope" value="${escapeHtml(supplier.serviceScope || supplier.cities?.join("、") || "")}" /></label>
+    <label><span>合作状态</span><select data-supplier-field="status"><option ${supplier.status === "启用" ? "selected" : ""}>启用</option><option ${supplier.status === "停用" ? "selected" : ""}>停用</option><option ${supplier.status === "待补资料" ? "selected" : ""}>待补资料</option></select></label>
+    <label class="wide"><span>取消规则</span><input data-supplier-field="cancelRule" value="${escapeHtml(supplier.cancelRule || "")}" /></label>
+    <label><span>主要联系人</span><input data-supplier-contact="name" value="${escapeHtml(contact.name || "")}" /></label>
+    <label><span>联系人角色</span><select data-supplier-contact="role">${contactRoleOptions().map((role) => `<option ${contact.role === role ? "selected" : ""}>${role}</option>`).join("")}</select></label>
+    <label><span>手机</span><input data-supplier-contact="phone" value="${escapeHtml(contact.phone || "")}" /></label>
+    <label><span>微信</span><input data-supplier-contact="wechat" value="${escapeHtml(contact.wechat || "")}" /></label>
+    <label><span>WhatsApp</span><input data-supplier-contact="whatsapp" value="${escapeHtml(contact.whatsapp || "")}" /></label>
+    <label><span>邮箱</span><input data-supplier-contact="email" value="${escapeHtml(contact.email || "")}" /></label>
+    <label><span>服务明细名称</span><input data-service-detail-field="name" value="${escapeHtml(serviceDetailName(detail, supplier.category))}" /></label>
+    <label><span>成本价</span><input data-service-detail-field="costPrice" type="number" value="${escapeHtml(detail.costPrice ?? "")}" /></label>
+    <label><span>参考售价</span><input data-service-detail-field="salePrice" type="number" value="${escapeHtml(detail.salePrice ?? "")}" /></label>
+    <label><span>价格有效期</span><input data-service-detail-field="validTo" type="date" value="${escapeHtml(detail.validTo || IMPORT_VALID_TO)}" /></label>
+    <label class="wide"><span>服务明细备注</span><textarea data-service-detail-field="remark">${escapeHtml(detail.remark || "")}</textarea></label>
+    <label class="wide"><span>备注</span><textarea data-supplier-field="remark">${escapeHtml(supplier.remark || "")}</textarea></label>
+  `;
+}
+
+function saveSupplierFromModal() {
+  const base = state.editingSupplierId ? supplierById(state.editingSupplierId) : emptySupplier();
+  const category = supplierFormValue("category") || base.category || "酒店";
+  const contact = {
+    name: supplierContactValue("name"),
+    role: supplierContactValue("role") || "销售",
+    phone: supplierContactValue("phone"),
+    wechat: supplierContactValue("wechat"),
+    whatsapp: supplierContactValue("whatsapp"),
+    email: supplierContactValue("email"),
+    primary: true,
+    note: "",
+  };
+  if (!supplierFormValue("name")) return alert("供应商名称必填。");
+  if (!contact.phone && !contact.wechat && !contact.whatsapp) return alert("联系人手机、微信、WhatsApp 至少填写一种。");
+  const detail = normalizeServiceDetail({
+    ...emptyServiceDetail(category),
+    name: serviceDetailFieldValue("name"),
+    costPrice: valueOrBlank(serviceDetailFieldValue("costPrice")),
+    salePrice: valueOrBlank(serviceDetailFieldValue("salePrice")),
+    validTo: serviceDetailFieldValue("validTo") || IMPORT_VALID_TO,
+    remark: serviceDetailFieldValue("remark"),
+  }, category);
+  const supplier = normalizeSupplier({
+    ...base,
+    id: base.id || `SUP-${Date.now()}`,
+    category,
+    sourceType: supplierFormValue("sourceType") || defaultSupplierSource(category),
+    name: supplierFormValue("name"),
+    city: supplierFormValue("city"),
+    serviceScope: supplierFormValue("serviceScope"),
+    status: supplierFormValue("status") || "启用",
+    cancelRule: supplierFormValue("cancelRule"),
+    remark: supplierFormValue("remark"),
+    contacts: [contact, ...(base.contacts || []).filter((item) => !item.primary)],
+    serviceDetails: [detail, ...(base.serviceDetails || []).slice(1)],
+    updatedAt: new Date().toISOString().slice(0, 10),
+    createdAt: base.createdAt || new Date().toISOString().slice(0, 10),
+  });
+  const index = state.suppliers.findIndex((item) => item.id === supplier.id);
+  if (index >= 0) state.suppliers[index] = supplier;
+  else state.suppliers.unshift(supplier);
+  state.activeSupplierCategory = supplier.category;
+  state.activeSupplierId = supplier.id;
+  saveLocalSupplierState();
+  refreshQuoteResources();
   renderSupplierManagement();
+  renderQuoteTable();
+  closeSupplierModal();
+}
+
+function supplierFormValue(field) {
+  return $(`[data-supplier-field="${field}"]`)?.value.trim() || "";
+}
+
+function supplierContactValue(field) {
+  return $(`[data-supplier-contact="${field}"]`)?.value.trim() || "";
+}
+
+function serviceDetailFieldValue(field) {
+  return $(`[data-service-detail-field="${field}"]`)?.value.trim() || "";
+}
+
+function contactRoleOptions() {
+  return ["老板", "销售", "调度", "司机", "票务", "财务", "导游本人", "客服", "设备负责人", "运营", "预订"];
+}
+
+function defaultSupplierSource(category) {
+  return {
+    酒店: "酒店直签",
+    包车: "车队",
+    导游: "个人",
+    门票: "票务代理",
+    大交通: "票务代理",
+    餐: "餐厅直签",
+    特色体验: "项目方直签",
+    其他: "其他",
+  }[category] || "其他";
+}
+
+function emptyServiceDetail(category) {
+  const id = `SD-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const common = { id, category, name: "", costPrice: "", salePrice: "", validTo: IMPORT_VALID_TO, cancelRule: "", remark: "" };
+  if (category === "酒店") return { ...common, roomTypeName: "双床房", bedType: "双床", capacity: 2, breakfastIncluded: "含早" };
+  if (category === "包车") return { ...common, serviceCategory: "市内包车", routeName: "市区包车", fromCity: "", toArea: "", vehicleModel: "7座车", seats: 7, suggestedPassengers: 4, luggageCapacity: "4件", packageCostPrice: "", packageSalePrice: "" };
+  if (category === "导游") return { ...common, guideName: "", serviceCities: "", languages: "英语", serviceType: "地陪", dailyCostPrice: "", serviceHours: "8小时", driverGuide: "否", originalRegistrationFields: {} };
+  if (category === "门票") return { ...common, attractionName: "", ticketTypeName: "景区门票", audience: "成人" };
+  if (category === "餐") return { ...common, restaurantName: "", mealStandardName: "团队餐标", cuisine: "", halalFriendly: "否", teamFriendly: "是" };
+  if (category === "特色体验") return { ...common, experienceName: "", audience: "通用", serviceDuration: "" };
+  if (category === "大交通") return { ...common, trafficType: "火车票", agentScope: "", serviceFeeRule: "", refundRule: "" };
+  return { ...common, billingMethod: "按人", scope: "" };
+}
+
+function normalizeSupplier(raw = {}) {
+  const category = normalizeSupplierCategory(raw.category || raw.supplierCategory || raw.type || "酒店");
+  const city = raw.city || raw.locationCity || raw.cities?.[0] || "";
+  const contacts = normalizeContacts(raw.contacts || raw.contactPersons || [{
+    name: raw.contactName || raw.contact || "",
+    role: raw.contactRole || "销售",
+    phone: raw.phone || raw.mobile || raw.contactPhone || "",
+    wechat: raw.wechat || "",
+    whatsapp: raw.whatsapp || "",
+    email: raw.email || "",
+    primary: true,
+  }]);
+  const serviceDetails = (raw.serviceDetails || raw.details || raw.resources || [raw.serviceDetail || {}])
+    .filter(Boolean)
+    .map((detail) => normalizeServiceDetail(detail, category));
+  return {
+    id: raw.id || raw.supplierId || `SUP-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    category,
+    sourceType: raw.sourceType || raw.source || defaultSupplierSource(category),
+    name: raw.name || raw.supplierName || raw.hotelName || raw.guideName || "未命名供应商",
+    city,
+    cities: unique([city, ...(String(raw.serviceScope || raw.scope || "").split(/[、,，\s/]+/))]).filter(Boolean),
+    serviceScope: raw.serviceScope || raw.scope || city,
+    status: normalizeSupplierStatus(raw.status || raw.cooperationStatus || "启用"),
+    cancelRule: raw.cancelRule || raw.cancelPolicy || "",
+    remark: raw.remark || raw.notes || "",
+    contacts,
+    serviceDetails: serviceDetails.length ? serviceDetails : [emptyServiceDetail(category)],
+    settlement: raw.settlement || raw.settlementInfo || "待补结算",
+    qualification: raw.qualification || raw.license || "",
+    ratingTags: raw.ratingTags || raw.tags || "",
+    historicalServiceCount: number(raw.historicalServiceCount || raw.serviceCount),
+    createdAt: raw.createdAt || new Date().toISOString().slice(0, 10),
+    updatedAt: raw.updatedAt || new Date().toISOString().slice(0, 10),
+  };
+}
+
+function normalizeSupplierCategory(value) {
+  const text = String(value || "");
+  if (/车|用车|包车|司机/.test(text)) return "包车";
+  if (/票|景点|门票/.test(text)) return "门票";
+  if (/导游/.test(text)) return "导游";
+  if (/酒店|房/.test(text)) return "酒店";
+  if (/大交通|机票|火车/.test(text)) return "大交通";
+  if (/餐|饭店|餐厅/.test(text)) return "餐";
+  if (/体验|非遗|旅拍/.test(text)) return "特色体验";
+  return supplierCategories.includes(text) ? text : "其他";
+}
+
+function normalizeSupplierStatus(value) {
+  const text = String(value || "");
+  if (/停|暂停|黑名单|禁用/.test(text)) return "停用";
+  if (/待|缺|补/.test(text)) return "待补资料";
+  return "启用";
+}
+
+function normalizeContacts(contacts = []) {
+  const list = (Array.isArray(contacts) ? contacts : []).map((item, index) => ({
+    name: item.name || item.contactName || item.contact || "",
+    role: item.role || item.contactRole || "销售",
+    phone: item.phone || item.mobile || "",
+    wechat: item.wechat || item.wx || "",
+    whatsapp: item.whatsapp || "",
+    email: item.email || "",
+    primary: Boolean(item.primary || item.isPrimary || index === 0),
+    note: item.note || item.remark || "",
+  }));
+  if (!list.length) list.push({ name: "", role: "销售", phone: "", wechat: "", whatsapp: "", email: "", primary: true, note: "" });
+  if (!list.some((item) => item.primary)) list[0].primary = true;
+  return list;
+}
+
+function normalizeServiceDetail(detail = {}, category = "酒店") {
+  const base = { ...emptyServiceDetail(category), ...detail };
+  base.id = base.id || base.serviceDetailId || `SD-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  base.category = category;
+  base.costPrice = valueOrBlank(firstPresent(detail.costPrice, detail.cost, detail.packageCostPrice, detail.dailyCostPrice, detail.roomCostPrice, detail.adultCost, detail.perPersonCost));
+  base.salePrice = valueOrBlank(firstPresent(detail.salePrice, detail.referenceSalePrice, detail.packageSalePrice, detail.adultSale, detail.perPersonSale));
+  base.validTo = detail.validTo || detail.priceValidTo || detail.priceValidUntil || IMPORT_VALID_TO;
+  return base;
+}
+
+function serviceDetailName(detail = {}, category = "") {
+  if (category === "酒店") return detail.roomTypeName || detail.name || "房型价格";
+  if (category === "包车") return detail.routeName || detail.name || `${detail.serviceCategory || "包车"} ${detail.vehicleModel || ""}`.trim();
+  if (category === "导游") return detail.guideName || detail.name || `${detail.languages || "英语"}导游服务`;
+  if (category === "门票") return detail.attractionName || detail.name || detail.ticketTypeName || "门票";
+  if (category === "餐") return detail.restaurantName || detail.name || detail.mealStandardName || "餐标";
+  if (category === "特色体验") return detail.experienceName || detail.name || "体验项目";
+  if (category === "大交通") return detail.trafficType || detail.name || "大交通服务";
+  return detail.name || detail.projectName || "其他服务";
 }
 
 function useProductInQuote(id) {
@@ -46735,8 +49470,10 @@ function openProject(id) {
     $("#adults").value = project.guests ? Math.max(project.guests - 1, 0) : 0;
     $("#children").value = project.guests ? 1 : 0;
   }
-  if (!state.itinerary.length) handleLoadHistory();
+  const restored = restoreProjectSnapshot(id);
+  if (!restored && !state.itinerary.length) handleLoadHistory();
   showProjectDetail();
+  renderAll();
   updateProjectTitle();
 }
 
@@ -46750,6 +49487,7 @@ function updateCurrentProject(status) {
     state.currentProjectId = project.id;
   }
   project.name = d.clientName;
+  project.actualCustomerName = d.actualCustomerName || d.clientName;
   project.account = d.account;
   project.userType = d.userType;
   project.country = d.country;
@@ -46761,8 +49499,12 @@ function updateCurrentProject(status) {
   project.days = d.serviceDays;
   project.guests = d.people;
   project.amount = Math.round(totals.sell || 0);
-  project.statusUpdatedDate = "2026-06-18";
-  project.createdDate = project.createdDate || "2026-06-18";
+  project.cost = Math.round(totals.cost || 0);
+  project.grossProfit = Math.round((totals.sell || 0) - (totals.cost || 0));
+  project.grossMargin = totals.sell ? Math.round(((totals.sell - totals.cost) / totals.sell) * 10000) / 100 : 0;
+  project.statusUpdatedDate = getTodayDateString();
+  project.createdDate = project.createdDate || getTodayDateString();
+  saveProjectState();
   renderProjectDashboard();
 }
 
@@ -46780,6 +49522,8 @@ function resetProject() {
   $("#followStatus").value = "新询盘";
   state.itinerary = [];
   state.order = null;
+  state.routeConfirmed = false;
+  state.proposalConfirmed = false;
   resetQuoteVersions();
   $("#projectStatus").textContent = "草稿";
   $("#projectStatus").className = "status warn";
@@ -46790,6 +49534,7 @@ function resetProject() {
   $("#orderArchive").textContent = "尚未成交。";
   showProjectDetail();
   renderAll();
+  saveCurrentProjectSnapshot();
 }
 
 function resetQuoteVersions() {
@@ -46864,9 +49609,11 @@ function getDemand() {
   const adults = number($("#adults").value);
   const children = number($("#children").value);
   const cities = splitCities($("#cities").value);
+  const actualCustomerName = $("#actualCustomerName")?.value.trim() || "";
+  const projectName = $("#clientName").value.trim() || [actualCustomerName || "未命名客户", cities.join("、"), `${Math.max(number($("#serviceDays").value), 1)}天`].filter(Boolean).join(" ");
   return {
-    clientName: $("#clientName").value.trim() || "未命名客户",
-    actualCustomerName: $("#actualCustomerName")?.value.trim() || "",
+    clientName: projectName,
+    actualCustomerName,
     account: $("#clientAccount").value.trim(),
     userType: $("#clientType").value,
     country: $("#clientCountry").value.trim(),
@@ -46944,6 +49691,31 @@ function renderXiaoyiContext() {
   if ($("#xiaoyiProjectStatus")) $("#xiaoyiProjectStatus").textContent = guide.label;
   if ($("#xiaoyiImageCount")) $("#xiaoyiImageCount").textContent = `${state.proposalAssets.filter((asset) => asset.url).length} 张`;
   if ($("#xiaoyiRole")) $("#xiaoyiRole").textContent = guide.next;
+  renderXiaoyiBubbleStatus();
+}
+
+function renderXiaoyiBubbleStatus() {
+  const issues = xiaoyiIssueList();
+  const title = $("#xiaoyiBubbleTitle");
+  const text = $("#xiaoyiBubbleText");
+  if (title) title.textContent = issues.length ? `小易 · ${issues.length}项待处理` : "小易 · 检查中";
+  if (text) text.textContent = issues.length ? issues.slice(0, 2).join(" / ") : "当前流程暂无严重异常";
+  $("#xiaoyiDot")?.classList.toggle("hidden", !issues.length);
+}
+
+function xiaoyiIssueList() {
+  const issues = [];
+  const missingInfo = localMissingInfo();
+  if (missingInfo.length) issues.push(`客户信息缺 ${missingInfo.length} 项`);
+  if (routeOrderWarning().warning) issues.push("路线可能折返");
+  const missingCosts = state.routeConfirmed ? missingCostDetails() : [];
+  if (missingCosts.length) issues.push(`成本缺失 ${missingCosts.length} 项`);
+  const totals = activeQuote()?.data ? calcTotals() : { sell: 0, cost: 0 };
+  const grossRate = totals.sell ? ((totals.sell - totals.cost) / totals.sell) * 100 : 0;
+  if (totals.sell && grossRate < 8) issues.push("毛利率异常");
+  if (state.translation.residues.length) issues.push(`中文残留 ${state.translation.residues.length} 处`);
+  if ($("#proposalContent")?.innerHTML.trim() && !state.proposalConfirmed) issues.push("方案未确认");
+  return issues;
 }
 
 function updateXiaoyiStage() {
@@ -47013,6 +49785,8 @@ function renderXiaoyiStructured(data, messageIndex) {
   const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
   const actions = Array.isArray(data.actions) ? data.actions : [];
   const memorySuggestions = Array.isArray(data.memory_suggestions) ? data.memory_suggestions : [];
+  const requiredFields = Array.isArray(data.requiredFields) ? data.requiredFields : [];
+  const nextSteps = Array.isArray(data.nextSteps) ? data.nextSteps : [];
   return `
     <div class="xiaoyi-structured">
       ${xiaoyiStageSummaryHtml()}
@@ -47023,6 +49797,8 @@ function renderXiaoyiStructured(data, messageIndex) {
           ${item.after ? `<pre>${escapeHtml(formatSuggestionAfter(item.after))}</pre>` : ""}
         </div>
       `).join("")}
+      ${requiredFields.length ? `<div class="xiaoyi-suggestion warning"><strong>还缺字段</strong><p>${requiredFields.map((item) => escapeHtml(item)).join("、")}</p></div>` : ""}
+      ${nextSteps.length ? `<div class="xiaoyi-suggestion"><strong>下一步</strong><p>${nextSteps.map((item) => escapeHtml(item)).join(" / ")}</p></div>` : ""}
       ${memorySuggestions.map((item) => `<div class="xiaoyi-memory-suggestion"><strong>可保存记忆</strong><p>${escapeHtml(item.content || item.value || item.summary || "")}</p></div>`).join("")}
       ${actions.length ? `<div class="xiaoyi-action-row">${actions.map((action) => `
         <button class="${action.requiresConfirmation ? "primary-btn" : "secondary-btn"}" data-xiaoyi-action="${escapeHtml(action.id)}" data-xiaoyi-message="${messageIndex}">${escapeHtml(action.label || "应用")}</button>
@@ -47163,6 +49939,10 @@ async function sendXiaoyiMessage() {
   const normalized = text.replace(/\s+/g, "");
   if (isConfirmText(normalized)) return applyLatestXiaoyiSuggestion();
   if (isIgnoreText(normalized)) return ignoreLatestXiaoyiSuggestion();
+  const commandResult = await runBusinessAction("updateCurrentProjectByAgentCommand", { text });
+  if (commandResult?.handled) {
+    return addXiaoyiMessage("assistant", commandResult.summary);
+  }
   const intent = inferXiaoyiIntent(text, state.xiaoyi.attachments);
   await runXiaoyiIntent(intent, text);
 }
@@ -47197,21 +49977,31 @@ async function runXiaoyiIntent(intent, text) {
   if (intent === "extract_customer_info") {
     if (text) $("#rawDemandInput").value = [$("#rawDemandInput")?.value.trim(), text].filter(Boolean).join("\n");
     await agentRecognizeDemand();
-    return addXiaoyiMessage("assistant", "我已识别客户需求，结果已放到“待确认结果”。确认后才会写入客户资料。", structuredFromCurrentAgent("extract_customer_info", "应用客户信息", "apply_customer_info"));
+    agentApplyCustomer();
+    return addXiaoyiMessage("assistant", "已识别客户需求，并写入客户资料表。你可以直接在客户信息区域继续改。");
   }
   if (intent === "generate_itinerary") {
     if (text) $("#agentOpFeedback").value = text;
     await agentGenerateRoute();
-    return addXiaoyiMessage("assistant", "我已生成线路草稿，先请你确认节奏和城市顺序，再应用到行程。", structuredFromCurrentAgent("generate_itinerary", "应用到行程", "apply_itinerary"));
+    if (state.agent.pendingType === "route") agentConfirmRoute();
+    else handleGenerateItinerary();
+    buildQuote({ auto: true });
+    return addXiaoyiMessage("assistant", `已生成并写入 ${state.itinerary.length} 天行程，报价明细已同步刷新。`);
   }
   if (intent === "optimize_itinerary") {
     if (text) $("#agentOpFeedback").value = text;
     await agentOptimizeRoute();
-    return addXiaoyiMessage("assistant", "我已按你的意见重新优化行程，建议仍然不会直接覆盖正式行程。", structuredFromCurrentAgent("optimize_itinerary", "应用到行程", "apply_itinerary"));
+    if (state.agent.pendingType === "route") agentConfirmRoute();
+    applyNaturalLanguageProjectEdits(text);
+    buildQuote({ auto: true });
+    rebuildProposalIfNeeded();
+    return addXiaoyiMessage("assistant", "已按你的意见调整行程，并同步刷新报价明细和客户提案。请在行程安排和报价明细里验收。");
   }
   if (intent === "extract_quote_items") {
     await agentExtractQuoteItems();
-    return addXiaoyiMessage("assistant", "我已识别报价项目，确认后系统会调用产品库和报价规则重新计算。", structuredFromCurrentAgent("extract_quote_items", "应用到报价明细", "apply_quote_items"));
+    if (state.agent.pendingType === "quoteItems") agentApplyQuoteItems();
+    else buildQuote();
+    return addXiaoyiMessage("assistant", "已识别报价项目，并写入报价明细表；缺失成本会在对应行显示待补录成本。");
   }
   if (intent === "check_missing_costs") {
     agentCheckCosts();
@@ -47219,24 +50009,14 @@ async function runXiaoyiIntent(intent, text) {
     return addXiaoyiMessage("assistant", details.length ? `发现 ${details.length} 个缺失成本：\n${details.slice(0, 8).join("\n")}` : "当前没有发现缺失成本项。");
   }
   if (intent === "generate_quote_proposal") {
-    return setXiaoyiStructuredResult({
-      reply: "我可以基于当前报价、行程和已上传图片生成客户方案预览。需要你确认后再更新正式提案。",
-      intent,
-      suggestions: [{ type: "proposal_generation", summary: "生成客户提案预览", before: {}, after: { language: $("#outputLang")?.value || "en", imageCount: state.proposalAssets.filter((asset) => asset.url).length }, reason: "根据当前项目数据和素材池生成" }],
-      actions: [{ id: "generate_quote_proposal", label: "生成客户提案", requiresConfirmation: true }],
-      attachments: state.xiaoyi.attachments,
-      memory_suggestions: [],
-    });
+    await handleBuildProposal();
+    return addXiaoyiMessage("assistant", "已根据当前行程、报价明细和素材池生成客户提案预览。");
   }
   if (intent === "generate_english_proposal" || intent === "translate_proposal") {
-    return setXiaoyiStructuredResult({
-      reply: "我会先生成中文源，再生成英文预览，并自动检测中文残留。确认后才锁定客户提案。",
-      intent,
-      suggestions: [{ type: "english_proposal", summary: "生成英文客户提案", before: { source: "当前客户方案/报价数据" }, after: { glossaryTerms: activeGlossaryTerms().length, memoryTerms: state.translation.memory.length }, reason: "使用术语库和当前项目上下文翻译" }],
-      actions: [{ id: "generate_english_proposal", label: "生成英文版", requiresConfirmation: true }],
-      attachments: state.xiaoyi.attachments,
-      memory_suggestions: [],
-    });
+    await generateEnglishProposalVersion();
+    if (intent === "translate_proposal") await translateChineseResidueInline();
+    const count = state.translation.residues.length;
+    return addXiaoyiMessage("assistant", count ? `英文提案已生成并同步到提案编辑器，仍有 ${count} 处中文残留可在提案区继续处理。` : "英文提案已生成并同步到提案编辑器，未检测到中文残留。");
   }
   if (intent === "check_english_chinese_residue") {
     checkEnglishChineseResidue();
@@ -47283,6 +50063,79 @@ async function runXiaoyiIntent(intent, text) {
   await runFreeAgentChat(text);
 }
 
+async function updateCurrentProjectByAgentCommand(text) {
+  const changes = applyNaturalLanguageProjectEdits(text);
+  if (!changes.length) return { handled: false };
+  ensureItineraryCoversDemand();
+  buildQuote({ auto: true });
+  if ($("#proposalContent")?.innerHTML.trim()) handleBuildProposal();
+  renderWorkbenchOverview();
+  renderQuoteFlowLine();
+  renderXiaoyiContext();
+  setAgentPending("message", { title: "小易已执行项目调整", body: changes.join("；") });
+  return {
+    handled: true,
+    summary: `已完成调整：\n- ${changes.join("\n- ")}\n请在客户资料、行程安排、报价明细和客户提案区验收。`,
+  };
+}
+
+function applyNaturalLanguageProjectEdits(text = "") {
+  const value = String(text || "");
+  const changes = [];
+  if (!value.trim()) return changes;
+
+  if (/酒店/.test(value) && /(降一档|四星|4星|四 星|不要五星|不要5星)/.test(value)) {
+    const current = $("#hotelLevel")?.value || "";
+    const next = /三星|3星/.test(value) ? "三星" : "四星";
+    ensureSelectOption("hotelLevel", next);
+    setSelectValue("hotelLevel", next);
+    const pref = $("#hotelPreference")?.value || "";
+    $("#hotelPreference").value = `${next}舒适型${pref && !pref.includes(next) ? `；原偏好：${pref}` : ""}`;
+    changes.push(`酒店标准已${current ? `从 ${current} ` : ""}调整为${next}`);
+  }
+
+  if (/预算/.test(value)) {
+    const budget = value.match(/(\d+(?:\.\d+)?)\s*(美金|美元|usd|USD|\$)/)?.[0]
+      || value.match(/(\d+(?:\.\d+)?)\s*(人民币|元|CNY|¥)/)?.[0];
+    if (budget) {
+      $("#budgetRange").value = budget;
+      changes.push(`预算已更新为 ${budget}`);
+    }
+  }
+
+  if (/减少购物|不要购物|购物点少|无购物/.test(value)) {
+    state.itinerary = state.itinerary.map((day) => ({
+      ...day,
+      detail: String(day.detail || "").replace(/[^。；\n]*(购物店|购物点|进店|shopping)[^。；\n]*(。|；|\n)?/gi, "").trim() || day.detail,
+      notes: [day.notes, "OP 要求减少购物点"].filter(Boolean).join("；"),
+    }));
+    changes.push("已减少购物点安排");
+  }
+
+  const freeActivity = value.match(/(上海|北京|西安|苏州|杭州|成都|广州|深圳|重庆|桂林|张家界|云南|昆明|丽江|大理).*?(半天|一天|自由活动)/);
+  if (freeActivity || /自由活动/.test(value)) {
+    const city = freeActivity?.[1] || getDemand().cities.find((item) => value.includes(item)) || state.itinerary.at(-1)?.city || "上海";
+    const target = state.itinerary.find((day) => day.city === city) || state.itinerary.at(-1);
+    if (target) {
+      target.detail = `${target.detail || target.overview || ""}；增加半天自由活动，节奏放慢，方便客人休息和自行安排。`;
+      target.overview = target.overview && !target.overview.includes("自由活动") ? `${target.overview} + 自由活动` : target.overview || `${city}自由活动`;
+      changes.push(`${city}已增加自由活动安排`);
+    }
+  }
+
+  if (/大交通.*(不含|排除|去掉)|不包含大交通/.test(value)) {
+    $("#svcTraffic").checked = false;
+    renderIncludeButtons();
+    changes.push("大交通已调整为不包含");
+  }
+  if (/大交通.*(包含|加入)|包含大交通/.test(value)) {
+    $("#svcTraffic").checked = true;
+    renderIncludeButtons();
+    changes.push("大交通已作为正式报价类目加入");
+  }
+  return unique(changes);
+}
+
 function structuredFromCurrentAgent(intent, label, actionId) {
   return {
     reply: "已生成待确认建议。",
@@ -47325,8 +50178,13 @@ function normalizeAgentChatResponse(data) {
   return {
     reply: data.reply || "",
     intent: data.intent || "free_chat",
+    context: data.context || {},
     suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
+    requiredFields: Array.isArray(data.requiredFields) ? data.requiredFields : [],
     actions: Array.isArray(data.actions) ? data.actions : [],
+    draft: data.draft || null,
+    canApply: Boolean(data.canApply),
+    nextSteps: Array.isArray(data.nextSteps) ? data.nextSteps : [],
     attachments: Array.isArray(data.attachments) ? data.attachments : [],
     memory_suggestions: Array.isArray(data.memory_suggestions) ? data.memory_suggestions : [],
   };
@@ -47345,6 +50203,7 @@ function ignoreLatestXiaoyiSuggestion() {
 }
 
 async function applyXiaoyiAction(actionId, messageIndex) {
+  logAgentApply(actionId, messageIndex);
   if (actionId === "apply_customer_info") {
     agentApplyCustomer();
     return addXiaoyiMessage("assistant", "已应用到客户资料。");
@@ -47358,7 +50217,7 @@ async function applyXiaoyiAction(actionId, messageIndex) {
     return addXiaoyiMessage("assistant", "已应用到报价明细并重新计算。");
   }
   if (actionId === "generate_quote_proposal") {
-    handleBuildProposal();
+    await handleBuildProposal();
     return addXiaoyiMessage("assistant", "客户提案预览已生成，请人工确认后再导出 PDF / 图片。");
   }
   if (actionId === "generate_english_proposal") {
@@ -47369,10 +50228,14 @@ async function applyXiaoyiAction(actionId, messageIndex) {
     applyImageClassification(messageIndex);
     return addXiaoyiMessage("assistant", "图片分类已应用到素材池。");
   }
+  if (actionId.startsWith("apply_partial_translation_fix:")) {
+    const id = actionId.split(":")[1];
+    await fixSingleResidue(id);
+    return addXiaoyiMessage("assistant", "已调用 DeepSeek 应用这一处局部修正，并重新检测。");
+  }
   if (actionId === "apply_partial_translation_fix") {
-    saveTranslationTermsFromResidues(state.translation.residues);
-    applyPartialTranslationFix();
-    return addXiaoyiMessage("assistant", "已应用局部修正，并把修正片段加入个人英语词库。");
+    await fixAllTranslationResidues();
+    return addXiaoyiMessage("assistant", "已调用 DeepSeek 批量修正中文残留，并重新检测。");
   }
   if (actionId === "apply_poster_plan") {
     const structured = state.xiaoyi.messages[messageIndex]?.structured;
@@ -47388,6 +50251,21 @@ async function applyXiaoyiAction(actionId, messageIndex) {
     return addXiaoyiMessage("assistant", "已保存为小易记忆。下次生成提案或优化行程时会作为偏好参考。");
   }
   return addXiaoyiMessage("assistant", "这个建议暂时不需要写入正式字段。");
+}
+
+function logAgentApply(actionId, messageIndex) {
+  const structured = state.xiaoyi.messages[messageIndex]?.structured || {};
+  fetch("/api/agent/apply", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      projectId: state.currentProjectId,
+      actionId,
+      intent: structured.intent,
+      draft: structured.draft || structured.suggestions?.[0]?.after || null,
+      confirmed: true,
+    }),
+  }).catch(() => {});
 }
 
 function applyImageClassification(messageIndex) {
@@ -47459,6 +50337,16 @@ function renderProposalGuard() {
   const guard = $("#proposalGuard");
   if (!guard) return;
   const hasProposal = Boolean($("#proposalContent")?.innerHTML.trim());
+  const canConvert = state.proposalConfirmed || activeQuote()?.status === "已提交";
+  $$("#convertToOrder, [data-convert-order]").forEach((button) => {
+    button.classList.toggle("hidden", !canConvert);
+    button.disabled = !canConvert;
+  });
+  ["exportPdf", "exportImage"].forEach((id) => {
+    $$(`#${id}`).forEach((button) => {
+      button.disabled = !state.proposalConfirmed;
+    });
+  });
   if (!hasProposal) {
     guard.className = "proposal-guard";
     guard.textContent = "未生成客户方案。生成后需要人工确认，才可以导出 PDF / 图片。";
@@ -47485,13 +50373,19 @@ function confirmProposal() {
   }
   state.proposalConfirmed = true;
   activeQuote().status = "已确认客户方案";
+  recordSupplierCallsFromQuote();
   saveQuoteVersionMeta(true);
   renderProposalGuard();
   renderArchive();
   renderWorkbenchOverview();
 }
 
-function buildChineseProposalSource() {
+function createChineseProposalSource() {
+  if (!state.routeConfirmed) {
+    alert("请先确认线路并刷新报价，再生成客户方案。");
+    showWorkbenchSection("q-itinerary");
+    return;
+  }
   if (!state.itinerary.length) handleGenerateItinerary();
   if (!activeQuote().data.vehicle.length) buildQuote();
   const d = getDemandSafe();
@@ -47516,6 +50410,12 @@ function buildChineseProposalSource() {
     assets: state.proposalAssets.filter((asset) => asset.url && asset.useInProposal).map((asset) => ({ name: asset.name, category: asset.category, confirmed: asset.confirmed })),
   };
   state.translation.chineseSource = source;
+  return source;
+}
+
+function buildChineseProposalSource() {
+  const source = createChineseProposalSource();
+  if (!source) return;
   $("#outputLang").value = "zh";
   handleBuildProposal();
   $("#translationStatus").textContent = "中文源已生成并单独保存在翻译任务中。";
@@ -47523,18 +50423,91 @@ function buildChineseProposalSource() {
   return source;
 }
 
-async function generateEnglishProposalVersion() {
-  if (!state.translation.chineseSource) buildChineseProposalSource();
-  $("#outputLang").value = "en";
-  handleBuildProposal();
-  applyGlossaryToProposal();
-  state.translation.englishPreview = $("#proposalContent")?.innerHTML || "";
-  state.translation.residues = detectChineseResidues($("#proposal") || $("#proposalContent"));
-  $("#translationStatus").textContent = state.translation.residues.length
-    ? `英文预览已生成，检测到 ${state.translation.residues.length} 处中文残留。`
-    : "英文预览已生成，未检测到中文残留。";
+async function generateEnglishProposalVersion(options = {}) {
+  if (!state.routeConfirmed) {
+    alert("请先确认线路并刷新报价，再刷新英文版。");
+    showWorkbenchSection("q-itinerary");
+    return;
+  }
+  const source = options.source || state.translation.chineseSource || createChineseProposalSource();
+  if (!source) return;
+  state.translation.chineseSource = source;
+  $("#translationStatus").textContent = "正在调用真实翻译接口刷新英文版...";
+  try {
+    const response = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source, targetLanguage: "English" }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "翻译接口调用失败");
+    $("#outputLang").value = "en";
+    renderTranslatedProposal(data.translation || {});
+    applyGlossaryToProposal();
+    state.translation.englishPreview = $("#proposalContent")?.innerHTML || "";
+    state.translation.residues = detectChineseResidues($("#proposal") || $("#proposalContent"));
+    $("#translationStatus").textContent = state.translation.residues.length
+      ? `英文版已刷新，检测到 ${state.translation.residues.length} 处中文残留，请编辑后确认。`
+      : "英文版已刷新，未检测到中文残留。";
+  } catch (error) {
+    $("#translationStatus").textContent = `DeepSeek 翻译失败，请检查 API Key 或稍后重试。${error.message ? `错误：${error.message}` : ""}`;
+  }
   renderEnglishWarning();
   renderTranslationWorkflow();
+}
+
+function translatedScalar(value, fallback = "") {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (Array.isArray(value)) return value.map((item) => translatedScalar(item, "")).filter(Boolean).join(" · ") || fallback;
+  if (typeof value === "object") return translatedScalar(value.text || value.value || value.content || Object.values(value).find((item) => typeof item === "string"), fallback);
+  return fallback;
+}
+
+function normalizeTranslatedList(value, fallback = []) {
+  if (Array.isArray(value)) return value.map((item) => translatedScalar(item, "")).filter(Boolean);
+  const scalar = translatedScalar(value, "");
+  return scalar ? [scalar] : fallback;
+}
+
+function renderTranslatedProposal(data = {}) {
+  const d = getDemandSafe();
+  const totals = calcTotals();
+  const days = Array.isArray(data.itinerary) ? data.itinerary : [];
+  $("#proposal").classList.toggle("watermarked", $("#proposalWatermark").checked);
+  applyProposalCoverImage();
+  const inclusions = normalizeTranslatedList(data.inclusions);
+  const exclusions = normalizeTranslatedList(data.exclusions);
+  const notes = normalizeTranslatedList(data.notes, ["Final confirmation is subject to resource availability."]);
+  $("#proposalKicker").textContent = translatedScalar(data.kicker, "Private Tour Proposal");
+  $("#proposalTitle").textContent = translatedScalar(data.title, `${d.serviceDays}-Day China Private Tour`);
+  $("#proposalMeta").textContent = translatedScalar(data.meta, `${d.startDate || "Date TBD"} · ${d.people} guests`);
+  $("#proposalContent").innerHTML = `
+    <div class="proposal-grid">
+      <div>
+        <div class="proposal-block">
+          <h4>Detailed Itinerary</h4>
+          ${days.map((day, index) => `<div class="proposal-day"><strong>Day ${day.day || index + 1}</strong><div><b>${escapeHtml(day.date || "")} · ${escapeHtml(day.city || "")} · ${escapeHtml(day.overview || "")}</b><p>${escapeHtml(day.detail || "")}</p></div></div>`).join("")}
+        </div>
+        <div class="proposal-block"><h4>Included / Excluded</h4><table class="simple-table"><tbody>
+          <tr><td>Included</td><td>${escapeHtml(inclusions.join("; "))}</td></tr>
+          <tr><td>Not included</td><td>${escapeHtml(exclusions.join("; "))}</td></tr>
+        </tbody></table></div>
+      </div>
+      <aside>
+        <div class="price-box"><span>Total Price</span><strong>${money(totals.sell)}</strong><span>Adult avg: ${money(totals.adultAvg)}</span>${d.children ? `<span>Child avg: ${money(totals.childAvg)}</span>` : ""}</div>
+        <div class="proposal-block"><h4>Payment</h4><p>${escapeHtml(data.payment || "A deposit is required to secure the booking. The remaining balance should be paid before service starts.")}</p></div>
+        <div class="proposal-block"><h4>Notes</h4><p>${escapeHtml(notes.join(" "))}</p></div>
+        ${contactHtml("en")}
+      </aside>
+    </div>
+  `;
+  $("#proposalContent").contentEditable = "false";
+  $("#proposal").classList.remove("editing");
+  state.proposalConfirmed = false;
+  renderProposalGuard();
+  renderProposalAssets();
+  renderWorkbenchOverview();
 }
 
 function applyGlossaryToProposal() {
@@ -47591,7 +50564,8 @@ function detectChineseResidues(root) {
       text,
       snippet,
       node,
-      suggested: translateResidueSnippet(snippet),
+      fullParagraph: nearestProposalParagraph(node),
+      suggested: "",
     });
     node = walker.nextNode();
   }
@@ -47610,12 +50584,18 @@ function nearestProposalLocation(node) {
   return "客户提案";
 }
 
-function translateResidueSnippet(snippet) {
-  return applyGlossary(translate(snippet, "en"))
-    .replace(/含早/g, "breakfast included")
-    .replace(/或同级/g, "or similar standard")
-    .replace(/以实际确认为准/g, "subject to final confirmation")
-    .replace(/以最终确认为准/g, "subject to final confirmation");
+function nearestProposalParagraph(node) {
+  let element = node.parentElement;
+  while (element && element !== document.body) {
+    if (element.classList?.contains("proposal-day") || element.classList?.contains("proposal-block")) {
+      return element.innerText?.trim() || node.nodeValue || "";
+    }
+    if (["P", "TD", "B", "STRONG", "H3", "SPAN"].includes(element.tagName)) {
+      return element.innerText?.trim() || node.nodeValue || "";
+    }
+    element = element.parentElement;
+  }
+  return node.nodeValue || "";
 }
 
 function partialFixChineseResidue() {
@@ -47624,26 +50604,70 @@ function partialFixChineseResidue() {
   const fixes = state.translation.residues.map((item) => ({
     location: item.location,
     before: item.snippet,
-    after: item.suggested,
+    after: "点击提案区的 AI 局部翻译后由 DeepSeek 生成",
   }));
   setXiaoyiStructuredResult({
-    reply: `我找到 ${fixes.length} 处中文残留。以下是局部修正建议，确认后只替换这些片段，不重翻整篇。`,
+    reply: `我找到 ${fixes.length} 处中文残留。请在客户提案的翻译检查区点击“AI 修正全部残留”或单条“AI 局部翻译”，系统会调用 DeepSeek 逐条修正。`,
     intent: "translate_proposal",
-    suggestions: [{ type: "partial_translation_fix", summary: "局部修正中文残留", before: fixes.map((item) => item.before), after: fixes, reason: "只处理含中文的片段，保留已确认英文内容" }],
-    actions: [{ id: "apply_partial_translation_fix", label: "应用局部修正", requiresConfirmation: true }],
+    suggestions: [{ type: "partial_translation_fix", summary: "局部修正中文残留", before: fixes.map((item) => item.before), after: fixes, reason: "只定位含中文的片段，实际修正必须调用 DeepSeek segment API" }],
+    actions: [],
     attachments: [],
-    memory_suggestions: fixes.map((item) => ({ type: "translation_term", content: `${item.before} = ${item.after}`, sourceText: item.before, targetText: item.after })),
+    memory_suggestions: [],
   });
 }
 
-function applyPartialTranslationFix() {
-  state.translation.residues.forEach((item) => {
-    if (!item.node?.nodeValue) return;
-    item.node.nodeValue = item.node.nodeValue.replace(item.snippet, item.suggested);
+async function translateChineseResidueInline() {
+  return fixAllTranslationResidues();
+}
+
+async function fixAllTranslationResidues() {
+  if (!state.translation.residues.length) checkEnglishChineseResidue();
+  if (!state.translation.residues.length) {
+    $("#translationStatus").textContent = "未检测到中文残留，无需替换。";
+    return [];
+  }
+  const beforeCount = state.translation.residues.length;
+  let fixed = 0;
+  let failed = 0;
+  while (state.translation.residues.length) {
+    const item = state.translation.residues[0];
+    $("#translationStatus").textContent = `正在调用 DeepSeek 修正中文残留 ${fixed + failed + 1}/${beforeCount}：${item.location}`;
+    try {
+      const translatedText = await translateResidueSegment(item);
+      applySingleTranslationFix(item.id, translatedText);
+      saveTranslationTermsFromResidues([{ ...item, suggested: translatedText }]);
+      fixed += 1;
+    } catch (error) {
+      failed += 1;
+      break;
+    }
+  }
+  const afterCount = state.translation.residues.length;
+  $("#translationStatus").textContent = failed
+    ? `DeepSeek 局部翻译失败。已修正 ${fixed} 处中文残留，仍有 ${afterCount} 处需要人工确认。`
+    : `已修正 ${fixed} 处中文残留，仍有 ${afterCount} 处需要人工确认。`;
+  return state.translation.residues;
+}
+
+async function translateResidueSegment(item) {
+  const response = await fetch("/api/translate/segment", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      targetLanguage: "English",
+      text: item.snippet,
+      context: {
+        location: item.location,
+        fullParagraph: item.fullParagraph || item.text,
+        proposalType: $("#proposalStyle")?.value || "标准商务版",
+      },
+    }),
   });
-  state.translation.englishPreview = $("#proposalContent")?.innerHTML || "";
-  checkEnglishChineseResidue();
-  invalidateProposalConfirmation();
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "局部翻译接口调用失败");
+  const translatedText = String(data.translatedText || "").trim();
+  if (!translatedText) throw new Error("局部翻译接口未返回译文");
+  return applyGlossary(translatedText);
 }
 
 function saveSuggestedTranslationTerms() {
@@ -47683,9 +50707,23 @@ function localCustomerDemandDraft() {
   ].filter(Boolean).join("\n");
   const people = parsePeopleFallback(text);
   const cities = extractCitiesFromText(text);
-  const serviceDays = number(text.match(/(\d+)\s*(?:天|日|days?|D)\b/i)?.[1]) || number($("#serviceDays")?.value) || 1;
+  const serviceDays = inferServiceDaysFromText(text) || number($("#serviceDays")?.value) || 1;
   const hotelLevel = inferHotelLevel(text);
-  const vehicleType = recommendVehicleType(people.total || number($("#adults")?.value) + number($("#children")?.value));
+  const services = {
+    vehicle: !/不含用车|no car/i.test(text),
+    ticket: !/不含门票|no tickets?/i.test(text),
+    guide: /guide|导游|英语|英文|english/i.test(text),
+    hotel: !/不含酒店|no hotel/i.test(text),
+    traffic: /大交通|高铁|火车|航班|flight|train/i.test(text) && !/不含大交通|不需要火车票|不含火车票|不需要机票|不含机票|no flight|exclude flight|no train tickets?|without train tickets?/i.test(text),
+    meal: /餐|meal|halal|清真/i.test(text),
+    other: true,
+  };
+  const vehiclePlan = recommendVehiclePlan({
+    people: people.total || number($("#adults")?.value) + number($("#children")?.value),
+    hasGuide: services.guide,
+    luggage: /行李多|大件|many luggage|lots of luggage/i.test(text) ? "多" : "未知",
+    preference: /business|商务/i.test(text) ? "商务" : /舒适|comfortable/i.test(text) ? "舒适" : /经济|budget/i.test(text) ? "经济" : "",
+  });
   return normalizeCustomerDraft({
     clientName: $("#clientName")?.value || `${cities.join("、") || "中国"} ${serviceDays}天定制游`,
     actualCustomerName: $("#actualCustomerName")?.value || "",
@@ -47706,16 +50744,10 @@ function localCustomerDemandDraft() {
     guideLang: /arabic|阿拉伯/i.test(text) ? "阿拉伯语" : /spanish|西班牙/i.test(text) ? "西班牙语" : /french|法语/i.test(text) ? "法语" : "英语",
     rooms: people.total ? Math.ceil(people.total / 2) : number($("#rooms")?.value),
     roomTypes: people.total ? [{ type: "双床房", rooms: Math.ceil(people.total / 2) }] : state.roomTypes,
-    vehicleType,
-    services: {
-      vehicle: !/不含用车|no car/i.test(text),
-      ticket: !/不含门票|no tickets?/i.test(text),
-      guide: /guide|导游|英语|英文|english/i.test(text),
-      hotel: !/不含酒店|no hotel/i.test(text),
-      traffic: /大交通|高铁|火车|航班|flight|train/i.test(text) && !/不含大交通|no flight|exclude flight/i.test(text),
-      meal: /餐|meal|halal|清真/i.test(text),
-      other: true,
-    },
+    vehicleType: vehiclePlan.vehicleType,
+    vehicleReason: vehiclePlan.reason,
+    aiNotes: vehiclePlan.reason,
+    services,
     missingFields: [],
   });
 }
@@ -47737,18 +50769,24 @@ function normalizeCustomerDraft(data) {
   draft.cities = Array.isArray(draft.cities) ? draft.cities.filter(Boolean) : splitCities(draft.cities || "");
   if (!draft.cities.length) draft.cities = extractCitiesFromText(`${$("#rawDemandInput")?.value || ""} ${draft.specialNeed || ""}`);
   draft.hotelLevel = normalizeHotelLevelOption(draft.hotelLevel || draft.hotelPreference);
-  draft.vehicleType = normalizeVehicleSelectOption(draft.vehicleType || recommendVehicleType(draft.adults + draft.children));
-  if (draft.adults + draft.children > 13 && /5座|7座|9座|14座/.test(draft.vehicleType || "")) {
-    draft.vehicleType = "22座车";
-    draft.aiNotes = [draft.aiNotes, "人数超过 13 人，系统已按规则升级车型；如行李较多需人工确认更大车型或多车方案。"].filter(Boolean).join("\n");
-  }
-  draft.rooms = number(draft.rooms) || (draft.adults + draft.children ? Math.ceil((draft.adults + draft.children) / 2) : 0);
-  draft.roomTypes = Array.isArray(draft.roomTypes) && draft.roomTypes.length ? draft.roomTypes : (draft.rooms ? [{ type: "双床房", rooms: draft.rooms }] : []);
   draft.services = { vehicle: true, ticket: true, guide: true, hotel: true, traffic: false, meal: false, other: true, ...(draft.services || {}) };
   Object.keys(draft.services).forEach((key) => {
     const value = draft.services[key];
     draft.services[key] = typeof value === "string" ? /包含|true|yes|需要|include/i.test(value) && !/不包含|不含|false|no|exclude/i.test(value) : Boolean(value);
   });
+  const vehiclePlan = recommendVehiclePlan({
+    people: draft.adults + draft.children,
+    hasGuide: draft.services.guide,
+    luggage: /行李多|大件|many luggage|lots of luggage/i.test(`${$("#rawDemandInput")?.value || ""} ${draft.specialNeed || ""}`) ? "多" : "未知",
+    preference: /business|商务/i.test(`${$("#rawDemandInput")?.value || ""} ${draft.specialNeed || ""}`) ? "商务" : /经济|budget/i.test(`${$("#rawDemandInput")?.value || ""} ${draft.specialNeed || ""}`) ? "经济" : "舒适",
+  });
+  draft.vehicleType = normalizeVehicleSelectOption(vehiclePlan.vehicleType || draft.vehicleType);
+  draft.vehicleReason = vehiclePlan.reason;
+  if (vehiclePlan.reason && !String(draft.aiNotes || "").includes(vehiclePlan.reason)) {
+    draft.aiNotes = [draft.aiNotes, vehiclePlan.reason].filter(Boolean).join("\n");
+  }
+  draft.rooms = number(draft.rooms) || (draft.adults + draft.children ? Math.ceil((draft.adults + draft.children) / 2) : 0);
+  draft.roomTypes = Array.isArray(draft.roomTypes) && draft.roomTypes.length ? draft.roomTypes : (draft.rooms ? [{ type: "双床房", rooms: draft.rooms }] : []);
   draft.missingFields = [
     !draft.children && "儿童人数如不确定需确认",
     !draft.startDate && "出行日期",
@@ -47780,7 +50818,7 @@ function renderCustomerDraftFields(data) {
 }
 
 function draftStatusLabel(status) {
-  return { confirmed: "已确认", missing: "未确认", risk: "低置信" }[status] || "待确认";
+  return { confirmed: "已识别", missing: "客户未提及", risk: "需要OP确认" }[status] || "需要OP确认";
 }
 
 function fallbackDemandQuestions(draft) {
@@ -47789,6 +50827,26 @@ function fallbackDemandQuestions(draft) {
     !draft.services?.traffic && "是否包含城市间大交通或国际机票？",
     !draft.mealPreference && "是否有餐食要求，例如清真、素食或不含猪肉？",
   ].filter(Boolean);
+}
+
+function inferServiceDaysFromText(text = "") {
+  const value = String(text || "");
+  const match = value.match(/(\d+)\s*(?:天|日|days?|D)(?![A-Za-z])/i);
+  if (match) return number(match[1]);
+  const cn = value.match(/([一二两三四五六七八九十]{1,3})\s*(?:天|日)/);
+  return cn ? chineseNumber(cn[1]) : 0;
+}
+
+function chineseNumber(value = "") {
+  const map = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
+  const text = String(value || "");
+  if (!text) return 0;
+  if (text === "十") return 10;
+  if (text.includes("十")) {
+    const [before, after] = text.split("十");
+    return (before ? map[before] || 0 : 1) * 10 + (after ? map[after] || 0 : 0);
+  }
+  return map[text] || 0;
 }
 
 function parsePeopleFallback(text) {
@@ -47809,9 +50867,8 @@ function parsePeopleFallback(text) {
 }
 
 function extractCitiesFromText(text) {
-  const all = ["北京", "上海", "西安", "成都", "重庆", "张家界", "广州", "昆明", "大理", "丽江", "香格里拉", "杭州", "苏州"];
   const value = standardizeEnglishAttractions(String(text || ""));
-  return unique(all.filter((city) => value.includes(city)));
+  return extractRouteCities(value);
 }
 
 function inferCountry(text) {
@@ -47841,17 +50898,35 @@ function normalizeHotelLevelOption(value) {
   return text || "4星舒适型";
 }
 
-function recommendVehicleType(people) {
-  const count = number(people);
-  if (count <= 0) return "";
-  if (count <= 2) return "5座车";
-  if (count <= 4) return "7座车";
-  if (count <= 6) return "9座车";
-  if (count <= 13) return "14座车";
-  return "22座车";
+function recommendVehicleType(people, options = {}) {
+  return recommendVehiclePlan({ people, ...options }).vehicleType;
+}
+
+function recommendVehiclePlan(input = {}) {
+  const count = number(input.people);
+  const hasGuide = Boolean(input.hasGuide);
+  const hasDriver = input.hasDriver !== false;
+  const luggage = input.luggage || "未知";
+  const preference = input.preference || "经济";
+  if (count <= 0) return { vehicleType: "", reason: "人数未确认，暂不推荐车型。", seatsNeeded: 0, luggage, preference };
+  let vehicleType = "";
+  const seatsNeeded = count + (hasGuide ? 1 : 0) + (hasDriver ? 1 : 0);
+  if (count <= 2) vehicleType = "5座车";
+  else if (count <= 4) vehicleType = hasGuide || luggage === "多" || preference === "舒适" || preference === "商务" ? "7座车" : "5座车";
+  else if (count <= 6) vehicleType = luggage === "多" ? "14座车" : "9座车";
+  else if (count <= 10) vehicleType = "14座车";
+  else if (count <= 13) vehicleType = "17座车";
+  else vehicleType = "22座车";
+  if (luggage === "多" && count >= 6 && vehicleType === "9座车") vehicleType = "14座车";
+  if (count >= 14) vehicleType = "22座车或多车方案";
+  const parts = [`${count} 位客人`, hasDriver ? "司机" : "", hasGuide ? "导游" : "", luggage === "多" ? "行李较多" : ""].filter(Boolean);
+  const reason = `推荐车型：${vehicleType}。推荐原因：${parts.join(" + ")}，合计至少 ${seatsNeeded} 个座位需求${vehicleType === "5座车" && count >= 3 ? "；5 座仅作经济可选，舒适报价建议 7 座车" : ""}。`;
+  return { vehicleType, reason, seatsNeeded, luggage, preference };
 }
 
 function normalizeVehicleSelectOption(value) {
+  if (/17/.test(String(value || ""))) return "17座车";
+  if (/14/.test(String(value || ""))) return "14座车";
   const model = normalizeVehicleModel(value);
   if (model === "14座~17座") return "14座车";
   if (model === "36~38座") return "33座车";
@@ -47864,13 +50939,101 @@ function renderTranslationWorkflow() {
   if (!list) return;
   const residues = state.translation.residues || [];
   list.classList.toggle("hidden", !residues.length);
+  $("#fixAllResidues")?.classList.toggle("hidden", !residues.length);
   list.innerHTML = residues.map((item) => `
-    <div class="translation-residue">
-      <strong>${escapeHtml(item.location)}</strong>
-      <span>仍包含：${escapeHtml(item.snippet)}</span>
-      <em>建议：${escapeHtml(item.suggested)}</em>
+    <div class="translation-residue" data-residue-card="${escapeHtml(item.id)}">
+      <strong>位置：${escapeHtml(item.location)}</strong>
+      <span>原文：${escapeHtml(item.snippet)}</span>
+      <em>所在段落：${escapeHtml(item.fullParagraph || item.text)}</em>
+      <div class="actions">
+        <button class="secondary-btn" data-fix-residue="${escapeHtml(item.id)}"><i data-lucide="wand-sparkles"></i><span>AI 局部翻译</span></button>
+        <button class="ghost-btn" data-edit-residue="${escapeHtml(item.id)}"><i data-lucide="pencil-line"></i><span>手动编辑</span></button>
+      </div>
     </div>
   `).join("");
+  renderIcons();
+}
+
+function residueById(id) {
+  return state.translation.residues.find((item) => item.id === id) || state.translation.residues[0];
+}
+
+async function fixSingleResidue(id) {
+  if (!state.translation.residues.length) checkEnglishChineseResidue();
+  const item = residueById(id);
+  if (!item) return;
+  $("#translationStatus").textContent = `正在调用 DeepSeek 翻译「${item.location}」的中文残留...`;
+  try {
+    const translatedText = await translateResidueSegment(item);
+    applySingleTranslationFix(item.id, translatedText);
+    saveTranslationTermsFromResidues([{ ...item, suggested: translatedText }]);
+    $("#translationStatus").textContent = `已在「${item.location}」调用 DeepSeek 局部翻译并重新检测。`;
+  } catch (error) {
+    $("#translationStatus").textContent = `DeepSeek 局部翻译失败，请检查 API Key 或稍后重试。${error.message ? `错误：${error.message}` : ""}`;
+  }
+}
+
+function applySingleTranslationFix(id, translatedText = "") {
+  const item = residueById(id);
+  if (!item?.node?.nodeValue) return;
+  const replacement = translatedText || item.suggested;
+  if (!replacement) return;
+  item.node.nodeValue = item.node.nodeValue.replace(item.snippet, replacement);
+  state.translation.englishPreview = $("#proposalContent")?.innerHTML || "";
+  checkEnglishChineseResidue();
+  invalidateProposalConfirmation();
+}
+
+function openTranslationEditModal(id = "") {
+  if (!state.translation.residues.length) checkEnglishChineseResidue();
+  const item = residueById(id);
+  const modal = ensureTranslationEditModal();
+  const current = item?.text || $("#proposalContent")?.innerText || "";
+  modal.querySelector("[data-translation-edit-body]").innerHTML = `
+    <div class="translation-edit-grid">
+      <label>中文源文<textarea readonly>${escapeHtml(JSON.stringify(state.translation.chineseSource || {}, null, 2)).slice(0, 1200)}</textarea></label>
+      <label>AI 原翻译<textarea readonly>${escapeHtml(item?.text || "")}</textarea></label>
+      <label>当前英文<textarea readonly>${escapeHtml(current)}</textarea></label>
+      <label>用户修改后的英文<textarea data-manual-translation>${escapeHtml(item?.suggested || current)}</textarea></label>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary-btn" data-close-translation-edit>取消</button>
+      <button class="secondary-btn" data-save-manual-term>保存并加入词库</button>
+      <button class="primary-btn" data-save-manual-translation>保存修改并重新检测</button>
+    </div>`;
+  modal.querySelectorAll("[data-close-translation-edit]").forEach((btn) => btn.addEventListener("click", () => modal.classList.add("hidden")));
+  modal.querySelector("[data-save-manual-translation]").addEventListener("click", () => saveManualTranslationEdit(modal, item, false));
+  modal.querySelector("[data-save-manual-term]").addEventListener("click", () => saveManualTranslationEdit(modal, item, true));
+  modal.classList.remove("hidden");
+}
+
+function ensureTranslationEditModal() {
+  let modal = $("#translationEditModal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "translationEditModal";
+  modal.className = "modal-backdrop hidden";
+  modal.innerHTML = `<div class="modal-card wide-modal"><div class="modal-head"><div><h3>手动编辑英文翻译</h3><p>保存后会重新检测中文残留，并可加入个人英语词库。</p></div><button class="icon-btn" data-close-translation-edit aria-label="关闭"><i data-lucide="x"></i></button></div><div class="modal-body" data-translation-edit-body></div></div>`;
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function saveManualTranslationEdit(modal, item, saveTerm) {
+  const value = modal.querySelector("[data-manual-translation]")?.value || "";
+  if (item?.node?.nodeValue) item.node.nodeValue = value;
+  else if ($("#proposalContent")) $("#proposalContent").innerHTML = escapeHtml(value);
+  if (saveTerm && item) {
+    saveTranslationTermsFromResidues([{ ...item, suggested: value }]);
+  }
+  modal.classList.add("hidden");
+  state.translation.englishPreview = $("#proposalContent")?.innerHTML || "";
+  checkEnglishChineseResidue();
+  invalidateProposalConfirmation();
+}
+
+function ignoreResidue(id) {
+  state.translation.residues = state.translation.residues.filter((item) => item.id !== id);
+  renderTranslationWorkflow();
 }
 
 function saveQuoteVersionMeta(confirmed = false) {
@@ -47883,6 +51046,7 @@ function saveQuoteVersionMeta(confirmed = false) {
   version.grossMargin = totals.sell ? Math.round(((totals.sell - totals.cost) / totals.sell) * 10000) / 100 : 0;
   version.confirmed = Boolean(confirmed);
   version.final = Boolean(version.final);
+  saveQuoteVersions();
 }
 
 async function loadAiSettings() {
@@ -47966,6 +51130,914 @@ async function mutateAiSettings(url, payload, successMessage, reload = true) {
   }
 }
 
+const businessActions = {
+  analyzeCustomerDemand: async () => {
+    await agentRecognizeDemand();
+    return state.agent.pendingData;
+  },
+  applyCustomerInfoToForm: async () => {
+    if (state.agent.pendingType !== "customer") await agentRecognizeDemand();
+    agentApplyCustomer();
+    return getDemand();
+  },
+  generateItineraryDraft: async () => {
+    const opInstruction = $("#opRouteInstruction")?.value.trim() || "";
+    if (opInstruction) {
+      const days = createItineraryDaysFromOpInstruction(opInstruction);
+      return { route: { days }, source: "OP 线路备注优先" };
+    }
+    await agentGenerateRoute();
+    if (state.agent.pendingType === "route") return state.agent.pendingData;
+    return { route: { days: buildDefaultRouteDraft() }, source: "本地线路规则" };
+  },
+  applyItineraryToTable: async () => {
+    if (state.agent.pendingType === "route") agentConfirmRoute();
+    else if (!state.itinerary.length) handleGenerateItinerary();
+    ensureItineraryCoversDemand();
+    state.routeConfirmed = true;
+    return state.itinerary;
+  },
+  identifyQuoteItems: async () => {
+    await agentExtractQuoteItems();
+    return state.agent.pendingType === "quoteItems" ? state.agent.pendingData : { quoteItems: [] };
+  },
+  applyQuoteItemsToDetail: async () => {
+    if (state.agent.pendingType === "quoteItems") agentApplyQuoteItems();
+    else buildQuote();
+    return activeQuote().data;
+  },
+  checkMissingInfo: async () => localMissingInfo(),
+  checkMissingCosts: async () => {
+    agentCheckCosts();
+    return missingCostDetails();
+  },
+  recalculateQuote: async () => {
+    buildQuote();
+    return calcTotals();
+  },
+  generateEnglishProposal: async () => {
+    await generateEnglishProposalVersion();
+    return $("#proposalContent")?.innerHTML || "";
+  },
+  checkChineseResidue: async () => {
+    checkEnglishChineseResidue();
+    return state.translation.residues;
+  },
+  translateChineseResidue: async () => translateChineseResidueInline(),
+  polishProposalSection: async () => polishProposalSection(),
+  saveQuoteVersion: async () => agentSaveQuoteVersion(),
+  updateCurrentProjectByAgentCommand: async (payload = {}) => updateCurrentProjectByAgentCommand(payload.text || ""),
+};
+
+async function runBusinessAction(name, payload = {}) {
+  const action = businessActions[name];
+  if (!action) throw new Error(`Unknown business action: ${name}`);
+  return action(payload);
+}
+
+async function runDemandPipeline() {
+  const button = $("#recognizeDemandDraft");
+  const oldLabel = button?.querySelector("span")?.textContent;
+  if (button) {
+    button.disabled = true;
+    button.querySelector("span").textContent = "识别并生成中...";
+  }
+  try {
+    await runBusinessAction("analyzeCustomerDemand");
+    await runBusinessAction("applyCustomerInfoToForm");
+    applyOpRouteInstructionToDemand();
+    const missingInfo = await runBusinessAction("checkMissingInfo");
+    const questions = fallbackDemandQuestions(localCustomerDemandDraft());
+    if (missingInfo.length) {
+      const current = $("#aiNotes")?.value || "";
+      $("#aiNotes").value = [current, `待追问：${questions.slice(0, 4).join("；")}`].filter(Boolean).join("\n");
+    }
+    const draft = await runBusinessAction("generateItineraryDraft");
+    const days = normalizeRouteDraftDays(draft?.route?.days || draft?.days || state.routeDraft);
+    setMainItinerary(days, { source: draft?.source || "AI草稿", confirmed: false });
+    updateProjectTitle();
+    invalidateProposalConfirmation();
+    setAgentPending("message", {
+      title: "已写入主行程表",
+      body: [
+        "客户资料已写入客户信息表。",
+        `已生成 ${state.itinerary.length} 天行程并写入主行程表，请 OP 检查城市、交通节点和每日内容。确认后系统刷新报价明细。`,
+        missingInfo.length ? `客户信息仍缺：${missingInfo.join("、")}` : "客户关键信息已基本完整。",
+      ].join(" "),
+    });
+    addXiaoyiMessage("assistant", `已生成 ${state.itinerary.length} 天行程并写入主行程表，请 OP 检查后刷新报价。`);
+  } catch (error) {
+    setAgentPending("message", { title: "识别流程失败", body: error.message });
+    alert(`识别需求并生成线路失败：${error.message}`);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.querySelector("span").textContent = oldLabel || "生成报价草稿";
+    }
+  }
+}
+
+async function refreshQuoteDraft() {
+  if (!state.routeConfirmed) {
+    alert("请先确认线路。确认后系统再生成正式报价明细。");
+    showWorkbenchSection("q-itinerary");
+    return;
+  }
+  const button = $("#buildQuote");
+  const oldLabel = button?.querySelector("span")?.textContent;
+  if (button) {
+    button.disabled = true;
+    button.querySelector("span").textContent = "刷新中...";
+  }
+  try {
+    if (!state.itinerary.length) ensureItineraryCoversDemand();
+    await agentExtractQuoteItems();
+    const pending = state.agent.pendingType === "quoteItems" ? state.agent.pendingData || {} : {};
+    const quoteItems = pending.quoteItems || [];
+    if (quoteItems.length) {
+      state.agentQuoteItems = quoteItems;
+      applyQuoteItemServiceToggles(quoteItems);
+      applyQuoteItemDemandHints(pending);
+    }
+    buildQuote({ forceRematch: true });
+    if (quoteItems.length) applyAgentQuoteItemsToQuote(quoteItems);
+    applyPartialGuideDaysToQuote(activeQuote().data);
+    renderQuoteTabs();
+    renderQuoteTable();
+    renderSummary();
+    invalidateProposalConfirmation();
+    renderWorkbenchOverview();
+    renderQuoteFlowLine();
+    renderXiaoyiContext();
+    setAgentPending("message", {
+      title: "报价已刷新",
+      body: "已重新识别报价项、匹配产品库、刷新报价明细和报价汇总。缺成本项请在对应行内补录。",
+    });
+  } catch (error) {
+    alert(`刷新报价失败：${error.message}`);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.querySelector("span").textContent = oldLabel || "刷新报价";
+    }
+  }
+}
+
+function guideVersionText() {
+  return [
+    $("#rawDemandInput")?.value,
+    $("#specialNeed")?.value,
+    $("#opRouteInstruction")?.value,
+    $("#aiNotes")?.value,
+  ].filter(Boolean).join("\n");
+}
+
+function guideVersionRequested(text = guideVersionText()) {
+  return /(含导游|with\s+guide).*(不含导游|without\s+guide)|(不含导游|without\s+guide).*(含导游|with\s+guide)|both\s+rates?.*guide|with\s+guide\s+and\s+without\s+guide/i.test(text);
+}
+
+function requestedGuideDayIndexes(text = guideVersionText()) {
+  const value = String(text || "");
+  return unique([...value.matchAll(/(?:Day|D)\s*(\d+)/gi)].map((match) => number(match[1]) - 1).filter((index) => index >= 0));
+}
+
+function applyPartialGuideDaysToQuote(quoteData) {
+  const indexes = requestedGuideDayIndexes();
+  if (!indexes.length || !quoteData?.guide?.length) return;
+  quoteData.guide.forEach((row, index) => {
+    if (indexes.includes(index)) return;
+    row.serviceCost = 0;
+    row.ticketCost = 0;
+    row.hotelCost = 0;
+    row.missingCost = false;
+    row.source = "客户未要求当天导游";
+    row.sourceType = "未包含";
+  });
+}
+
+function ensureGuideQuoteVersionsFromDemand() {
+  if (!guideVersionRequested() || !activeQuote()?.data) return;
+  applyPartialGuideDaysToQuote(activeQuote().data);
+  state.quoteVersions[0].name = "V1：含导游报价";
+  const withoutGuide = JSON.parse(JSON.stringify(state.quoteVersions[0].data));
+  withoutGuide.guide = (withoutGuide.guide || []).map((row) => ({
+    ...row,
+    serviceCost: 0,
+    ticketCost: 0,
+    hotelCost: 0,
+    missingCost: false,
+    source: "客户要求不含导游",
+    sourceType: "未包含",
+  }));
+  const version = { name: "V2：不含导游报价", status: "草稿", data: withoutGuide };
+  const existing = state.quoteVersions.findIndex((item) => item.name.includes("不含导游"));
+  if (existing >= 0) state.quoteVersions[existing] = version;
+  else state.quoteVersions.splice(1, 0, version);
+  state.activeQuote = 0;
+  renderQuoteVersionSelect();
+  renderQuoteTabs();
+  renderSummary();
+}
+
+function shortText(text = "", max = 30) {
+  const value = String(text || "").trim();
+  return value.length > max ? `${value.slice(0, max)}...` : value;
+}
+
+function addDefaultMiscFees() {
+  if ($("#otherWater")) $("#otherWater").checked = true;
+  if ($("#otherHeadset")) $("#otherHeadset").checked = getDemand().people > 4;
+  if ($("#svcOther")) $("#svcOther").checked = true;
+  renderIncludeButtons();
+  if (state.routeConfirmed) refreshQuoteDraft();
+  else alert("已添加零散费用规则。确认线路后会自动进入报价明细。");
+}
+
+function applyOpRouteInstructionToDemand() {
+  const text = $("#opRouteInstruction")?.value.trim() || "";
+  if (!text) return;
+  const routePlan = parseRouteInstruction(text);
+  if (routePlan.totalDays) $("#serviceDays").value = routePlan.totalDays;
+  if (routePlan.cities.length) $("#cities").value = routePlan.cities.join("、");
+  if (/四星|4星/.test(text)) setSelectValue("hotelLevel", "四星");
+  if (/三星|3星/.test(text)) setSelectValue("hotelLevel", "三星");
+  if (/五星|5星/.test(text)) setSelectValue("hotelLevel", "五星");
+  if (/英语|英文|English/i.test(text)) setSelectValue("guideLang", "英语");
+  if (/导游/.test(text)) $("#svcGuide").checked = true;
+  if (/用车|包车|车/.test(text)) $("#svcVehicle").checked = true;
+  renderIncludeButtons();
+}
+
+function createItineraryDaysFromOpInstruction(text) {
+  applyOpRouteInstructionToDemand();
+  const d = getDemand();
+  const routePlan = parseRouteInstruction(text);
+  const start = d.startDate || "2026-07-01";
+  const segments = routePlan.segments.length
+    ? routePlan.segments
+    : expandCities(routeDemandCities(d), d.serviceDays).map((city) => ({ city, days: 1 }));
+  const forbidden = [...String(text).matchAll(/不要([^，。；,\s]+)/g)].map((match) => match[1]);
+  const requiredAttractions = [...String(text).matchAll(/(?:必去|包含|安排)([^，。；]+)/g)].map((match) => match[1]);
+  let index = 0;
+  const days = [];
+  segments.forEach((segment) => {
+    if (forbidden.some((item) => segment.city.includes(item))) return;
+    Array.from({ length: Math.max(segment.days, 1) }).forEach((_, cityDayIndex) => {
+      const base = makeDay(addDays(start, index), segment.city, cityDayIndex);
+      const attractionNote = requiredAttractions.length ? `；优先安排：${requiredAttractions.join("、")}` : "";
+      const paceNote = /轻松|慢|不赶/.test(text) ? "；节奏轻松，预留休息时间" : "";
+      days.push({
+        ...base,
+        detail: `${base.detail}${attractionNote}${paceNote}`,
+        hasVehicle: /用车|包车|车/.test(text) ? "是" : base.hasVehicle,
+        hasGuide: /导游/.test(text) ? "是" : base.hasGuide,
+        hotel: /酒店/.test(text) ? ($("#hotelLevel")?.value ? `${$("#hotelLevel").value}酒店或同级` : "酒店或同级") : "",
+        notes: `按 OP 线路备注生成：${text}`,
+      });
+      index += 1;
+    });
+  });
+  return normalizeRouteDraftDays(days.length ? days : buildDefaultRouteDraft());
+}
+
+function generateItineraryFromOpInstruction(text) {
+  setMainItinerary(createItineraryDaysFromOpInstruction(text), { source: "OP线路备注", confirmed: false });
+}
+
+function buildDefaultRouteDraft() {
+  const d = getDemand();
+  const start = d.startDate || "2026-07-01";
+  const plan = expandCities(routeDemandCities(d), Math.max(d.serviceDays, 1));
+  const usedByCity = {};
+  return plan.map((city, index) => {
+    const cityDayIndex = usedByCity[city] || 0;
+    usedByCity[city] = cityDayIndex + 1;
+    return makeDay(addDays(start, index), city, cityDayIndex);
+  });
+}
+
+function normalizeRouteDraftDays(days = []) {
+  const d = getDemand();
+  const start = d.startDate || "2026-07-01";
+  const fallbackCities = routeDemandCities(d);
+  return structureItineraryDays((Array.isArray(days) && days.length ? days : buildDefaultRouteDraft()).map((day, index) => ({
+    date: day.date || addDays(start, index),
+    city: day.city || d.cities[index] || d.cities[0] || fallbackCities[index] || fallbackCities[0] || "待补城市",
+    overview: day.overview || `第${index + 1}天行程`,
+    detail: day.detail || day.notes || day.overview || "待 OP 确认行程内容。",
+    trafficNode: day.trafficNode || "",
+    notes: day.notes || "",
+  })));
+}
+
+function setMainItinerary(days = [], options = {}) {
+  const normalized = normalizeRouteDraftDays(days);
+  state.itinerary = normalized;
+  state.routeDraft = normalized;
+  state.routeConfirmed = Boolean(options.confirmed);
+  state.routeSource = options.source || state.routeSource || "OP编辑";
+  state.routeLastUpdatedAt = new Date().toISOString();
+  $("#serviceDays").value = Math.max(normalized.length, 1);
+  syncItinerarySource();
+  if (options.clearQuote !== false) activeQuote().data = emptyQuoteData();
+  if (options.render !== false) {
+    renderItinerary();
+    renderRouteDraft();
+    renderRouteStatus();
+    renderTemplateMatches();
+    renderQuoteTabs();
+    renderQuoteTable();
+    renderSummary();
+    renderWorkbenchOverview();
+    renderQuoteFlowLine();
+    renderXiaoyiContext();
+  }
+  if ($("#routeEditStatus")) {
+    $("#routeEditStatus").textContent = state.routeConfirmed ? "线路已确认，报价已按当前主行程表刷新。" : "线路已写入主行程表，请确认线路并刷新报价。";
+  }
+  return state.itinerary;
+}
+
+function syncItinerarySource() {
+  const source = $("#itinerarySource");
+  if (!source) return;
+  source.value = state.itinerary.map((day, index) => `Day ${index + 1} ${day.city || day.stayCity || ""}: ${day.overview || ""} | 行程详情：${day.detail || ""} | 交通节点：${day.trafficNode || ""}`).join("\n");
+}
+
+function markMainItineraryChanged(source = "OP编辑") {
+  state.itinerary = structureItineraryDays(state.itinerary);
+  state.routeDraft = state.itinerary;
+  state.routeConfirmed = false;
+  state.routeSource = source;
+  state.routeLastUpdatedAt = new Date().toISOString();
+  if ($("#routeEditStatus")) $("#routeEditStatus").textContent = "线路已修改，请重新刷新报价。";
+  syncItinerarySource();
+  renderItineraryWarning();
+  renderRouteStatus();
+  renderQuoteFlowLine();
+  renderXiaoyiContext();
+}
+
+function structureItineraryDays(days = []) {
+  const normalized = (Array.isArray(days) ? days : []).map((day, index, list) => {
+    const previous = index > 0 ? list[index - 1] : null;
+    const stayCity = resolveStayCity(day, previous);
+    return {
+      ...day,
+      city: stayCity || day.city || "",
+      stayCity,
+      trafficNode: day.trafficNode || inferTrafficNode({ ...day, city: stayCity || day.city || "" }, index, list),
+    };
+  });
+  return normalized.map((day, index) => {
+    const previous = index > 0 ? normalized[index - 1] : null;
+    const transferSegment = detectTransferSegment(day, previous);
+    const quoteLegs = buildQuoteLegsForDay(day, previous, transferSegment);
+    return {
+      ...day,
+      transferSegment,
+      quoteLegs,
+      quoteStatus: quoteLegs.length ? "已拆分报价项" : "待识别报价项",
+    };
+  });
+}
+
+function extractRouteCities(text = "") {
+  const value = String(text || "");
+  const cityNames = routeCityNameList();
+  const hits = [];
+  cityNames.forEach((city) => {
+    let index = value.indexOf(city);
+    while (index >= 0) {
+      hits.push({ index, city: normalizeRouteCity(city) });
+      index = value.indexOf(city, index + city.length);
+    }
+  });
+  Object.entries(routeCityAliases).forEach(([alias, city]) => {
+    const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\ /g, "\\s+");
+    const regex = new RegExp(`\\b${escaped}\\b`, "gi");
+    let match = regex.exec(value);
+    while (match) {
+      hits.push({ index: match.index, city });
+      match = regex.exec(value);
+    }
+  });
+  return unique(hits.sort((a, b) => a.index - b.index).map((item) => item.city));
+}
+
+function routeCityNameList() {
+  return unique([...Object.keys(cityCoordinates), ...extraRouteCities, ...Object.values(routeCityAliases)])
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+}
+
+function routeDemandCities(demand = getDemandSafe()) {
+  const known = Array.isArray(demand.cities) ? demand.cities.filter(Boolean) : [];
+  if (known.length) return known;
+  const text = [
+    $("#rawDemandInput")?.value,
+    $("#specialNeed")?.value,
+    $("#opRouteInstruction")?.value,
+    $("#itinerarySource")?.value,
+  ].filter(Boolean).join("\n");
+  const inferred = extractCitiesFromText(text);
+  return inferred.length ? inferred : ["待补城市"];
+}
+
+function resolveStayCity(day = {}, previous = null) {
+  const travelText = `${day.overview || ""} ${day.detail || ""} ${day.trafficNode || ""}`;
+  const travelCities = extractRouteCities(travelText);
+  if (travelCities.length >= 2 && hasTrafficKeyword(travelText)) return travelCities.at(-1);
+  const cities = extractRouteCities(`${day.city || ""} ${travelText}`);
+  return normalizeRouteCity(day.city || "") || cities.at(-1) || previous?.city || "";
+}
+
+function inferStructuredTrafficNode(day = {}, previous = null) {
+  return inferTrafficNode(day, previous ? 1 : 0, previous ? [previous, day] : [day]);
+}
+
+function hasTrafficKeyword(text = "") {
+  return /出发|前往|抵达|接机|送机|接站|送站|火车站|高铁站|机场|railway\s+station|train|flight|airport|departure|arrival|transfer|→|至|到|飞往|乘|高铁|火车|航班/i.test(String(text || ""));
+}
+
+function isAirportTraffic(text = "") {
+  return /接机|送机|机场|flight|airport|航班|飞机|飞往/i.test(String(text || ""));
+}
+
+function crossCityTrafficLabel(fromCity, toCity, text = "") {
+  const airport = isAirportTraffic(text);
+  return `${fromCity} → ${toCity}：${fromCity}${airport ? "送机" : "送站"} / ${toCity}${airport ? "接机" : "接站"}`;
+}
+
+function detectTransferSegment(day = {}, previous = null) {
+  const text = `${day.trafficNode || ""} ${day.overview || ""} ${day.detail || ""}`;
+  if (!hasTrafficKeyword(text)) return null;
+  const cities = extractRouteCities(text);
+  const fromCity = cities.length >= 2 ? cities[0] : previous?.city || "";
+  const toCity = cities.length >= 2 ? cities.at(-1) : day.city || day.stayCity || "";
+  if (!fromCity || !toCity || fromCity === toCity) return null;
+  const mode = isAirportTraffic(text) ? "飞机" : /高铁|火车|动车|列车|站|railway|train|departure/i.test(text) ? "火车" : getDemandSafe().trafficType || "待定";
+  return { fromCity, toCity, mode, label: `${fromCity} → ${toCity}` };
+}
+
+function hasLocalTourContent(day = {}) {
+  const text = `${day.overview || ""} ${day.detail || ""}`;
+  if (!text.trim()) return false;
+  const hasSightseeing = /故宫|长城|兵马俑|古城墙|外滩|豫园|森林公园|天门山|洪崖洞|熊猫|博物馆|景区|游览|参观|一日游|市内|市区/.test(text);
+  if (isTransferOnlyDayText(text)) return false;
+  if (hasSightseeing) return true;
+  return !/^(抵达|前往|乘|入住|送站|接站|接机|送机|返程|返回|高铁|火车|航班|飞机|酒店|休息)[\s\S]{0,24}$/.test(text.replace(/[，。；,\s]/g, ""));
+}
+
+function isTransferOnlyDayText(text = "") {
+  const value = String(text || "");
+  if (!/抵达|到达|接机|送机|机场|入住|酒店/.test(value)) return false;
+  return !/故宫|长城|兵马俑|古城墙|外滩|豫园|森林公园|天门山|洪崖洞|熊猫|博物馆|景区|游览|参观|一日游|市内|市区|武隆/.test(value);
+}
+
+function buildQuoteLegsForDay(day = {}, previous = null, transferSegment = null) {
+  const legs = [];
+  const rawText = `${day.overview || ""} ${day.detail || ""} ${day.trafficNode || ""}`;
+  const contentText = `${day.overview || ""} ${day.detail || ""}`;
+  if (transferSegment?.fromCity && transferSegment?.toCity) {
+    const airport = transferSegment.mode === "飞机";
+    const transferType = airport ? "接送机" : "接送站";
+    legs.push({ type: "departure_transfer", city: transferSegment.fromCity, serviceType: transferType, label: `${transferSegment.fromCity}${airport ? "送机" : "送站"}`, fromCity: transferSegment.fromCity, toCity: transferSegment.toCity });
+    legs.push({ type: "arrival_transfer", city: transferSegment.toCity, serviceType: transferType, label: `${transferSegment.toCity}${airport ? "接机" : "接站"}`, fromCity: transferSegment.fromCity, toCity: transferSegment.toCity });
+    legs.push({ type: "domestic_traffic", city: transferSegment.toCity, mode: transferSegment.mode, label: `${transferSegment.fromCity}至${transferSegment.toCity}大交通`, fromCity: transferSegment.fromCity, toCity: transferSegment.toCity });
+    if (hasLocalTourContent(day)) legs.push({ type: "local_tour", city: transferSegment.toCity, serviceType: "包车", label: `${transferSegment.toCity}本地游`, fromCity: transferSegment.toCity, toCity: transferSegment.toCity });
+    return legs;
+  }
+  const city = day.city || day.stayCity || previous?.city || "";
+  if (city && /送站|送机|返程|返回/.test(rawText)) {
+    legs.push({ type: "departure_transfer", city, serviceType: /机场|送机/.test(rawText) ? "接送机" : "接送站", label: `${city}${/机场|送机/.test(rawText) ? "送机" : "送站"}`, fromCity: city, toCity: "" });
+    return legs;
+  }
+  if (isTransferOnlyDayText(contentText)) return legs;
+  if (city && hasLocalTourContent(day)) legs.push({ type: "local_tour", city, serviceType: "包车", label: `${city}本地游`, fromCity: city, toCity: city });
+  return legs;
+}
+
+function renderRouteDraft() {
+  const panel = $("#routeDraftPanel");
+  if (!panel) return;
+  panel.classList.add("hidden");
+  panel.setAttribute("aria-hidden", "true");
+  renderRouteStatus();
+  if (!state.routeDraft.length) return;
+  const routeWarning = routeOrderWarning();
+  $("#routeDraftStatus").textContent = routeWarning.warning
+    ? `已生成 ${state.routeDraft.length} 天线路草稿。${routeWarning.warning} OP 可手动调整，系统不会强制改线。`
+    : `已生成 ${state.routeDraft.length} 天线路草稿，请 OP 确认线路。确认后系统再生成报价明细。`;
+  $("#routeDraftList").innerHTML = renderSimpleRouteDraft(state.routeDraft, routeWarning);
+  renderIcons();
+}
+
+function renderRouteStatus() {
+  const grid = $("#routeStatusGrid");
+  if (!grid) return;
+  const quoteStatus = state.routeConfirmed ? "已刷新" : (state.routeDraft.length || state.itinerary.length ? "待刷新" : "未开始");
+  const confirmed = state.routeConfirmed ? "已确认" : "未确认";
+  grid.innerHTML = [
+    ["报价状态", quoteStatus],
+    ["线路确认", confirmed],
+  ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
+}
+
+function formatDateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function renderSimpleRouteDraft(days, routeWarning = routeOrderWarning()) {
+  const d = getDemandSafe();
+  const cityGroups = groupDaysByCity(days);
+  const cityText = cityGroups.map((group) => `${group.city} D${group.start}-D${group.end}`).join(" → ");
+  const missing = localMissingInfo();
+  return `
+    <div class="simple-route-draft">
+      <p><strong>已识别：</strong>${d.people || "待补"}位客人，${days.length || d.serviceDays || "待补"}天，${escapeHtml(unique(days.map((day) => day.city)).join(" / ") || d.cities.join(" / ") || "城市待补")}。</p>
+      <p><strong>线路草稿：</strong>${escapeHtml(cityText || "待生成线路草稿")}。</p>
+      ${routeWarning.warning ? `<p class="route-risk"><strong>折返提醒：</strong>${escapeHtml(routeWarning.warning)} <button class="link-btn" type="button" data-apply-route-suggestion="true">采用建议顺序</button></p>` : ""}
+      ${missing.length ? `<p class="route-risk"><strong>缺失信息：</strong>${escapeHtml(missing.join("、"))}</p>` : ""}
+      <p>请 OP 检查线路后确认。</p>
+    </div>
+  `;
+}
+
+function groupDaysByCity(days = []) {
+  const groups = [];
+  days.forEach((day, index) => {
+    const city = day.city || "待补城市";
+    const last = groups.at(-1);
+    if (last && last.city === city) {
+      last.end = index + 1;
+      return;
+    }
+    groups.push({ city, start: index + 1, end: index + 1 });
+  });
+  return groups;
+}
+
+async function confirmRouteDraft() {
+  if (!state.itinerary.length && !state.routeDraft.length) {
+    alert("请先生成或粘贴线路，写入主行程表后再确认。");
+    return;
+  }
+  state.itinerary = normalizeRouteDraftDays(state.itinerary.length ? state.itinerary : state.routeDraft);
+  state.routeDraft = state.itinerary;
+  state.routeConfirmed = true;
+  state.routeSource = state.routeSource || "AI草稿";
+  state.routeLastUpdatedAt = new Date().toISOString();
+  $("#serviceDays").value = state.itinerary.length;
+  syncItinerarySource();
+  renderItinerary();
+  await refreshQuoteDraft();
+  ensureGuideQuoteVersionsFromDemand();
+  recordSupplierCallsFromQuote();
+  updateCurrentProject("报价中");
+  setAgentPending("message", { title: "线路已确认，报价明细已刷新", body: "已写入正式每日行程，并刷新报价明细与报价汇总。" });
+  renderRouteStatus();
+}
+
+function openRouteEditor() {
+  state.routeEditor.buffer = normalizeRouteDraftDays(state.routeDraft.length ? state.routeDraft : (state.itinerary.length ? state.itinerary : buildDefaultRouteDraft()));
+  state.routeEditor.preview = [];
+  state.routeEditor.selectedDay = Math.min(state.routeEditor.selectedDay || 0, Math.max(state.routeEditor.buffer.length - 1, 0));
+  $("#routeEditorModal")?.classList.remove("hidden");
+  renderRouteEditor();
+  renderIcons();
+}
+
+function closeRouteEditor() {
+  $("#routeEditorModal")?.classList.add("hidden");
+}
+
+function renderRouteEditor() {
+  const wrap = $("#routeEditorContent");
+  if (!wrap) return;
+  $$(".route-editor-tabs [data-route-editor-tab]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.routeEditorTab === state.routeEditor.tab);
+    btn.onclick = () => {
+      state.routeEditor.tab = btn.dataset.routeEditorTab;
+      renderRouteEditor();
+    };
+  });
+  if (state.routeEditor.tab === "paste") {
+    wrap.innerHTML = routePasteEditorHtml();
+  } else if (state.routeEditor.tab === "history") {
+    wrap.innerHTML = routeHistoryEditorHtml();
+  } else {
+    wrap.innerHTML = routeDraftEditorHtml();
+  }
+  bindRouteEditorInputs();
+  renderIcons();
+}
+
+function routeDraftEditorHtml() {
+  const days = state.routeEditor.buffer;
+  const selected = days[state.routeEditor.selectedDay] || days[0] || {};
+  return `<div class="route-editor-grid">
+    <div class="route-day-list">
+      ${days.map((day, index) => `<button class="${index === state.routeEditor.selectedDay ? "active" : ""}" data-route-day-select="${index}"><strong>Day ${index + 1}</strong><span>${escapeHtml(day.city || "待补城市")}</span></button>`).join("")}
+      <div class="route-editor-actions">
+        <button class="secondary-btn" data-route-add-day="true"><i data-lucide="plus"></i><span>新增一天</span></button>
+        <button class="secondary-btn" data-route-copy-day="true"><i data-lucide="copy"></i><span>复制上一天</span></button>
+      </div>
+    </div>
+    <div class="route-day-form">
+      <label>日期<input data-route-editor-field="date" type="date" value="${escapeHtml(selected.date || "")}" /></label>
+      <label>城市<input data-route-editor-field="city" value="${escapeHtml(selected.city || "")}" /></label>
+      <label>当日概览<input data-route-editor-field="overview" value="${escapeHtml(selected.overview || "")}" /></label>
+      <label class="wide">详细行程<textarea data-route-editor-field="detail">${escapeHtml(selected.detail || "")}</textarea></label>
+      <label>交通节点<input data-route-editor-field="trafficNode" value="${escapeHtml(selected.trafficNode || "")}" /></label>
+      <label class="wide">备注<textarea data-route-editor-field="notes">${escapeHtml(selected.notes || "")}</textarea></label>
+      <div class="actions">
+        <button class="secondary-btn" data-route-move="-1"><i data-lucide="arrow-up"></i><span>上移</span></button>
+        <button class="secondary-btn" data-route-move="1"><i data-lucide="arrow-down"></i><span>下移</span></button>
+        <button class="ghost-btn" data-route-delete-day="true"><i data-lucide="trash-2"></i><span>删除一天</span></button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function routePasteEditorHtml() {
+  const preview = state.routeEditor.preview.length ? state.routeEditor.preview : [];
+  return `<div class="route-paste-editor">
+    <label class="wide">粘贴现成线路<textarea id="routePasteText" placeholder="Day 1 北京：天安门广场、故宫&#10;Day 2 西安：兵马俑、古城墙">${escapeHtml(state.routeEditor.pasteText || "")}</textarea></label>
+    <div class="actions"><button class="secondary-btn" id="recognizeRoutePaste"><i data-lucide="sparkles"></i><span>识别为线路草稿</span></button></div>
+    <div class="route-preview">${preview.length ? renderSimpleRouteDraft(preview, routeOrderWarningForDays(preview)) : "识别后在这里预览线路草稿。"}</div>
+  </div>`;
+}
+
+function routeHistoryEditorHtml() {
+  const d = getDemandSafe();
+  const candidates = recommendHistoricalTrips(d).length ? recommendHistoricalTrips(d) : historicalTrips.map((trip) => ({ ...trip, score: 0 }));
+  const selected = candidates[state.routeEditor.selectedHistoryIndex] || candidates[0];
+  const start = d.startDate || "2026-07-01";
+  const preview = selected ? normalizeRouteDraftDays(selected.days.map((day, index) => ({ ...day, date: addDays(start, index) }))) : [];
+  state.routeEditor.preview = preview;
+  return `<div class="route-history-editor">
+    <div class="route-template-list">
+      ${candidates.map((trip, index) => `<button class="${index === state.routeEditor.selectedHistoryIndex ? "active" : ""}" data-route-history-select="${index}">
+        <strong>${escapeHtml(trip.name)}</strong>
+        <span>${trip.days.length}天 · ${escapeHtml(trip.cities.join("、"))} · 适用人群：入境私家团 · 最近使用：2026-06-18</span>
+      </button>`).join("")}
+    </div>
+    <div class="route-preview">${preview.length ? renderSimpleRouteDraft(preview, routeOrderWarningForDays(preview)) : "暂无模板预览。"}</div>
+  </div>`;
+}
+
+function bindRouteEditorInputs() {
+  $$("[data-route-day-select]").forEach((btn) => btn.addEventListener("click", () => {
+    state.routeEditor.selectedDay = Number(btn.dataset.routeDaySelect);
+    renderRouteEditor();
+  }));
+  $$("[data-route-editor-field]").forEach((input) => input.addEventListener("input", () => {
+    const day = state.routeEditor.buffer[state.routeEditor.selectedDay];
+    if (!day) return;
+    day[input.dataset.routeEditorField] = input.value;
+  }));
+  $$("[data-route-move]").forEach((btn) => btn.addEventListener("click", () => moveRouteEditorDay(Number(btn.dataset.routeMove))));
+  $$("[data-route-add-day]").forEach((btn) => btn.addEventListener("click", addRouteEditorDay));
+  $$("[data-route-copy-day]").forEach((btn) => btn.addEventListener("click", copyRouteEditorPreviousDay));
+  $$("[data-route-delete-day]").forEach((btn) => btn.addEventListener("click", deleteRouteEditorDay));
+  on("#recognizeRoutePaste", "click", recognizeRoutePaste);
+  on("#routePasteText", "input", (event) => { state.routeEditor.pasteText = event.target.value; });
+  $$("[data-route-history-select]").forEach((btn) => btn.addEventListener("click", () => {
+    state.routeEditor.selectedHistoryIndex = Number(btn.dataset.routeHistorySelect);
+    renderRouteEditor();
+  }));
+}
+
+function moveRouteEditorDay(direction) {
+  const index = state.routeEditor.selectedDay;
+  const next = index + direction;
+  if (next < 0 || next >= state.routeEditor.buffer.length) return;
+  const [day] = state.routeEditor.buffer.splice(index, 1);
+  state.routeEditor.buffer.splice(next, 0, day);
+  state.routeEditor.selectedDay = next;
+  resequenceRouteEditorDates();
+  renderRouteEditor();
+}
+
+function addRouteEditorDay() {
+  const last = state.routeEditor.buffer.at(-1) || {};
+  const demandCities = routeDemandCities(getDemandSafe());
+  state.routeEditor.buffer.push({
+    date: addDays(last.date || getDemandSafe().startDate || "2026-07-01", 1),
+    city: last.city || getDemandSafe().cities?.[0] || demandCities[0] || "待补城市",
+    overview: "新增行程",
+    detail: "请补充详细行程。",
+    trafficNode: "",
+    notes: "",
+  });
+  state.routeEditor.selectedDay = state.routeEditor.buffer.length - 1;
+  renderRouteEditor();
+}
+
+function copyRouteEditorPreviousDay() {
+  const index = state.routeEditor.selectedDay;
+  const source = state.routeEditor.buffer[Math.max(index - 1, 0)] || state.routeEditor.buffer[index];
+  if (!source) return addRouteEditorDay();
+  state.routeEditor.buffer.splice(index + 1, 0, { ...source, date: addDays(source.date || getDemandSafe().startDate || "2026-07-01", 1), notes: source.notes ? `${source.notes}（复制）` : "" });
+  state.routeEditor.selectedDay = index + 1;
+  resequenceRouteEditorDates();
+  renderRouteEditor();
+}
+
+function deleteRouteEditorDay() {
+  if (state.routeEditor.buffer.length <= 1) return;
+  state.routeEditor.buffer.splice(state.routeEditor.selectedDay, 1);
+  state.routeEditor.selectedDay = Math.max(0, state.routeEditor.selectedDay - 1);
+  resequenceRouteEditorDates();
+  renderRouteEditor();
+}
+
+function resequenceRouteEditorDates() {
+  const start = state.routeEditor.buffer[0]?.date || getDemandSafe().startDate || "2026-07-01";
+  state.routeEditor.buffer = state.routeEditor.buffer.map((day, index) => ({ ...day, date: addDays(start, index) }));
+}
+
+function recognizeRoutePaste() {
+  const text = $("#routePasteText")?.value || state.routeEditor.pasteText || "";
+  state.routeEditor.pasteText = text;
+  const parsed = parseItineraryText(text, getDemandSafe().serviceDays);
+  state.routeEditor.preview = normalizeRouteDraftDays(parsed.length ? parsed : createItineraryDaysFromOpInstruction(text));
+  renderRouteEditor();
+}
+
+function saveRouteEditorDraft() {
+  setMainItinerary(routeEditorCandidateDays(), { source: routeEditorSourceLabel(), confirmed: false });
+  invalidateProposalConfirmation();
+  if ($("#routeEditStatus")) $("#routeEditStatus").textContent = "线路已修改，请重新刷新报价。";
+}
+
+function applyRouteEditor() {
+  setMainItinerary(routeEditorCandidateDays(), { source: routeEditorSourceLabel(), confirmed: false });
+  invalidateProposalConfirmation();
+  if ($("#routeEditStatus")) $("#routeEditStatus").textContent = "线路已修改，请重新刷新报价。";
+  closeRouteEditor();
+}
+
+function routeEditorSourceLabel() {
+  if (state.routeEditor.tab === "paste") return "OP编辑";
+  if (state.routeEditor.tab === "history") return "历史模板";
+  return "OP编辑";
+}
+
+function routeEditorCandidateDays() {
+  if (state.routeEditor.tab === "paste") return state.routeEditor.preview.length ? state.routeEditor.preview : state.routeEditor.buffer;
+  if (state.routeEditor.tab === "history") return state.routeEditor.preview.length ? state.routeEditor.preview : state.routeEditor.buffer;
+  return state.routeEditor.buffer;
+}
+
+function routeOrderWarningForDays(days) {
+  const original = state.routeDraft;
+  state.routeDraft = days;
+  const warning = routeOrderWarning();
+  state.routeDraft = original;
+  return warning;
+}
+
+function applySuggestedRouteOrder() {
+  const suggestion = routeOrderWarning().suggested;
+  if (!suggestion?.length) return;
+  const byCity = suggestion.flatMap((city) => state.routeDraft.filter((day) => day.city === city));
+  state.routeDraft = normalizeRouteDraftDays(byCity.length ? byCity : state.routeDraft);
+  state.routeConfirmed = false;
+  renderRouteDraft();
+  renderXiaoyiContext();
+}
+
+function inferTrafficNode(day, index, days = []) {
+  const current = days[index] || day || {};
+  const text = `${current.overview || ""} ${current.detail || ""} ${current.trafficNode || ""}`;
+  const textCities = extractRouteCities(text);
+  const currentCity = normalizeRouteCity(current.city || current.stayCity || "") || textCities.at(-1) || "";
+  if (textCities.length >= 2 && hasTrafficKeyword(text)) {
+    const fromCity = textCities[0];
+    const toCity = textCities.at(-1);
+    if (fromCity && toCity && fromCity !== toCity) return crossCityTrafficLabel(fromCity, toCity, text);
+  }
+  const previous = index > 0 ? days[index - 1] || {} : {};
+  const previousCity = normalizeRouteCity(previous.city || previous.stayCity || "");
+  if (previousCity && currentCity && previousCity !== currentCity && hasTrafficKeyword(text)) {
+    return crossCityTrafficLabel(previousCity, currentCity, text);
+  }
+  return currentCity ? `${currentCity}市内交通` : "";
+}
+
+function routeOrderWarning() {
+  const cities = unique((state.routeDraft.length ? state.routeDraft : state.itinerary).map((day) => day.city).filter(Boolean));
+  if (cities.length < 4) return { warning: "" };
+  const known = cities.filter((city) => cityCoordinates[city]);
+  if (known.length < 4) return { warning: "" };
+  const currentDistance = routeDistance(known);
+  const suggested = nearestNeighborRoute(known);
+  const suggestedDistance = routeDistance(suggested);
+  if (suggestedDistance && currentDistance > suggestedDistance * 1.25) {
+    return {
+      warning: `当前路线可能存在折返，建议调整为：${suggested.join(" → ")}。`,
+      suggested,
+    };
+  }
+  return { warning: "" };
+}
+
+function routeDistance(cities) {
+  return cities.slice(1).reduce((sum, city, index) => sum + distanceBetweenCities(cities[index], city), 0);
+}
+
+function nearestNeighborRoute(cities) {
+  const rest = cities.slice(1);
+  const route = [cities[0]];
+  while (rest.length) {
+    const current = route.at(-1);
+    rest.sort((a, b) => distanceBetweenCities(current, a) - distanceBetweenCities(current, b));
+    route.push(rest.shift());
+  }
+  return route;
+}
+
+function distanceBetweenCities(a, b) {
+  const ca = cityCoordinates[a];
+  const cb = cityCoordinates[b];
+  if (!ca || !cb) return 0;
+  const dx = ca[0] - cb[0];
+  const dy = ca[1] - cb[1];
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function parseRouteInstruction(text = "") {
+  const normalized = String(text || "");
+  const segments = [...normalized.matchAll(/([^\d，,。；;\n]+?)\s*(\d+)\s*天/g)]
+    .map((match) => ({ city: extractRouteCities(match[1]).at(-1) || normalizeRouteCity(match[1]), days: number(match[2]) }))
+    .filter((item) => item.city && item.days);
+  const cities = segments.length
+    ? segments.map((item) => item.city)
+    : extractRouteCities(normalized);
+  return {
+    segments,
+    cities,
+    totalDays: segments.reduce((sum, item) => sum + item.days, 0) || inferServiceDaysFromText(normalized),
+  };
+}
+
+function normalizeRouteCity(value = "") {
+  const city = String(value || "").replace(/.*[+＋、，,]/, "").trim();
+  const normalized = city.replace(/市$/, "");
+  const key = normalized.toLowerCase().replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
+  return routeCityAliases[key] || routeCityAliases[key.replace(/\s+/g, "")] || normalized;
+}
+
+function localMissingInfo() {
+  const d = getDemand();
+  return [
+    !d.startDate && "出行日期",
+    !d.serviceDays && "服务天数",
+    !d.people && "人数",
+    !d.cities.length && "城市偏好",
+    !$("#clientCountry")?.value.trim() && "国籍",
+    !$("#budgetRange")?.value.trim() && "预算",
+  ].filter(Boolean);
+}
+
+function ensureItineraryCoversDemand(options = {}) {
+  const d = getDemand();
+  const targetDays = Math.max(number(d.serviceDays), state.itinerary.length, 1);
+  const start = d.startDate || state.itinerary[0]?.date || "2026-07-01";
+  const fallbackCities = routeDemandCities(d);
+  if (!state.itinerary.length) {
+    const plan = expandCities(fallbackCities, targetDays);
+    state.itinerary = Array.from({ length: targetDays }, (_, index) => makeDay(addDays(start, index), plan[index] || plan[0], index));
+  }
+  while (state.itinerary.length < targetDays) {
+    const last = state.itinerary.at(-1) || {};
+    state.itinerary.push({
+      date: addDays(start, state.itinerary.length),
+      city: last.city || d.cities[0] || fallbackCities[0] || "待补城市",
+      overview: `第${state.itinerary.length + 1}天待确认行程`,
+      detail: "待 OP 补充详细行程，报价明细先保留该日期并标记待补录成本。",
+    });
+  }
+  state.itinerary = state.itinerary.map((day, index) => ({
+    ...day,
+    date: day.date || addDays(start, index),
+    city: day.city || d.cities[index] || d.cities[0] || fallbackCities[index] || fallbackCities[0] || "待补城市",
+    overview: day.overview || `第${index + 1}天待确认行程`,
+    detail: day.detail || "待 OP 补充详细行程，报价明细先保留该日期并标记待补录成本。",
+  }));
+  state.itinerary = structureItineraryDays(state.itinerary);
+  state.routeDraft = state.itinerary;
+  $("#serviceDays").value = state.itinerary.length;
+  syncItinerarySource();
+  if (options.render !== false) renderItinerary();
+  return state.itinerary;
+}
+
 async function agentRecognizeDemand() {
   const fallbackDraft = localCustomerDemandDraft();
   const result = await callAgent("recognize_customer", [
@@ -47974,10 +52046,25 @@ async function agentRecognizeDemand() {
     "services 包含 vehicle,ticket,guide,hotel,traffic,meal,other 布尔值。",
     "不要编造价格。",
   ].join("\n"));
-  const merged = result
-    ? { ...result, customer: normalizeCustomerDraft({ ...fallbackDraft, ...(result.customer || result) }) }
+  const customerResult = normalizeAgentCustomerResult(result);
+  const merged = customerResult
+    ? { ...customerResult, customer: normalizeCustomerDraft({ ...fallbackDraft, ...customerResult.customer }) }
     : { type: "customer", customer: fallbackDraft, missing: fallbackDraft.missingFields || [], questions: fallbackDemandQuestions(fallbackDraft) };
   setAgentPending("customer", merged);
+}
+
+function normalizeAgentCustomerResult(result) {
+  if (!result || typeof result !== "object") return null;
+  const customer = result.customer && typeof result.customer === "object" ? result.customer : result;
+  const hasCustomerSignal = ["cities", "serviceDays", "adults", "children", "startDate", "specialNeed", "hotelLevel", "services"].some((key) => customer[key] !== undefined);
+  if (!hasCustomerSignal) return null;
+  return {
+    ...result,
+    type: result.type || "customer",
+    customer,
+    missing: Array.isArray(result.missing) ? result.missing : [],
+    questions: Array.isArray(result.questions) ? result.questions : [],
+  };
 }
 
 function agentApplyCustomer() {
@@ -48062,7 +52149,9 @@ async function agentGenerateRoute() {
     "返回 JSON：{type:'route', source:'', route:{days:[{date, city, overview, detail, notes}]}, warnings:[]}",
     "detail 用中文，方便 OP 审核；不要生成最终价格。",
   ].join("\n"));
-  if (result) setAgentPending("route", result);
+  const routeResult = normalizeAgentRouteResult(result);
+  if (routeResult) setAgentPending("route", routeResult);
+  else setAgentPending("route", { type: "route", source: "本地线路规则", route: { days: buildDefaultRouteDraft() }, warnings: ["AI 返回结构不完整，已使用本地确定性规则生成线路。"] });
 }
 
 async function agentOptimizeRoute() {
@@ -48074,6 +52163,19 @@ async function agentOptimizeRoute() {
   if (result) setAgentPending("route", result);
 }
 
+function normalizeAgentRouteResult(result) {
+  if (!result || typeof result !== "object") return null;
+  const days = result.route?.days || result.days;
+  if (!Array.isArray(days) || !days.length) return null;
+  return {
+    ...result,
+    type: result.type || "route",
+    source: result.source || "AI草稿",
+    route: { ...(result.route || {}), days },
+    warnings: Array.isArray(result.warnings) ? result.warnings : [],
+  };
+}
+
 function agentConfirmRoute() {
   const data = state.agent.pendingData;
   const days = data?.route?.days || data?.days;
@@ -48081,24 +52183,18 @@ function agentConfirmRoute() {
     setAgentPending("message", { title: "没有可确认的线路", body: "请先生成线路草稿。" });
     return;
   }
-  state.itinerary = days.map((day, index) => ({
+  const fallbackCities = routeDemandCities(getDemand());
+  setMainItinerary(days.map((day, index) => ({
     date: day.date || addDays(getDemand().startDate || "2026-07-01", index),
-    city: day.city || getDemand().cities[index] || getDemand().cities[0] || "北京",
+    city: day.city || getDemand().cities[index] || getDemand().cities[0] || fallbackCities[index] || fallbackCities[0] || "待补城市",
     overview: day.overview || `第${index + 1}天行程`,
     detail: day.detail || day.notes || day.overview || "",
-  }));
-  $("#itinerarySource").value = state.itinerary.map((day, index) => `Day ${index + 1} ${day.city}: ${day.overview} | 行程详情：${day.detail}`).join("\n");
-  $("#serviceDays").value = state.itinerary.length;
-  state.routeConfirmed = true;
+  })), { source: data.source || "AI草稿", confirmed: false });
   state.xiaoyiStage = "itinerary_confirmed";
-  renderItinerary();
   updateProjectTitle();
   invalidateProposalConfirmation();
-  renderWorkbenchOverview();
-  renderQuoteFlowLine();
-  renderXiaoyiContext();
   updateCurrentProject("报价中");
-  setAgentPending("message", { title: "线路已确认", body: "线路已写入每日行程。下一步可以识别报价项并生成报价明细。" });
+  setAgentPending("message", { title: "线路已写入主行程表", body: "请 OP 在主行程表核对城市、跨城交通和每日内容，再点击确认线路并刷新报价。" });
 }
 
 async function agentExtractQuoteItems() {
@@ -48148,7 +52244,7 @@ function agentRecalculateQuote() {
   renderWorkbenchOverview();
   renderQuoteFlowLine();
   renderXiaoyiContext();
-  setAgentPending("message", { title: "报价已重新计算", body: `当前综合毛利率为 ${$("#grossMargin").value || 0}%。大交通按 6% 且单趟最低利润 30 元计算。` });
+  setAgentPending("message", { title: "报价已重新计算", body: `当前综合毛利率为 ${$("#grossMargin").value || 0}%。大交通服务费率按 ${$("#trafficFeeRate")?.value || $("#ruleTrafficMargin")?.value || 6}% 计算，可在报价版本区修改。` });
 }
 
 function agentCheckCosts() {
@@ -48284,7 +52380,7 @@ function setAgentPending(type, data) {
   state.agent.pendingType = type;
   state.agent.pendingData = data;
   markXiaoyiHasResult();
-  openXiaoyi();
+  renderXiaoyiContext();
   renderAgentPending();
 }
 
@@ -48422,7 +52518,7 @@ function applyAgentQuoteItemsToQuote(items) {
             adultCost: lookup.adultCost,
             childCost: lookup.childCost,
             source: lookup.source,
-            missingCost: lookup.adultCost === "" || (d.children && lookup.childCost === ""),
+            missingCost: lookup.sourceType === "成本缺失" || lookup.adultCost === "" || (d.children && lookup.childCost === ""),
             ...traceFields(lookup, lookup.sourceType || "产品库"),
           };
         }),
@@ -48474,6 +52570,7 @@ function applyCustomerProposal(data) {
       </aside>
     </div>
   `;
+  state.translation.originalProposalHtml = $("#proposalContent").innerHTML;
   $("#proposalContent").contentEditable = "false";
   $("#proposal").classList.remove("editing");
   $("#projectStatus").textContent = "已生成客人方案";
@@ -48584,7 +52681,7 @@ function renderQuoteTabs() {
   if (!enabled.includes(state.activeService)) state.activeService = enabled[0] || "vehicle";
   $("#quoteTabs").innerHTML = enabled.map((key) => {
     const health = quoteServiceHealth(key);
-    return `<button class="${[state.activeService === key ? "active" : "", health].filter(Boolean).join(" ")}" data-tab="${key}"><span>${serviceLabels[key]}</span><em>${health === "ready" ? "已补价" : "待补价"}</em></button>`;
+    return `<button class="${[state.activeService === key ? "active" : "", health].filter(Boolean).join(" ")}" data-tab="${key}"><span>${serviceLabels[key]}</span><em>${health === "ready" ? "已补价" : "待补录成本"}</em></button>`;
   }).join("");
   $$("[data-tab]").forEach((btn) => btn.addEventListener("click", () => {
     state.activeService = btn.dataset.tab;
@@ -48607,9 +52704,33 @@ function serviceHasZeroOrMissing(service) {
   return serviceCost(service) <= 0;
 }
 
+function renderTemplateMatches() {
+  const panel = $("#mainRouteTemplateMatches");
+  if (!panel) return;
+  const d = getDemandSafe();
+  state.historyCandidates = recommendHistoricalTrips(d).slice(0, 3);
+  if (!state.historyCandidates.length) {
+    panel.classList.add("hidden");
+    panel.innerHTML = "";
+    return;
+  }
+  panel.classList.remove("hidden");
+  panel.innerHTML = `
+    <div class="history-head"><strong>可复用历史线路</strong><span>只复用天数、城市和行程结构，价格会按当前产品库重新匹配。</span></div>
+    <div class="history-list">
+      ${state.historyCandidates.map((trip, index) => `
+        <button type="button" class="history-option" data-history-index="${index}">
+          <strong>${escapeHtml(trip.name)}</strong>
+          <span>${escapeHtml(trip.cities.join("、"))} · ${trip.days.length}天 · 匹配度 ${trip.score}</span>
+        </button>
+      `).join("")}
+    </div>`;
+  $$("[data-history-index]").forEach((btn) => btn.addEventListener("click", () => applyHistoricalTrip(Number(btn.dataset.historyIndex))));
+}
+
 function handleLoadHistory() {
   const d = getDemand();
-  const panel = $("#historyRecommendations");
+  const panel = $("#historyRecommendations") || $("#mainRouteTemplateMatches");
   if (!panel) return;
   state.historyCandidates = recommendHistoricalTrips(d);
   panel.classList.remove("hidden");
@@ -48617,7 +52738,7 @@ function handleLoadHistory() {
     panel.innerHTML = `
       <div class="history-empty">
         <strong>没有匹配的历史行程</strong>
-        <span>当前需求为 ${escapeHtml(d.cities.join("、") || "未填城市")} · ${d.serviceDays} 天。可以继续粘贴行程，或使用“按需求生成行程”。</span>
+        <span>当前需求为 ${escapeHtml(d.cities.join("、") || "未填城市")} · ${d.serviceDays} 天。可以继续粘贴已确认行程，或回到客户信息点击“生成报价草稿”。</span>
       </div>
     `;
     return;
@@ -48654,34 +52775,29 @@ function applyHistoricalTrip(index) {
   if (!trip) return;
   const d = getDemand();
   const start = d.startDate || "2026-07-01";
-  state.itinerary = trip.days.map((day, index) => ({
+  setMainItinerary(trip.days.map((day, index) => ({
     date: addDays(start, index),
     city: day.city,
     overview: day.overview,
     detail: day.detail,
-  }));
-  $("#itinerarySource").value = trip.days.map((day, index) => `Day ${index + 1} ${day.city}: ${day.overview} | 行程详情：${day.detail}`).join("\n");
-  $("#historyRecommendations").classList.add("hidden");
-  renderItinerary();
+  })), { source: "历史模板", confirmed: false });
+  $("#historyRecommendations")?.classList.add("hidden");
   updateProjectTitle();
-  autoBuildQuote();
   rebuildProposalIfNeeded();
 }
 
 function handleGenerateItinerary() {
   const d = getDemand();
   const start = d.startDate || "2026-07-01";
-  const plan = expandCities(d.cities.length ? d.cities : ["北京"], d.serviceDays);
+  const plan = expandCities(routeDemandCities(d), d.serviceDays);
   const usedByCity = {};
-  state.itinerary = Array.from({ length: d.serviceDays }, (_, index) => {
+  const days = Array.from({ length: d.serviceDays }, (_, index) => {
     const city = plan[index] || plan[0];
     const cityDayIndex = usedByCity[city] || 0;
     usedByCity[city] = cityDayIndex + 1;
     return makeDay(addDays(start, index), city, cityDayIndex);
   });
-  $("#itinerarySource").value = state.itinerary.map((day, index) => `Day ${index + 1} ${day.city}: ${day.overview} | 行程详情：${day.detail}`).join("\n");
-  renderItinerary();
-  autoBuildQuote();
+  setMainItinerary(days, { source: "AI草稿", confirmed: false });
   rebuildProposalIfNeeded();
 }
 
@@ -48690,13 +52806,11 @@ function importItineraryText() {
   const parsed = parseItineraryText($("#itinerarySource").value, d.serviceDays);
   if (parsed.length) {
     const start = d.startDate || "2026-07-01";
-    state.itinerary = parsed.map((day, index) => ({ ...day, date: day.date || addDays(start, index) }));
+    setMainItinerary(parsed.map((day, index) => ({ ...day, date: day.date || addDays(start, index) })), { source: "OP粘贴线路", confirmed: false });
   } else {
     handleGenerateItinerary();
   }
-  renderItinerary();
   updateProjectTitle();
-  autoBuildQuote();
   rebuildProposalIfNeeded();
 }
 
@@ -48738,7 +52852,7 @@ function parseItineraryBlock(block, index) {
     ...lines.slice(1).flatMap((line) => splitItinerarySegments(line)),
   ];
   const segments = rawSegments.map((part) => cleanSegment(part)).filter(Boolean);
-  const city = inferCity(segments.join(" ")) || inferCity(block) || "";
+  const city = inferStayCityFromItineraryBlock(block, segments.join(" ")) || "";
   const labeledOverview = labeledSegment(rawSegments, /^(行程)?概览|overview/i);
   const labeledDetail = labeledSegment(rawSegments, /行程详情|详细行程|详情|detail/i);
   const headerCandidate = splitItinerarySegments(cleanFirstLine).map(cleanSegment).find((part) => part && !isCityOnly(part) && !/^(行程)?概览|overview|行程详情|详细行程|详情|detail/i.test(part));
@@ -48754,6 +52868,13 @@ function parseItineraryBlock(block, index) {
   };
 }
 
+function inferStayCityFromItineraryBlock(block = "", segmentText = "") {
+  const text = `${block || ""} ${segmentText || ""}`;
+  const explicitCities = extractRouteCities(text);
+  if (explicitCities.length >= 2 && hasTrafficKeyword(text)) return explicitCities.at(-1);
+  return inferCity(segmentText) || inferCity(block) || explicitCities.at(-1) || "";
+}
+
 function handleAiImportItinerary() {
   importItineraryText();
   $("#projectStatus").textContent = "AI已识别行程";
@@ -48766,32 +52887,51 @@ function renderItinerary() {
   if (!state.itinerary.length) {
     wrap.className = "empty";
     wrap.textContent = "尚未生成行程。";
+    renderTemplateMatches();
     return;
   }
-  wrap.className = "itinerary-list";
-  wrap.innerHTML = state.itinerary.map((day, index) => `
-    <div class="itinerary-row">
-      <label>日期<input data-day="${index}:date" type="date" value="${escapeHtml(day.date)}" /></label>
-      <label>城市<input data-day="${index}:city" value="${escapeHtml(day.city)}" /></label>
-      <label>概览<textarea data-day="${index}:overview">${escapeHtml(day.overview)}</textarea></label>
-      <label>详细行程<textarea data-day="${index}:detail">${escapeHtml(day.detail)}</textarea></label>
-      <button class="icon-danger" data-remove-day="${index}" title="删除"><i data-lucide="trash-2"></i></button>
-    </div>
-  `).join("");
+  state.itinerary = structureItineraryDays(state.itinerary);
+  state.routeDraft = state.itinerary;
+  wrap.className = "main-itinerary-table-wrap";
+  wrap.innerHTML = `<table class="main-itinerary-table">
+    <colgroup>
+      <col style="width:70px">
+      <col style="width:130px">
+      <col style="width:130px">
+      <col style="width:430px">
+      <col style="width:260px">
+      <col style="width:70px">
+    </colgroup>
+    <thead><tr><th>Day</th><th>日期</th><th>城市</th><th>详细内容</th><th>交通节点</th><th>操作</th></tr></thead>
+    <tbody>
+      ${state.itinerary.map((day, index) => `<tr>
+        <td class="main-itinerary-day">Day ${index + 1}</td>
+        <td><input data-day="${index}:date" type="date" value="${escapeHtml(day.date || "")}" /></td>
+        <td><input data-day="${index}:city" value="${escapeHtml(day.city || "")}" /></td>
+        <td>
+          <textarea data-day="${index}:detail" placeholder="详细内容">${escapeHtml(day.detail || day.overview || "")}</textarea>
+          <input class="hidden-overview-input" data-day="${index}:overview" value="${escapeHtml(day.overview || "")}" aria-label="当日标题" />
+          ${day.notes ? `<textarea class="itinerary-note-inline" data-day="${index}:notes" placeholder="备注">${escapeHtml(day.notes || "")}</textarea>` : ""}
+        </td>
+        <td><input data-day="${index}:trafficNode" value="${escapeHtml(day.trafficNode || "")}" placeholder="如：昆明 → 重庆：昆明送站 / 重庆接站" /></td>
+        <td><div class="main-itinerary-actions"><button class="icon-danger day-delete-btn" data-remove-day="${index}" title="删除"><i data-lucide="trash-2"></i></button></div></td>
+      </tr>`).join("")}
+    </tbody>
+  </table>`;
   $$("[data-day]").forEach((input) => input.addEventListener("input", () => {
     const [index, field] = input.dataset.day.split(":");
     state.itinerary[Number(index)][field] = input.value;
-    renderItineraryWarning();
-    autoBuildQuote();
+    markMainItineraryChanged("OP编辑");
     rebuildProposalIfNeeded();
   }));
   $$("[data-remove-day]").forEach((btn) => btn.addEventListener("click", () => {
     state.itinerary.splice(Number(btn.dataset.removeDay), 1);
     $("#serviceDays").value = Math.max(state.itinerary.length, 1);
+    markMainItineraryChanged("OP编辑");
     renderItinerary();
-    autoBuildQuote();
     rebuildProposalIfNeeded();
   }));
+  renderTemplateMatches();
   renderIcons();
 }
 
@@ -48800,13 +52940,13 @@ function handleAddDay() {
   const last = state.itinerary.at(-1);
   state.itinerary.push({
     date: addDays(last?.date || d.startDate || "2026-07-01", last ? 1 : 0),
-    city: last?.city || d.cities[0] || "北京",
+    city: last?.city || d.cities[0] || routeDemandCities(d)[0] || "待补城市",
     overview: "新增行程",
     detail: "请补充详细行程。",
   });
   $("#serviceDays").value = state.itinerary.length;
+  markMainItineraryChanged("OP编辑");
   renderItinerary();
-  autoBuildQuote();
   rebuildProposalIfNeeded();
 }
 
@@ -48819,15 +52959,17 @@ function syncItineraryToDemand() {
     const last = state.itinerary.at(-1);
     state.itinerary.push({
       date: addDays(start, state.itinerary.length),
-      city: last?.city || d.cities[0] || "北京",
+      city: last?.city || d.cities[0] || routeDemandCities(d)[0] || "待补城市",
       overview: last?.overview || "新增行程",
       detail: last?.detail || "请补充详细行程。",
     });
   }
   if (state.itinerary.length > targetDays) state.itinerary = state.itinerary.slice(0, targetDays);
-  state.itinerary = state.itinerary.map((day, index) => ({ ...day, date: addDays(start, index) }));
+  state.itinerary = structureItineraryDays(state.itinerary.map((day, index) => ({ ...day, date: addDays(start, index) })));
+  state.routeDraft = state.itinerary;
+  state.routeConfirmed = false;
+  syncItinerarySource();
   renderItinerary();
-  autoBuildQuote();
   rebuildProposalIfNeeded();
 }
 
@@ -48882,12 +53024,127 @@ function standardAttractionWarnings() {
 
 function autoBuildQuote() {
   if (!state.itinerary.length) return;
+  if (!state.routeConfirmed) return;
   buildQuote({ auto: true });
 }
 
+function lookupVehicleLegCost(leg, day, demand) {
+  const dayText = `${day.overview || ""} ${day.detail || ""} ${day.trafficNode || ""} ${leg.label || ""}`;
+  const model = leg.type === "local_tour" ? demand.charterVehicleType : (demand.transferVehicleType || demand.charterVehicleType);
+  const lookup = lookupVehicleResource({
+    city: leg.city,
+    vehicleType: leg.serviceType || "包车",
+    model,
+    text: `${dayText} ${leg.fromCity || ""} ${leg.toCity || ""}`,
+  });
+  if (leg.type === "local_tour") {
+    return withLegacyFallback(lookup, resourceCost(resources.vehicle, leg.city, legacyVehicleKey(model)), "用车");
+  }
+  return lookup;
+}
+
+function vehicleMatchReason(leg, result) {
+  if (result?.matchReason) return result.matchReason;
+  if (result?.cost !== "" || result?.sourceType === "待选择资源") return "";
+  if (!leg.city) return "城市未识别";
+  const resourcesForType = quoteResources().filter((resource) => resource.type === "vehicle" && activeQuoteResource(resource));
+  if (!resourcesForType.length) return "产品库无对应价格";
+  if (!resourcesForType.some((resource) => sameCity(resource, leg.city))) return "城市不匹配";
+  if (!resourcesForType.some((resource) => sameCity(resource, leg.city) && resource.vehicleType === normalizeVehicleType(leg.serviceType))) return "服务类型不匹配";
+  if (!resourcesForType.some((resource) => sameCity(resource, leg.city) && resource.model === normalizeVehicleModel(getDemandSafe().charterVehicleType))) return "车型缺失";
+  return "成本价为空";
+}
+
+function vehicleLegKey(leg = {}, dayIndex = 0) {
+  return [
+    dayIndex,
+    leg.type || "vehicle",
+    leg.city || "",
+    leg.serviceType || "",
+    leg.label || "",
+    leg.fromCity || "",
+    leg.toCity || "",
+  ].join("|");
+}
+
+function buildVehicleRowFromLeg(leg, day, index, demand) {
+  const vehicleNeeded = demand.charterNeed === "需要";
+  const lookup = lookupVehicleLegCost(leg, day, demand);
+  const missing = lookup.cost === "";
+  const cost = missing ? "" : lookup.cost;
+  const breakdown = [{
+    label: leg.label,
+    city: leg.city,
+    serviceType: leg.serviceType,
+    cost: lookup.cost,
+    source: lookup.source,
+    matchReason: vehicleMatchReason(leg, lookup),
+    cityCandidateCount: lookup.cityCandidateCount ?? "",
+    typeCandidateCount: lookup.typeCandidateCount ?? "",
+    modelCandidateCount: lookup.modelCandidateCount ?? "",
+    finalCandidateCount: lookup.finalCandidateCount ?? "",
+  }];
+  const reasons = unique(breakdown.map((item) => item.matchReason).filter(Boolean));
+  const row = {
+    dayIndex: index,
+    date: day.date || "",
+    legType: leg.type || "vehicle",
+    legLabel: leg.label || `${leg.city || day.city || ""}${leg.serviceType || "用车"}`,
+    quoteLegId: vehicleLegKey(leg, index),
+    serviceType: leg.serviceType || "包车",
+    city: leg.city || day.city,
+    route: leg.label || leg.route || "",
+    model: leg.type === "local_tour" ? demand.charterVehicleType : (demand.transferVehicleType || demand.charterVehicleType),
+    productName: lookup.sourceName || lookup.resource?.name || leg.label || "用车资源",
+    charterCost: cost,
+    driverCost: demand.charterNeed === "需要" ? 0 : 0,
+    unitCost: cost,
+    quantity: 1,
+    totalCost: cost,
+    salePrice: cost === "" ? "" : sellMargin(cost),
+    totalSale: cost === "" ? "" : sellMargin(cost),
+    source: lookup.source,
+    missingCost: missing,
+    matchStatus: missing ? (lookup.matchStatus || "need_price") : (lookup.matchStatus || "matched"),
+    matchConfidence: lookup.matchConfidence || (missing ? "medium" : "high"),
+    matchReason: reasons.join("；"),
+    quoteLegBreakdown: breakdown,
+    ...traceFields(lookup, vehicleNeeded ? "产品库" : "未包含"),
+  };
+  row.unitCost = row.charterCost;
+  row.totalCost = row.charterCost;
+  row.productName = row.sourceName || row.productName || "用车资源";
+  row.supplierName = row.supplierName || IMPORTED_PENDING_SUPPLIER;
+  if (day.transferSegment && leg.type !== "local_tour") {
+    row.crossCityNote = `${day.transferSegment.label}：${leg.label} 已作为独立用车成本行；大交通成本在“大交通”类目补录。`;
+  }
+  return row;
+}
+
+function buildVehicleRowsForDay(day, index, demand) {
+  const vehicleNeeded = demand.charterNeed === "需要";
+  const legs = (day.quoteLegs || []).filter((leg) => leg.type !== "domestic_traffic");
+  const dayTextForVehicle = `${day.overview || ""} ${day.detail || ""}`;
+  const activeLegs = legs.length ? legs : (vehicleNeeded && !isTransferOnlyDayText(dayTextForVehicle) ? [{ type: "local_tour", city: day.city, serviceType: "包车", label: `${day.city}本地游`, fromCity: day.city, toCity: day.city }] : []);
+  return activeLegs.map((leg) => buildVehicleRowFromLeg(leg, day, index, demand));
+}
+
+function hasVehicleLegRow(rows = [], type = "", serviceType = "", city = "") {
+  return rows.some((row) => (!type || row.legType === type)
+    && (!serviceType || row.serviceType === serviceType)
+    && (!city || row.city === city));
+}
+
 function buildQuote(options = {}) {
+  if (!state.routeConfirmed && !options.allowUnconfirmed) {
+    setAgentPending("message", { title: "请先确认线路", body: "未确认线路前不会生成正式报价明细。" });
+    return;
+  }
   if (!state.itinerary.length) handleGenerateItinerary();
+  ensureItineraryCoversDemand({ render: !options.auto });
+  state.itinerary = structureItineraryDays(state.itinerary);
   const d = getDemand();
+  const vehicleNeeded = d.charterNeed === "需要";
   refreshQuoteResources();
   const quote = activeQuote();
   const previousData = JSON.parse(JSON.stringify(quote.data || emptyQuoteData()));
@@ -48896,47 +53153,27 @@ function buildQuote(options = {}) {
   const routeTier = route ? routeCostTier(route, d.people) : null;
   state.itinerary.forEach((day, index) => {
     const dayText = `${day.overview || ""} ${day.detail || ""}`;
-    const vehicleNeeded = d.charterNeed === "需要";
-    let vehicleCostSource = vehicleNeeded
-      ? lookupVehicleResource({ city: day.city, vehicleType: "包车", model: d.charterVehicleType, text: dayText })
-      : pendingResult("未包含");
-    vehicleCostSource = vehicleNeeded
-      ? withLegacyFallback(vehicleCostSource, resourceCost(resources.vehicle, day.city, legacyVehicleKey(d.charterVehicleType)), "用车")
-      : vehicleCostSource;
-    const vehicleRow = {
-      charterCost: vehicleNeeded ? vehicleCostSource.cost : 0,
-      driverCost: d.charterNeed === "需要" ? 0 : 0,
-      source: vehicleNeeded ? vehicleCostSource.source : "未包含",
-      missingCost: vehicleNeeded && vehicleCostSource.cost === "",
-      ...traceFields(vehicleCostSource, vehicleNeeded ? "产品库" : "未包含"),
-    };
+    const vehicleRows = buildVehicleRowsForDay(day, index, d);
     const needArrivalTransfer = ["仅接机", "接送机"].includes(d.transferNeed) && index === 0;
     const needDepartureTransfer = ["仅送机", "接送机"].includes(d.transferNeed) && index === state.itinerary.length - 1;
-    if (needArrivalTransfer || needDepartureTransfer) {
-      const transferText = `${dayText} ${needArrivalTransfer ? "接机 首都机场 大兴机场 浦东 虹桥" : ""} ${needDepartureTransfer ? "送机 首都机场 大兴机场 浦东 虹桥" : ""}`;
-      const transferCostSource = lookupVehicleResource({ city: day.city, vehicleType: "接送机", model: d.transferVehicleType || d.charterVehicleType, text: transferText });
-      if (transferCostSource.cost === "") {
-        vehicleRow.missingCost = true;
-        vehicleRow.charterCost = vehicleRow.charterCost === 0 && !vehicleNeeded ? "" : vehicleRow.charterCost;
-      } else if (vehicleRow.charterCost === "") {
-        vehicleRow.charterCost = transferCostSource.cost;
-      } else {
-        vehicleRow.charterCost = number(vehicleRow.charterCost) + number(transferCostSource.cost);
-      }
-      vehicleRow.source = mergeSources(vehicleRow.source, transferCostSource.source);
-      vehicleRow.sourceType = vehicleRow.missingCost ? transferCostSource.sourceType : (transferCostSource.sourceType || vehicleRow.sourceType);
-      vehicleRow.candidates = [...(vehicleRow.candidates || []), ...(transferCostSource.candidates || [])];
-      vehicleRow.sourceProductId = vehicleRow.sourceProductId || transferCostSource.sourceProductId || "";
-      vehicleRow.sourceResourceId = vehicleRow.sourceResourceId || transferCostSource.sourceResourceId || "";
-      vehicleRow.sourceName = vehicleRow.sourceName || transferCostSource.sourceName || "";
+    if (needArrivalTransfer && !hasVehicleLegRow(vehicleRows, "arrival_transfer", "接送机", day.city)) {
+      vehicleRows.unshift(buildVehicleRowFromLeg({ type: "arrival_transfer", city: day.city, serviceType: "接送机", label: `${day.city}接机`, fromCity: "", toCity: day.city }, day, index, d));
     }
-    quote.data.vehicle.push(vehicleRow);
+    if (needDepartureTransfer && !hasVehicleLegRow(vehicleRows, "departure_transfer", "接送机", day.city)) {
+      vehicleRows.push(buildVehicleRowFromLeg({ type: "departure_transfer", city: day.city, serviceType: "接送机", label: `${day.city}送机`, fromCity: day.city, toCity: "" }, day, index, d));
+    }
+    quote.data.vehicle.push(...vehicleRows);
     let guideCostSource = lookupGuideResource(day.city, d.guideLang, day.date || d.startDate);
     guideCostSource = withLegacyFallback(guideCostSource, resourceCost(resources.guide, day.city, d.guideLang), "导游");
     quote.data.guide.push({
       serviceCost: guideCostSource.cost,
       ticketCost: 0,
       hotelCost: 0,
+      unitCost: guideCostSource.cost,
+      quantity: 1,
+      totalCost: guideCostSource.cost,
+      salePrice: guideCostSource.cost === "" ? "" : sellMargin(guideCostSource.cost),
+      totalSale: guideCostSource.cost === "" ? "" : sellMargin(guideCostSource.cost),
       source: guideCostSource.source,
       missingCost: guideCostSource.cost === "",
       ...traceFields(guideCostSource, "产品库"),
@@ -48949,8 +53186,13 @@ function buildQuote(options = {}) {
           ticketType: lookup.ticketType || "景区门票",
           adultCost: lookup.adultCost,
           childCost: lookup.childCost,
+          unitCost: lookup.adultCost,
+          quantity: d.adults,
+          totalCost: lookup.adultCost === "" ? "" : number(lookup.adultCost) * d.adults + number(lookup.childCost) * d.children,
+          salePrice: lookup.adultCost === "" ? "" : sellMargin(lookup.adultCost),
+          totalSale: lookup.adultCost === "" ? "" : sellMargin(number(lookup.adultCost) * d.adults + number(lookup.childCost) * d.children),
           source: lookup.source,
-          missingCost: lookup.adultCost === "" || (d.children && lookup.childCost === ""),
+          missingCost: lookup.sourceType === "成本缺失" || lookup.adultCost === "" || (d.children && lookup.childCost === ""),
           ...traceFields(lookup, lookup.sourceType || "产品库"),
         };
       }),
@@ -48964,8 +53206,11 @@ function buildQuote(options = {}) {
           breakfast: hotelCostSource.resource?.breakfast || d.hotelBreakfast,
           roomType: hotelCostSource.resource?.roomType || room.type,
           rooms: room.rooms,
+          quantity: room.rooms,
           unitCost: hotelCostSource.cost,
+          totalCost: hotelCostSource.cost === "" ? "" : number(hotelCostSource.cost) * number(room.rooms),
           salePrice: hotelCostSource.salePrice,
+          totalSale: hotelCostSource.cost === "" ? "" : sellMargin(number(hotelCostSource.cost) * number(room.rooms)),
           agreementStatus: [hotelCostSource.resource?.hasAgreement, hotelCostSource.resource?.agreementFixed].filter(Boolean).join(" / "),
           source: hotelCostSource.source,
           missingCost: hotelCostSource.cost === "",
@@ -48986,16 +53231,19 @@ function buildQuote(options = {}) {
       sourceResourceId: mealLookups.find((item) => item.lookup.sourceResourceId)?.lookup.sourceResourceId || "",
       sourceName: mealLookups.find((item) => item.lookup.sourceName)?.lookup.sourceName || "",
     });
+    const transfer = day.transferSegment;
     quote.data.traffic.push({
-      type: index > 0 && day.city !== state.itinerary[index - 1].city ? d.trafficType : "",
+      type: transfer ? (transfer.mode || d.trafficType) : "",
       info: "",
-      adultCost: index > 0 && day.city !== state.itinerary[index - 1].city ? "" : 0,
-      childCost: index > 0 && day.city !== state.itinerary[index - 1].city ? "" : 0,
-      source: index > 0 && day.city !== state.itinerary[index - 1].city ? "手动 / 大交通待录入" : "未包含",
+      adultCost: transfer ? "" : 0,
+      childCost: transfer ? "" : 0,
+      source: transfer ? `${transfer.label} / 手动录入大交通成本` : "未发生城市间大交通",
+      missingCost: Boolean(transfer && d.services.traffic),
       sourceProductId: "",
       sourceResourceId: "",
-      sourceName: "大交通",
-      sourceType: index > 0 && day.city !== state.itinerary[index - 1].city ? "手动" : "未包含",
+      sourceName: transfer ? transfer.label : "大交通",
+      sourceType: transfer ? "手动" : "未包含",
+      transferSegment: transfer,
     });
     quote.data.other.push({
       insurance: index === 0 && d.other.includes("保险") ? resources.other.保险 : 0,
@@ -49028,7 +53276,19 @@ function buildQuote(options = {}) {
 
 function applyManualOverrides(previous, next) {
   if (!previous || !next) return;
-  ["vehicle", "guide", "meal", "traffic", "other"].forEach((service) => {
+  (previous.vehicle || []).forEach((oldRow, index) => {
+    const row = (next.vehicle || []).find((candidate) => candidate.quoteLegId && candidate.quoteLegId === oldRow.quoteLegId)
+      || (next.vehicle || []).find((candidate) => candidate.dayIndex === oldRow.dayIndex && candidate.legType === oldRow.legType && candidate.city === oldRow.city && candidate.serviceType === oldRow.serviceType && candidate.legLabel === oldRow.legLabel)
+      || next.vehicle?.[index];
+    if (!row || !oldRow.manualFields) return;
+    Object.keys(oldRow.manualFields).forEach((field) => {
+      if (oldRow[field] !== "" && oldRow[field] != null) {
+        row[field] = oldRow[field];
+        markManualRow(row);
+      }
+    });
+  });
+  ["guide", "meal", "traffic", "other"].forEach((service) => {
     (previous[service] || []).forEach((oldRow, index) => {
       const row = next[service]?.[index];
       if (!row || !oldRow.manualFields) return;
@@ -49075,6 +53335,36 @@ function markManualRow(row) {
   row.manualOverride = true;
 }
 
+function recordSupplierCallsFromQuote() {
+  const quote = activeQuote()?.data;
+  if (!quote) return;
+  const version = state.quoteVersions[state.activeQuote]?.name || `V${state.activeQuote + 1}`;
+  const records = [];
+  Object.entries(quote).forEach(([service, rows]) => {
+    (rows || []).forEach((row, index) => {
+      const targets = service === "ticket" ? (row.items || []) : service === "hotel" ? (row.rooms || []) : [row];
+      targets.forEach((item) => {
+        if (!item?.supplierId || !item.serviceDetailId) return;
+        records.push({
+          id: `CALL-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          quoteItemId: `${service}-${index + 1}`,
+          quoteVersion: version,
+          supplierId: item.supplierId,
+          supplierName: item.supplierName,
+          serviceDetailId: item.serviceDetailId,
+          serviceDetailName: item.serviceDetailName,
+          calledAt: new Date().toISOString(),
+          calledCostPrice: firstPresent(item.charterCost, item.serviceCost, item.adultCost, item.unitCost, item.perPersonCost, item.costPrice),
+        });
+      });
+    });
+  });
+  if (!records.length) return;
+  state.supplierCallRecords.unshift(...records);
+  state.supplierCallRecords = state.supplierCallRecords.slice(0, 300);
+  saveLocalSupplierState();
+}
+
 function renderQuoteTable() {
   const service = state.activeService;
   if (!getDemand().services[service]) {
@@ -49101,14 +53391,33 @@ function baseCols(day) {
 function renderVehicleTable() {
   const rows = activeQuote().data.vehicle.map((row, index) => {
     const cost = vehicleCost(row);
-    return `<tr>${baseCols(state.itinerary[index])}
-      <td><input data-q="vehicle:${index}:charterCost" type="number" value="${row.charterCost}" />${sourceNote(row.source, row.candidates)}</td>
+    const day = state.itinerary[row.dayIndex ?? index] || {};
+    const displayDay = {
+      ...day,
+      date: row.date || day.date || "",
+      city: row.city || day.city || "",
+      overview: row.legLabel || row.serviceType || day.overview || "用车",
+      detail: [row.productName, row.route, day.overview].filter(Boolean).join(" / "),
+    };
+    return `<tr>${baseCols(displayDay)}
+      <td><input data-q="vehicle:${index}:charterCost" type="number" value="${row.charterCost}" />${sourceNote(row.source, row.candidates, row.matchReason)}${vehicleBreakdownHtml(row)}${row.crossCityNote ? `<small class="cost-source">${escapeHtml(row.crossCityNote)}</small>` : ""}</td>
       <td><input data-q="vehicle:${index}:driverCost" type="number" value="${row.driverCost}" /></td>
       <td class="money-cell">${money(cost)}</td>
       <td class="money-cell">${money(sellMargin(cost))}</td>
+      <td>${quoteRowActions("vehicle", index)}</td>
     </tr>`;
   }).join("");
-  return table(["日期", "城市", "概览", "包车成本", "司机餐费+住宿费", "当天总成本", "当天总卖价"], rows, "vehicle");
+  return table(["日期", "城市", "用车项目", "用车成本", "司机餐费+住宿费", "项目总成本", "项目参考售价", "操作"], rows, "vehicle");
+}
+
+function vehicleBreakdownHtml(row = {}) {
+  const items = row.quoteLegBreakdown || [];
+  if (!items.length) return "";
+  return `<div class="quote-leg-breakdown">${items.map((item) => `
+    <span class="${item.matchReason ? "warn" : "ok"}">
+      ${escapeHtml(item.label || item.serviceType || "用车")}：${item.cost === "" ? escapeHtml(item.matchReason || "待补录成本") : money(item.cost)}
+    </span>
+  `).join("")}</div>`;
 }
 
 function renderGuideTable() {
@@ -49120,9 +53429,10 @@ function renderGuideTable() {
       <td><input data-q="guide:${index}:hotelCost" type="number" value="${row.hotelCost}" /></td>
       <td class="money-cell">${money(cost)}</td>
       <td class="money-cell">${money(sellMargin(cost))}</td>
+      <td>${quoteRowActions("guide", index)}</td>
     </tr>`;
   }).join("");
-  return table(["日期", "城市", "概览", "导游服务费（含餐）", "导游门票费", "导游住宿费", "当天总成本", "当天总卖价"], rows, "guide");
+  return table(["日期", "城市", "概览", "导游服务费（含餐）", "导游门票费", "导游住宿费", "当天总成本", "当天参考售价", "操作"], rows, "guide");
 }
 
 function renderTicketTable() {
@@ -49133,9 +53443,10 @@ function renderTicketTable() {
       <td><div class="sub-items">${items}<button class="add-mini" data-add-ticket="${index}">添加门票</button></div></td>
       <td class="money-cell">${money(cost)}</td>
       <td class="money-cell">${money(sellMargin(cost))}</td>
+      <td>${quoteRowActions("ticket", index)}</td>
     </tr>`;
   }).join("");
-  return table(["日期", "城市", "概览", "门票内容 / 每项成人成本 / 每项儿童成本", "当天门票总成本", "当天门票总卖价"], rows, "ticket");
+  return table(["日期", "城市", "概览", "门票内容 / 每项成人成本 / 每项儿童成本", "当天门票总成本", "当天门票参考售价", "操作"], rows, "ticket");
 }
 
 function ticketItemHtml(dayIndex, subIndex, item) {
@@ -49159,9 +53470,10 @@ function renderHotelTable() {
       <td><div class="sub-items">${roomRows || "<span>离店日不计房费</span>"}<button class="add-mini" data-add-room="${index}">添加房型</button></div></td>
       <td class="money-cell">${money(cost)}</td>
       <td class="money-cell">${money(sellMargin(cost))}</td>
+      <td>${quoteRowActions("hotel", index)}</td>
     </tr>`;
   }).join("");
-  return table(["日期", "城市", "概览", "参考酒店名 / 是否含早 / 房型 / 房间数 / 单房间价成本", "当天总成本", "当天总卖价"], rows, "hotel");
+  return table(["日期", "城市", "概览", "参考酒店名 / 是否含早 / 房型 / 房间数 / 单房间价成本", "当天总成本", "当天参考售价", "操作"], rows, "hotel");
 }
 
 function roomItemHtml(dayIndex, subIndex, room) {
@@ -49190,9 +53502,10 @@ function renderMealTable() {
       <td><input data-q="meal:${index}:perPersonCost" type="number" value="${row.perPersonCost}" /></td>
       <td class="money-cell">${money(cost)}</td>
       <td class="money-cell">${money(sellMargin(cost))}</td>
+      <td>${quoteRowActions("meal", index)}</td>
     </tr>`;
   }).join("");
-  return table(["日期", "城市", "概览", "餐费包含", "餐费成本（人均）", "当日总成本", "当日总卖价"], rows, "meal");
+  return table(["日期", "城市", "概览", "餐费包含", "餐费成本（人均）", "当日总成本", "当日参考售价", "操作"], rows, "meal");
 }
 
 function renderTrafficTable() {
@@ -49205,9 +53518,10 @@ function renderTrafficTable() {
       <td><input data-q="traffic:${index}:childCost" type="number" value="${row.childCost}" placeholder="儿童成本" /></td>
       <td class="money-cell">${money(cost)}</td>
       <td class="money-cell">${money(sellTraffic(cost))}</td>
+      <td>${quoteRowActions("traffic", index)}</td>
     </tr>`;
   }).join("");
-  return table(["日期", "城市", "概览", "大交通类型", "车次或航班信息", "成人成本", "儿童成本", "当日总成本", "当日总卖价"], rows, "traffic");
+  return table(["日期", "城市", "概览", "大交通类型", "车次或航班信息", "成人成本", "儿童成本", "当日总成本", "当日参考售价", "操作"], rows, "traffic");
 }
 
 function renderOtherTable() {
@@ -49221,9 +53535,183 @@ function renderOtherTable() {
       <td><input data-q="other:${index}:routeProductUnitCost" type="number" value="${row.routeProductUnitCost || ""}" />${sourceNote(row.routeProductSource)}</td>
       <td class="money-cell">${money(cost)}</td>
       <td class="money-cell">${money(sellMargin(cost))}</td>
+      <td>${quoteRowActions("other", index)}</td>
     </tr>`;
   }).join("");
-  return table(["日期", "城市", "概览", "保险", "耳麦", "水", "伴手礼", "线路产品成本/人", "当日总成本", "当日总卖价"], rows, "other");
+  return table(["日期", "城市", "概览", "保险", "耳麦", "水", "伴手礼", "线路产品成本/人", "当日总成本", "当日参考售价", "操作"], rows, "other");
+}
+
+function quoteRowActions(service, index) {
+  return `<div class="row-actions quote-row-actions">
+    <button class="secondary-btn" data-rematch-quote-row="${service}:${index}">重新匹配</button>
+    <button class="secondary-btn" data-sync-quote-row="${service}:${index}">同步产品库</button>
+    <button class="ghost-btn" data-current-only-row="${service}:${index}">仅当前报价</button>
+    <button class="ghost-btn" data-mark-clean-row="${service}:${index}">待清洗</button>
+  </div>`;
+}
+
+function parseQuoteRowToken(token) {
+  const [service, indexText] = String(token || `${state.activeService}:0`).split(":");
+  return { service: service || state.activeService, index: Number(indexText || 0) };
+}
+
+function quoteRowByToken(token) {
+  const { service, index } = parseQuoteRowToken(token);
+  const row = activeQuote().data?.[service]?.[index];
+  return { service, index, row, day: state.itinerary[service === "vehicle" ? (row?.dayIndex ?? index) : index] || {} };
+}
+
+function openSyncQuoteItemModal(token = `${state.activeService}:0`) {
+  const data = quoteRowByToken(token);
+  if (!data.row) {
+    alert("当前服务项没有可同步的报价行。");
+    return;
+  }
+  const product = quoteRowToProduct(data);
+  const missing = productMissingFields(product, product.category);
+  const modal = ensureQuoteSyncModal();
+  modal.querySelector("[data-sync-body]").innerHTML = `
+    <div class="sync-preview-grid">
+      ${[
+        ["品类", product.category],
+        ["名称", productName(product.item, product.category)],
+        ["城市", product.item.city || ""],
+        ["成本价", productCostValue(product.item, product.category) === "" ? "缺成本" : money(productCostValue(product.item, product.category))],
+        ["参考售价", productSaleValue(product.item, product.category) === "" ? "-" : money(productSaleValue(product.item, product.category))],
+        ["供应商", productSupplierName(product.item) || "缺供应商"],
+        ["状态", product.status],
+        ["缺失字段", missing.join("、") || "无"],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`).join("")}
+    </div>
+    <div class="modal-actions">
+      <button class="primary-btn" data-sync-mode="formal">同步为正式产品</button>
+      <button class="secondary-btn" data-sync-mode="pending">同步为待清洗产品</button>
+      <button class="ghost-btn" data-sync-mode="current">仅当前报价使用</button>
+      <button class="ghost-btn" data-sync-mode="cancel">取消</button>
+    </div>`;
+  modal.querySelectorAll("[data-sync-mode]").forEach((btn) => btn.addEventListener("click", () => applyQuoteProductSync(modal, data, product, btn.dataset.syncMode)));
+  modal.classList.remove("hidden");
+}
+
+function ensureQuoteSyncModal() {
+  let modal = $("#quoteSyncModal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "quoteSyncModal";
+  modal.className = "modal-backdrop hidden";
+  modal.innerHTML = `<div class="modal-card"><div class="modal-head"><div><h3>同步报价项到产品库</h3><p>正式同步前请确认字段，内部成本默认不会客户可见。</p></div><button class="icon-btn" data-sync-close aria-label="关闭"><i data-lucide="x"></i></button></div><div class="modal-body" data-sync-body></div></div>`;
+  document.body.appendChild(modal);
+  modal.querySelector("[data-sync-close]").addEventListener("click", () => modal.classList.add("hidden"));
+  return modal;
+}
+
+function quoteRowToProduct({ service, row, day }) {
+  const categoryMap = { vehicle: "用车", guide: "导游", ticket: "门票", hotel: "酒店", meal: "餐厅", traffic: "大交通", other: "其他" };
+  const category = categoryMap[service] || "其他";
+  let item = { city: row.city || day.city || "", supplierName: row.supplierName || IMPORTED_PENDING_SUPPLIER, source: "报价台手动同步", updatedAt: new Date().toISOString().slice(0, 10) };
+  if (service === "vehicle") item = { ...item, route: row.route || row.legLabel || day.overview || "报价台用车", vehicleType: row.serviceType || "包车", serviceType: row.serviceType || "包车", model: row.model || getDemandSafe().charterVehicleType || "7座车", costPrice: vehicleCost(row), salePrice: sellMargin(vehicleCost(row)) };
+  if (service === "guide") item = { ...item, language: getDemandSafe().guideLang || "英语", guideType: "地陪", fullDayCost: row.serviceCost, costPrice: guideCost(row), salePrice: sellMargin(guideCost(row)) };
+  if (service === "ticket") {
+    const first = row.items?.[0] || {};
+    item = { ...item, scenicName: first.name || day.overview || "报价台门票", agencyAdult: first.adultCost, agencyDiscount: first.childCost, costPrice: first.adultCost, adultPrice: first.adultCost, childPrice: first.childCost };
+  }
+  if (service === "hotel") {
+    const first = row.rooms?.[0] || {};
+    item = { ...item, hotelName: first.hotelName || `${day.city || ""}参考酒店`, roomType: first.roomType || "房型待定", breakfast: first.breakfast || "", costPrice: first.unitCost, agreementCost: first.unitCost, salePrice: sellMargin(first.unitCost), star: normalizeHotelStar(getDemandSafe().hotelLevel) };
+  }
+  if (service === "meal") item = { ...item, restaurant: `${day.city || ""}报价台餐厅`, cuisine: (row.meals || []).join("/") || "餐食", costPrice: row.perPersonCost, minSale: sellMargin(row.perPersonCost) };
+  if (service === "traffic") item = { ...item, name_cn: row.info || `${day.city || ""}大交通`, adultCost: row.adultCost, childCost: row.childCost, costPrice: row.adultCost };
+  if (service === "other") item = { ...item, name: row.sourceName || "报价台其他项目", costPrice: otherCost(row), salePrice: sellMargin(otherCost(row)) };
+  item.status = productStatus(item, category);
+  return { category, item, status: item.status };
+}
+
+function productMissingFields(product, category) {
+  return [
+    !productName(product.item, category) && "产品名称",
+    !product.item.city && "城市",
+    productCostValue(product.item, category) === "" && "成本价",
+    !productSupplierName(product.item) && "供应商",
+  ].filter(Boolean);
+}
+
+function applyQuoteProductSync(modal, rowData, product, mode) {
+  if (mode === "cancel") return modal.classList.add("hidden");
+  if (mode === "current") {
+    rowData.row.currentQuoteOnly = true;
+    modal.classList.add("hidden");
+    renderQuoteTable();
+    return;
+  }
+  product.item.status = mode === "pending" ? "待清洗" : (productMissingFields(product, product.category).length ? "待清洗" : "可报价");
+  productCatalogItems(product.category).unshift(product.item);
+  rowData.row.syncedProduct = { category: product.category, name: productName(product.item, product.category), mode, syncedAt: new Date().toISOString() };
+  rowData.row.source = mergeSources(rowData.row.source || "", `已同步产品库/${product.item.status}`);
+  refreshQuoteResources();
+  saveLocalProductState();
+  modal.classList.add("hidden");
+  renderResourceLibrary();
+  renderQuoteTable();
+  renderSummary();
+}
+
+function rematchQuoteRow(token) {
+  const { service, index } = parseQuoteRowToken(token);
+  buildQuote({ forceRematch: true });
+  state.activeService = service;
+  renderQuoteTabs();
+  renderQuoteTable();
+  setAgentPending("message", { title: "已重新匹配产品库", body: `已对第 ${index + 1} 行所在服务项重新匹配产品资源，并刷新报价汇总。` });
+}
+
+function markQuoteRowCurrentOnly(token) {
+  const { row } = quoteRowByToken(token);
+  if (!row) return;
+  row.currentQuoteOnly = true;
+  row.source = mergeSources(row.source || "", "仅当前报价使用");
+  renderQuoteTable();
+}
+
+function markQuoteRowPendingClean(token) {
+  const { row } = quoteRowByToken(token);
+  if (!row) return;
+  row.pendingClean = true;
+  row.sourceType = "待清洗";
+  row.source = mergeSources(row.source || "", "待清洗");
+  renderQuoteTable();
+}
+
+function openMissingCostQuickFill() {
+  const details = missingCostDetails();
+  if (!details.length) {
+    alert("当前没有待补成本项。");
+    return;
+  }
+  const value = window.prompt(`发现 ${details.length} 个待补成本项。输入一个成本价，将补到当前服务项第一条缺成本记录：`, "0");
+  if (value === null) return;
+  fillFirstMissingCost(optionalNumber(value));
+  renderQuoteTable();
+  renderSummary();
+}
+
+function fillFirstMissingCost(value) {
+  const quote = activeQuote().data;
+  const service = state.activeService;
+  const rows = quote[service] || [];
+  for (const row of rows) {
+    if (service === "vehicle" && (row.missingCost || row.charterCost === "")) { row.charterCost = value; markManualRow(row); return; }
+    if (service === "guide" && (row.missingCost || row.serviceCost === "")) { row.serviceCost = value; markManualRow(row); return; }
+    if (service === "meal" && (row.missingCost || row.perPersonCost === "")) { row.perPersonCost = value; markManualRow(row); return; }
+    if (service === "traffic" && (row.adultCost === "" || row.missingCost)) { row.adultCost = value; markManualRow(row); return; }
+    if (service === "ticket") {
+      const item = row.items?.find((x) => x.missingCost || x.adultCost === "");
+      if (item) { item.adultCost = value; markManualRow(item); return; }
+    }
+    if (service === "hotel") {
+      const room = row.rooms?.find((x) => x.missingCost || x.unitCost === "");
+      if (room) { room.unitCost = value; markManualRow(room); return; }
+    }
+  }
 }
 
 function table(headers, rows, service) {
@@ -49252,11 +53740,13 @@ function resourceCandidateLabel(resource) {
   return parts.join(" / ");
 }
 
-function sourceNote(source, candidates = []) {
+function sourceNote(source, candidates = [], reason = "") {
+  const visibleSource = String(source || "").replace(/待补价|待询价|大交通待录入/g, "待补成本");
   const candidateText = candidates?.length
     ? `<span class="candidate-source">候选：${candidates.slice(0, 4).map((item) => escapeHtml(resourceCandidateLabel(item))).join("；")}${candidates.length > 4 ? `；等 ${candidates.length} 条` : ""}</span>`
     : "";
-  return source || candidateText ? `<small class="cost-source">${source ? escapeHtml(source) : ""}${candidateText}</small>` : "";
+  const reasonText = reason ? `<span class="match-reason">匹配失败：${escapeHtml(reason)}</span>` : "";
+  return visibleSource || candidateText || reasonText ? `<small class="cost-source">${visibleSource ? escapeHtml(visibleSource) : ""}${candidateText}${reasonText}</small>` : "";
 }
 
 function bindQuoteInputs() {
@@ -49353,6 +53843,8 @@ function markManualField(row, field, value) {
   if (!row) return;
   row.manualFields = { ...(row.manualFields || {}), [field]: true };
   if (value !== "" && value != null) markManualRow(row);
+  row.lastManualEdit = { field, value, editedAt: new Date().toISOString() };
+  renderXiaoyiContext();
 }
 
 function activeQuote() {
@@ -49372,10 +53864,29 @@ function newQuoteVersion() {
 function handleSaveVersion() {
   activeQuote().status = "已保存";
   saveQuoteVersionMeta(state.proposalConfirmed);
+  updateCurrentProject();
+  saveCurrentProjectSnapshot();
   renderArchive();
   $("#projectStatus").textContent = "报价已保存";
   $("#projectStatus").className = "status ok";
+  alert("草稿已保存。");
+}
+
+function submitQuote() {
+  if (!activeQuote()?.data?.vehicle?.length && state.routeConfirmed) buildQuote({ auto: true });
+  saveQuoteVersionMeta(state.proposalConfirmed);
+  activeQuote().status = "已提交";
+  const missing = countMissingCosts();
+  if (missing) {
+    const ok = window.confirm(`当前仍有 ${missing} 项缺少成本，报价总成本可能不完整。是否仍提交报价？`);
+    if (!ok) return;
+  }
   updateCurrentProject("价格已报但未成交");
+  saveCurrentProjectSnapshot();
+  renderArchive();
+  renderProposalGuard();
+  showProjectDashboard();
+  alert("报价已提交，项目已保存并返回报价项目列表。");
 }
 
 function renderQuoteVersionSelect() {
@@ -49392,7 +53903,7 @@ function renderSummary() {
   const quote = activeQuote();
   if (!quote || !quote.data || !state.itinerary.length) {
     $("#summaryPanel").className = "panel empty";
-    $("#summaryPanel").textContent = "行程生成后会自动汇总成本和卖价。";
+    $("#summaryPanel").textContent = "行程生成后会自动汇总成本价和参考售价。";
     renderWorkbenchOverview();
     renderQuoteFlowLine();
     return;
@@ -49400,10 +53911,14 @@ function renderSummary() {
   const totals = calcTotals();
   const d = getDemand();
   const missing = countMissingCosts();
+  const needConfirm = countQuoteRowsByMatchStatus("need_confirm");
   const missingDetails = missingCostDetails();
-  const trafficMargin = number($("#ruleTrafficMargin")?.value) || 6;
+  const trafficMargin = number($("#trafficFeeRate")?.value || $("#ruleTrafficMargin")?.value) || 6;
   const trafficMinProfit = number($("#ruleTrafficMinProfit")?.value) || 30;
   const grossRate = totals.sell ? Math.round(((totals.sell - totals.cost) / totals.sell) * 10000) / 100 : 0;
+  if ($("#grossProfitAmount")) $("#grossProfitAmount").value = money(totals.grossProfit);
+  if ($("#trafficFeeRate")) $("#trafficFeeRate").value = trafficMargin;
+  if ($("#trafficFeeAmount")) $("#trafficFeeAmount").value = money(totals.trafficFee);
   const rows = serviceEnabledList().map((service) => {
     const cost = serviceCost(service);
     const sell = serviceSell(service);
@@ -49413,18 +53928,23 @@ function renderSummary() {
   $("#summaryPanel").innerHTML = `
     <div class="summary-cards">
       <div class="summary-card"><span>成本总计</span><strong>${money(totals.cost)}</strong></div>
-      <div class="summary-card"><span>卖价总计</span><strong>${money(totals.sell)}</strong></div>
+      <div class="summary-card"><span>参考售价总计</span><strong>${money(totals.sell)}</strong></div>
       <div class="summary-card"><span>预计毛利</span><strong>${money(totals.sell - totals.cost)}</strong></div>
       <div class="summary-card"><span>毛利率</span><strong class="${grossRate < 8 ? "danger-text" : "ok-text"}">${grossRate}%</strong></div>
+      <div class="summary-card"><span>大交通成本</span><strong>${money(totals.trafficCost)}</strong></div>
+      <div class="summary-card"><span>大交通服务费</span><strong>${money(totals.trafficFee)}</strong></div>
+      <div class="summary-card"><span>最终报价</span><strong>${money(totals.sell)}</strong></div>
       <div class="summary-card"><span>成人均价</span><strong>${money(totals.adultAvg)}</strong></div>
-      <div class="summary-card"><span>儿童均价</span><strong>${money(totals.childAvg)}</strong></div>
+      <div class="summary-card"><span>待补成本项数量</span><strong class="${missing ? "danger-text" : "ok-text"}">${missing}</strong></div>
+      <div class="summary-card"><span>待确认资源数量</span><strong class="${needConfirm ? "danger-text" : "ok-text"}">${needConfirm}</strong></div>
     </div>
+    ${missing ? `<div class="notice danger">当前仍有 ${missing} 项缺少成本，报价总成本可能不完整。</div>` : ""}
     <div class="summary-grid">
-      <div><table class="simple-table"><thead><tr><th>服务项</th><th>成本</th><th>卖价</th><th>毛利</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div><table class="simple-table"><thead><tr><th>服务项</th><th>成本价</th><th>参考售价</th><th>毛利</th></tr></thead><tbody>${rows}</tbody></table></div>
       <div class="check-list">
         <div><strong>缺失成本</strong><br><span>${missing} 项需要补价</span>${missingDetails.length ? `<ul class="missing-list">${missingDetails.slice(0, 8).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : `<p>暂无缺失成本。</p>`}</div>
-        <div><strong>大交通规则</strong><br><span>按 ${trafficMargin}% 服务费，最低 ${trafficMinProfit} 元计算</span></div>
-        <div><strong>非大交通规则</strong><br><span>按综合毛利率倒推卖价</span></div>
+        <div><strong>风险提示</strong><br><span>${riskSummaryText(grossRate, missingDetails, trafficMargin)}</span></div>
+        <div><strong>大交通服务费</strong><br><span>按 ${trafficMargin}% 计算，最低 ${trafficMinProfit} 元；费率可在报价版本区修改。</span></div>
       </div>
     </div>
   `;
@@ -49433,16 +53953,34 @@ function renderSummary() {
   renderXiaoyiContext();
 }
 
+function countQuoteRowsByMatchStatus(status) {
+  const quote = activeQuote()?.data || {};
+  const rows = [];
+  Object.values(quote).forEach((serviceRows) => {
+    (serviceRows || []).forEach((row) => {
+      rows.push(row);
+      (row.items || []).forEach((item) => rows.push(item));
+      (row.rooms || []).forEach((room) => rows.push(room));
+    });
+  });
+  return rows.filter((row) => row.matchStatus === status).length;
+}
+
 function calcTotals() {
   const d = getDemand();
   const cost = serviceEnabledList().reduce((sum, service) => sum + serviceCost(service), 0);
   const sell = serviceEnabledList().reduce((sum, service) => sum + serviceSell(service), 0);
+  const trafficCostTotal = serviceEnabledList().includes("traffic") ? serviceCost("traffic") : 0;
+  const trafficSellTotal = serviceEnabledList().includes("traffic") ? serviceSell("traffic") : 0;
   const childRatio = d.children ? 0.65 : 1;
   const weightedPeople = d.adults + d.children * childRatio;
   const basePeople = weightedPeople > 0 ? weightedPeople : 1;
   return {
     cost,
     sell,
+    grossProfit: sell - cost,
+    trafficCost: trafficCostTotal,
+    trafficFee: Math.max(trafficSellTotal - trafficCostTotal, 0),
     adultAvg: d.adults > 0 ? sell / basePeople : 0,
     childAvg: d.children ? (sell / basePeople) * childRatio : 0,
   };
@@ -49480,9 +54018,18 @@ function sellMargin(cost) {
 
 function sellTraffic(cost) {
   if (!cost) return 0;
-  const rate = number($("#ruleTrafficMargin")?.value || 6) / 100;
+  const rate = number($("#trafficFeeRate")?.value || $("#ruleTrafficMargin")?.value || 6) / 100;
   const minimum = number($("#ruleTrafficMinProfit")?.value || 30);
   return cost * rate < minimum ? cost + minimum : cost * (1 + rate);
+}
+
+function riskSummaryText(grossRate, missingDetails, trafficMargin) {
+  const risks = [];
+  if (missingDetails.length) risks.push(`${missingDetails.length} 处成本待补录`);
+  if (trafficMargin === 6 && serviceEnabledList().includes("traffic")) risks.push("大交通服务费仍为默认 6%");
+  if (grossRate < 8) risks.push("综合毛利率低于 8%");
+  if ($("#outputLang")?.value === "en" && state.translation.residues.length) risks.push(`英文提案有 ${state.translation.residues.length} 处中文残留`);
+  return risks.length ? risks.join("；") : "当前未发现明显风险。";
 }
 
 function countMissingCosts(onlyService = "") {
@@ -49509,14 +54056,14 @@ function missingCostDetails() {
     return `${day.date || `第${index + 1}天`} ${day.city || ""}`.trim();
   };
   if (d.services.vehicle) quote.vehicle.forEach((row, index) => {
-    if (row.missingCost || (row.charterCost === "" && row.source !== "未包含")) details.push(`${dayLabel(index)}：用车成本待选择或待补价`);
+    if (row.missingCost || (row.charterCost === "" && row.source !== "未包含")) details.push(`${dayLabel(row.dayIndex ?? index)}：${row.legLabel || row.serviceType || "用车"}成本待选择或待补录成本`);
   });
   if (d.services.guide) quote.guide.forEach((row, index) => {
     if (row.missingCost || row.serviceCost === "") details.push(`${dayLabel(index)}：导游服务费缺失`);
   });
   if (d.services.ticket) quote.ticket.forEach((row, index) => row.items.forEach((item) => {
-    if (item.adultCost === "") details.push(`${dayLabel(index)}：门票「${item.name || "未命名"}」成人成本缺失`);
-    if (d.children && item.childCost === "") details.push(`${dayLabel(index)}：门票「${item.name || "未命名"}」儿童成本缺失`);
+    if (item.sourceType === "成本缺失" || item.adultCost === "") details.push(`${dayLabel(index)}：门票「${item.name || "未命名"}」成人成本缺失`);
+    if (d.children && (item.sourceType === "成本缺失" || item.childCost === "")) details.push(`${dayLabel(index)}：门票「${item.name || "未命名"}」儿童成本缺失`);
   }));
   if (d.services.hotel) quote.hotel.forEach((row, index) => row.rooms.forEach((room) => {
     if (number(room.rooms) === 0) details.push(`${dayLabel(index)}：酒店「${room.roomType || "房型"}」房间数为0`);
@@ -49535,12 +54082,24 @@ function missingCostDetails() {
   return details;
 }
 
-function handleBuildProposal() {
+async function handleBuildProposal() {
+  if (!state.routeConfirmed) {
+    alert("请先确认线路并刷新报价，再生成客户方案。");
+    showWorkbenchSection("q-itinerary");
+    return;
+  }
+  const lang = $("#outputLang").value;
+  const source = createChineseProposalSource();
+  if (!source) return;
+  if (lang === "en") {
+    await generateEnglishProposalVersion({ source });
+    updateCurrentProject("价格已报但未成交");
+    return;
+  }
   state.proposalEditing = false;
   state.proposalConfirmed = false;
   if (!state.itinerary.length) handleGenerateItinerary();
   if (!activeQuote().data.vehicle.length) buildQuote();
-  const lang = $("#outputLang").value;
   const t = i18n[lang] || i18n.zh;
   const d = getDemand();
   const totals = calcTotals();
@@ -49626,6 +54185,146 @@ function toggleProposalEdit() {
     $("#projectStatus").textContent = "客人方案已手动编辑";
     $("#projectStatus").className = "status ok";
   }
+}
+
+function selectedProposalText() {
+  const content = $("#proposalContent");
+  const selection = window.getSelection?.();
+  if (selection && selection.rangeCount && content?.contains(selection.anchorNode)) {
+    const text = selection.toString().trim();
+    if (text) return { text, selected: true };
+  }
+  const paragraph = content?.querySelector("p") || content;
+  return { text: paragraph?.innerText?.trim() || "", selected: false, node: paragraph };
+}
+
+function replaceProposalText(before, after, fallbackNode = null) {
+  const content = $("#proposalContent");
+  if (!content || !before || before === after) return false;
+  const selection = window.getSelection?.();
+  if (selection && selection.rangeCount && content.contains(selection.anchorNode) && selection.toString().trim() === before) {
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(document.createTextNode(after));
+    selection.removeAllRanges();
+    invalidateProposalConfirmation();
+    checkEnglishChineseResidue();
+    return true;
+  }
+  if (content.innerHTML.includes(escapeHtml(before))) {
+    content.innerHTML = content.innerHTML.replace(escapeHtml(before), escapeHtml(after));
+  } else if (content.textContent.includes(before)) {
+    const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      if (node.nodeValue.includes(before)) {
+        node.nodeValue = node.nodeValue.replace(before, after);
+        break;
+      }
+      node = walker.nextNode();
+    }
+  } else if (fallbackNode) {
+    fallbackNode.textContent = after;
+  }
+  invalidateProposalConfirmation();
+  checkEnglishChineseResidue();
+  return true;
+}
+
+function polishProposalSection() {
+  if (!$("#proposalContent")?.innerHTML.trim()) handleBuildProposal();
+  const target = selectedProposalText();
+  const polished = polishEnglishText(target.text || "");
+  if (!polished) return;
+  replaceProposalText(target.text, polished, target.node);
+  $("#translationStatus").textContent = "已在英文提案区原地优化当前段落。";
+}
+
+async function retranslateProposalSection() {
+  if (!$("#proposalContent")?.innerHTML.trim()) await handleBuildProposal();
+  const target = selectedProposalText();
+  if (!target.text) return;
+  if (containsChinese(target.text)) {
+    $("#translationStatus").textContent = "正在调用 DeepSeek 重新翻译当前段落...";
+    try {
+      const translated = await translateResidueSegment({
+        snippet: target.text,
+        text: target.text,
+        location: "当前选中段落",
+        fullParagraph: target.text,
+      });
+      replaceProposalText(target.text, translated, target.node);
+      $("#translationStatus").textContent = "已调用 DeepSeek 重新翻译当前段落，并重新检测中文残留。";
+    } catch (error) {
+      $("#translationStatus").textContent = `DeepSeek 局部翻译失败，请检查 API Key 或稍后重试。${error.message ? `错误：${error.message}` : ""}`;
+    }
+    return;
+  }
+  const polished = polishEnglishText(target.text);
+  replaceProposalText(target.text, polished, target.node);
+  $("#translationStatus").textContent = "当前段落没有中文残留，已做轻量英文格式整理。";
+}
+
+function polishEnglishProposal() {
+  if (!$("#proposalContent")?.innerHTML.trim()) handleBuildProposal();
+  const content = $("#proposalContent");
+  content.querySelectorAll("p, b, td, li").forEach((node) => {
+    if (!containsChinese(node.textContent)) node.textContent = polishEnglishText(node.textContent);
+  });
+  state.translation.englishPreview = content.innerHTML;
+  invalidateProposalConfirmation();
+  checkEnglishChineseResidue();
+  $("#translationStatus").textContent = "已润色英文提案，并重新检测中文残留。";
+}
+
+function restoreProposalOriginal() {
+  if (state.translation.originalProposalHtml && $("#proposalContent")) {
+    $("#proposalContent").innerHTML = state.translation.originalProposalHtml;
+    invalidateProposalConfirmation();
+    checkEnglishChineseResidue();
+    $("#translationStatus").textContent = "已恢复为最近一次生成的提案原文。";
+  }
+}
+
+async function refreshSimpleTranslation() {
+  if (!state.routeConfirmed) {
+    alert("请先确认线路并刷新报价，再刷新英文版。");
+    showWorkbenchSection("q-itinerary");
+    return;
+  }
+  const lang = $("#proposalLanguageQuick")?.value || "en";
+  if ($("#outputLang")) $("#outputLang").value = lang;
+  if (lang === "zh") {
+    await handleBuildProposal();
+    checkEnglishChineseResidue();
+    const count = state.translation.residues.length;
+    $("#translationStatus").textContent = count ? `检测到 ${count} 处中文残留，请编辑后确认。` : "翻译已刷新，未检测到中文残留。";
+    return;
+  }
+  await generateEnglishProposalVersion();
+  return;
+}
+
+function saveSimpleTranslation() {
+  if (!$("#proposalContent")?.innerHTML.trim()) {
+    alert("请先生成或刷新译文。");
+    return;
+  }
+  state.translation.englishPreview = $("#proposalContent").innerHTML;
+  checkEnglishChineseResidue();
+  const count = state.translation.residues.length;
+  $("#translationStatus").textContent = count ? `检测到 ${count} 处中文残留，请编辑后确认。` : "译文已保存，未检测到中文残留。";
+  invalidateProposalConfirmation();
+}
+
+function polishEnglishText(text = "") {
+  return String(text || "")
+    .replace(/\s+/g, " ")
+    .replace(/\bTBD\b/g, "to be confirmed")
+    .replace(/\bguests\b/gi, "guests")
+    .replace(/subject to final confirmation\.?/gi, "subject to final confirmation.")
+    .replace(/This quotation is based on the current itinerary and available resources\.?/gi, "This quotation is based on the current itinerary and available resources.")
+    .trim();
 }
 
 function includedList(lang) {
@@ -49753,7 +54452,7 @@ function costPolicyRows(lang) {
   const d = getDemand();
   const quote = activeQuote().data || emptyQuoteData();
   const rows = [];
-  const vehicleDays = quote.vehicle.filter((row) => vehicleCost(row) > 0).length || state.itinerary.length;
+  const vehicleDays = new Set(quote.vehicle.filter((row) => vehicleCost(row) > 0).map((row, index) => row.dayIndex ?? index)).size || state.itinerary.length;
   const guideDays = quote.guide.filter((row) => guideCost(row) > 0).length || state.itinerary.length;
   const hotelNights = Math.max(state.itinerary.length - 1, 0);
   const roomText = roomTextForPolicy(d, lang);
@@ -50178,14 +54877,77 @@ async function handleExportPdf() {
 }
 
 function convertToOrder() {
+  if (!activeQuote()?.data?.vehicle?.length && state.routeConfirmed) buildQuote({ auto: true });
   const totals = calcTotals();
-  state.order = { id: $("#projectId").textContent.replace("QP", "OD"), amount: totals.sell };
+  const d = getDemand();
+  const quote = activeQuote();
+  const projectId = state.currentProjectId || $("#projectId").textContent;
+  const orderId = String(projectId || `QP-${Date.now()}`).replace("QP", "OD");
+  state.order = {
+    id: orderId,
+    projectId,
+    customerName: d.actualCustomerName || d.clientName,
+    country: d.country,
+    startDate: d.startDate,
+    days: d.serviceDays,
+    people: d.people,
+    cities: d.cities.join("、"),
+    amount: totals.sell,
+    currency: $("#currency")?.value || "CNY",
+    quoteVersion: quote?.name || $("#quoteVersion")?.selectedOptions?.[0]?.textContent || "报价 V1",
+    status: "已成交待操作",
+    createdAt: new Date().toISOString(),
+  };
+  state.orders = [state.order, ...state.orders.filter((item) => item.id !== state.order.id)];
   $("#orderArchive").className = "archive-list";
   $("#orderArchive").innerHTML = `<div class="archive-item"><strong>${state.order.id}</strong><span>已成交 · ${money(state.order.amount)} · 已进入操作排团</span></div>`;
   $("#followStatus").value = "已成交";
-  $("#projectStatus").textContent = "已成交";
+  $("#projectStatus").textContent = "已成交待操作";
   $("#projectStatus").className = "status ok";
   updateCurrentProject("已成交待操作");
+  activeQuote().final = true;
+  saveQuoteVersionMeta(true);
+  saveOrderState();
+  saveCurrentProjectSnapshot();
+  renderOrders();
+  showProjectDashboard();
+  alert(`已成交并生成订单 ${state.order.id}，项目已返回报价列表。`);
+}
+
+function renderOrders() {
+  const panel = $("#ordersPanel");
+  if (!panel) return;
+  const orders = state.orders || [];
+  if (!orders.length) {
+    panel.className = "panel empty";
+    panel.textContent = "暂无成交订单。";
+    return;
+  }
+  panel.className = "panel";
+  panel.innerHTML = tableWrap(
+    ["订单编号", "客户名称", "国家", "出行日期", "天数", "人数", "城市", "成交金额", "币种", "关联报价版本", "状态", "创建时间", "操作"],
+    orders.map((order) => [
+      escapeHtml(order.id),
+      escapeHtml(order.customerName),
+      escapeHtml(order.country),
+      escapeHtml(order.startDate),
+      escapeHtml(order.days),
+      escapeHtml(order.people),
+      escapeHtml(order.cities),
+      money(order.amount),
+      escapeHtml(order.currency),
+      escapeHtml(order.quoteVersion),
+      escapeHtml(order.status),
+      escapeHtml(new Date(order.createdAt).toLocaleString("zh-CN", { hour12: false })),
+      `<button class="secondary-btn" data-open-project="${escapeHtml(order.projectId)}">返回报价项目</button>`,
+    ]),
+    `<tr><td colspan="13">暂无成交订单。</td></tr>`,
+    "wide-product-table"
+  );
+  $$("[data-open-project]").forEach((btn) => btn.addEventListener("click", () => {
+    switchModule("quote");
+    openProject(btn.dataset.openProject);
+  }));
 }
 
 function renderArchive() {
@@ -50262,13 +55024,16 @@ function lookupTicketCost(name, city, date = getDemandSafe().startDate, ticketTy
       sourceProductId: ticket.sourceProductId,
       sourceResourceId: ticket.sourceResourceId,
       sourceName: ticket.sourceName,
+      matchStatus: ticket.matchStatus,
+      matchConfidence: ticket.matchConfidence,
+      isFree: ticket.isFree,
       ticketType: ticket.resource?.raw?.ticketType || ticketType,
       candidates: ticket.candidates || [],
       resource: ticket.resource,
     };
   }
   const experience = lookupExperienceResource({ city, name, ticketType });
-  if (experience && experience.sourceType !== "待补价") {
+  if (experience?.resource && experience.sourceType !== "待补价" && experience.matchStatus !== "unmatched") {
     return {
       adultCost: experience.cost,
       childCost: experience.childCost,
@@ -50277,6 +55042,9 @@ function lookupTicketCost(name, city, date = getDemandSafe().startDate, ticketTy
       sourceProductId: experience.sourceProductId,
       sourceResourceId: experience.sourceResourceId,
       sourceName: experience.sourceName,
+      matchStatus: experience.matchStatus,
+      matchConfidence: experience.matchConfidence,
+      isFree: experience.isFree,
       ticketType: experience.resource?.raw?.ticketType || ticketType,
       candidates: experience.candidates || [],
       resource: experience.resource,
@@ -50300,20 +55068,32 @@ function lookupTicketCost(name, city, date = getDemandSafe().startDate, ticketTy
       sourceProductId: "",
       sourceResourceId: "",
       sourceName: catalog.scenicName,
+      matchStatus: adultCost === "" && !isFreeTicket(catalog, adultCost) ? "need_price" : "matched",
+      matchConfidence: "medium",
+      isFree: isFreeTicket(catalog, adultCost),
       ticketType: catalog.ticketType,
       candidates: [],
     };
   }
   const standard = resources.tickets[name];
-  if (standard) {
+  const aliasStandardName = Object.keys(resources.tickets).find((item) => sameTicketName(item, name));
+  const standardRow = standard || resources.tickets[aliasStandardName];
+  if (standardRow) {
+    const free = standardRow.isFree || Number(standardRow.adult) === 0;
+    const sourceName = aliasStandardName || name;
     return {
-      adultCost: standard.adult ?? "",
-      childCost: standard.child ?? "",
-      source: standard.adult === "" && standard.child === "" ? "待补价" : "标准价",
-      sourceType: standard.adult === "" ? "待补价" : "旧标准价",
+      adultCost: standardRow.adult ?? "",
+      childCost: standardRow.child ?? "",
+      isFree: free,
+      matchStatus: standardRow.adult === "" && !free ? "need_price" : "matched",
+      matchConfidence: "medium",
+      source: standardRow.adult === "" && !free
+        ? `待补成本：真实产品库未找到「${sourceName}」成本，系统仅识别到景点名`
+        : (free ? "系统兜底 / 免费景点 / 待 OP 确认" : "系统兜底价 / 待 OP 确认真实产品库"),
+      sourceType: standardRow.adult === "" && !free ? "待补价" : "系统兜底",
       sourceProductId: "",
       sourceResourceId: "",
-      sourceName: name,
+      sourceName,
       ticketType,
       candidates: [],
     };
@@ -50321,11 +55101,13 @@ function lookupTicketCost(name, city, date = getDemandSafe().startDate, ticketTy
   return {
     adultCost: "",
     childCost: "",
-    source: "待补价",
+    source: `待补成本：真实产品库未找到「${name}」门票资源`,
     sourceType: "待补价",
     sourceProductId: "",
     sourceResourceId: "",
     sourceName: name,
+    matchStatus: "unmatched",
+    matchConfidence: "low",
     ticketType,
     candidates: [],
   };
@@ -50344,10 +55126,22 @@ function normalizeTicketText(value) {
   return String(value || "").replace(/\s+/g, "").replace(/[（）()《》“”"']/g, "");
 }
 
+function ticketAliases(name) {
+  const normalized = normalizeTicketText(name);
+  const hits = [];
+  Object.entries(attractionAliases).forEach(([canonical, aliases]) => {
+    const group = [canonical, ...aliases];
+    if (group.some((item) => normalizeTicketText(item) === normalized || normalizeTicketText(item).includes(normalized) || normalized.includes(normalizeTicketText(item)))) {
+      hits.push(...group);
+    }
+  });
+  return unique(hits);
+}
+
 function sameTicketName(a, b) {
-  const left = normalizeTicketText(a);
-  const right = normalizeTicketText(b);
-  return left === right || left.includes(right) || right.includes(left);
+  const leftGroup = unique([a, ...ticketAliases(a)].map(normalizeTicketText));
+  const rightGroup = unique([b, ...ticketAliases(b)].map(normalizeTicketText));
+  return leftGroup.some((left) => rightGroup.some((right) => left === right || left.includes(right) || right.includes(left)));
 }
 
 function ticketCandidates(city) {
@@ -50368,6 +55162,7 @@ function ticketCandidates(city) {
   state.productCatalog.tickets.filter((item) => !city || item.city === city).forEach((item) => {
     rows.push({ name: shortTicketName(item.scenicName), alias: item.scenicName });
     rows.push({ name: shortTicketName(item.scenicName), alias: shortTicketName(item.scenicName) });
+    ticketAliases(item.scenicName).forEach((alias) => rows.push({ name: shortTicketName(item.scenicName), alias }));
   });
   return rows.filter((item) => normalizeTicketText(item.alias).length >= 2);
 }
@@ -50378,9 +55173,11 @@ function shortTicketName(name) {
 
 function detectTickets(text, city) {
   const normalizedText = normalizeTicketText(text);
+  const cityNames = new Set(["北京", "上海", "杭州", "西安", "广州", "深圳", "成都", "重庆", "苏州", "桂林", "张家界", "昆明", "丽江", "大理", city].filter(Boolean).map(normalizeTicketText));
   const candidates = ticketCandidates(city).sort((a, b) => b.alias.length - a.alias.length);
   const hits = candidates
     .filter((candidate) => normalizedText.includes(normalizeTicketText(candidate.alias)))
+    .filter((candidate) => !cityNames.has(normalizeTicketText(candidate.name)) && !cityNames.has(normalizeTicketText(candidate.alias)))
     .sort((a, b) => normalizedText.indexOf(normalizeTicketText(a.alias)) - normalizedText.indexOf(normalizeTicketText(b.alias)))
     .map((candidate) => candidate.name);
   const inferred = inferTicketNamesFromText(text, city).filter((name) => !hits.some((hit) => sameTicketName(hit, name)));
@@ -50528,7 +55325,7 @@ function generateDetailFromOverview(overview, city) {
 }
 
 function inferCity(text) {
-  return ["北京", "上海", "西安", "成都", "重庆", "张家界", "杭州", "苏州", "桂林", "广州", "深圳"].find((city) => text.includes(city));
+  return extractRouteCities(text)[0] || "";
 }
 
 function valueOrBlank(value) {
@@ -50699,6 +55496,7 @@ const i18n = {
 window.inboundWorkbench = {
   state,
   quoteResources,
+  productCatalogSelfCheck,
   buildQuote,
   lookupVehicleResource,
   lookupHotelResource,
@@ -50711,6 +55509,33 @@ window.inboundWorkbench = {
   showRouteProductDetail,
   useRouteProductInQuote,
 };
+
+function productCatalogSelfCheck() {
+  refreshQuoteResources();
+  const countByType = state.quoteResources.reduce((acc, item) => {
+    acc[item.type] = (acc[item.type] || 0) + 1;
+    return acc;
+  }, {});
+  const vehicle7 = lookupVehicleResource({ city: "北京", vehicleType: "包车", model: "7座车", text: "北京市区包车" });
+  const airport7 = lookupVehicleResource({ city: "北京", vehicleType: "接送机", model: "7座车", text: "大兴机场接机" });
+  const hotel4 = lookupHotelResource({ city: "北京", star: "4星舒适型", roomType: "双床房" });
+  const forbiddenCity = lookupTicketCost("故宫博物院", "北京", "2026-07-01", "景区门票");
+  const tiananmen = lookupTicketCost("天安门广场", "北京", "2026-07-01", "景区门票");
+  const jingshan = lookupTicketCost("景山公园", "北京", "2026-07-01", "景区门票");
+  return {
+    localState: state.productCatalogLocalState || { loaded: false },
+    productCounts: Object.fromEntries(Object.keys(productCatalogKeyCategory).map((key) => [key, Array.isArray(state.productCatalog[key]) ? state.productCatalog[key].length : 0])),
+    quoteResourceCounts: countByType,
+    probes: {
+      vehicle7: { cost: vehicle7.cost, sourceType: vehicle7.sourceType, source: vehicle7.source, candidates: vehicle7.candidates?.length || 0 },
+      airport7: { cost: airport7.cost, sourceType: airport7.sourceType, source: airport7.source, candidates: airport7.candidates?.length || 0 },
+      hotel4: { cost: hotel4.cost, sourceType: hotel4.sourceType, sourceName: hotel4.sourceName, candidates: hotel4.candidates?.length || 0 },
+      forbiddenCity: { adultCost: forbiddenCity.adultCost, sourceType: forbiddenCity.sourceType, source: forbiddenCity.source },
+      tiananmen: { adultCost: tiananmen.adultCost, sourceType: tiananmen.sourceType, source: tiananmen.source, isFree: tiananmen.isFree },
+      jingshan: { adultCost: jingshan.adultCost, sourceType: jingshan.sourceType, source: jingshan.source },
+    },
+  };
+}
 
 function writeAcceptanceProbe() {
   const compactResource = (resource) => ({
@@ -50727,7 +55552,9 @@ function writeAcceptanceProbe() {
   const hotel4 = lookupHotelResource({ city: "北京", star: "4星舒适型", roomType: "双床房" });
   const mealHalal = lookupMealResource({ city: "北京", meal: "午餐", demand: { country: "阿联酋", specialNeed: "清真" } });
   const ticket = lookupTicketCost("故宫博物院", "北京", "2026-07-01", "景区门票");
+  const selfCheck = productCatalogSelfCheck();
   const probe = {
+    selfCheck,
     counts: {
       routes: state.productCatalog.routes.length,
       vehicles: state.productCatalog.vehicles.length,
@@ -50747,6 +55574,12 @@ function writeAcceptanceProbe() {
     hotel4: { cost: hotel4.cost, sourceName: hotel4.sourceName, source: hotel4.source, candidates: (hotel4.candidates || []).slice(0, 8).map(compactResource) },
     mealHalal: { cost: mealHalal.cost, source: mealHalal.source, candidates: (mealHalal.candidates || []).slice(0, 8).map(compactResource) },
     ticket: { adultCost: ticket.adultCost, childCost: ticket.childCost, source: ticket.source, ticketType: ticket.ticketType, candidates: (ticket.candidates || []).slice(0, 8).map(compactResource) },
+    vehicleRecommendations: {
+      fourWithoutGuide: recommendVehiclePlan({ people: 4, hasGuide: false, luggage: "未知", preference: "经济" }),
+      fourWithGuide: recommendVehiclePlan({ people: 4, hasGuide: true, luggage: "未知", preference: "舒适" }),
+      fifteenPeople: recommendVehiclePlan({ people: 15, hasGuide: true, luggage: "未知", preference: "舒适" }),
+      sixWithLuggage: recommendVehiclePlan({ people: 6, hasGuide: true, luggage: "多", preference: "舒适" }),
+    },
     uniqueRouteIds: new Set(state.productCatalog.routes.map((route) => route.routeProductId)).size,
     firstRouteProjectId: state.productCatalog.routes[0]?.projectId || "",
     qualityRows: state.importQuality.rows.map((row) => ({
