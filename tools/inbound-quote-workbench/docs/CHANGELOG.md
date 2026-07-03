@@ -17,6 +17,10 @@
 - 新增领域事件创建模块：`public/js/domain/events/domain-events.js`。
 - 新增旧报价流程兼容 adapter：`public/js/adapters/quote-engine-adapter.js`。
 - 新增 5 个 Node 单测，覆盖备注拆分、候选生成、报价行/版本、Agent 网关和领域事件。
+- 新增报价来源展示模块：`public/js/domain/quote/quote-display.js`，用于把复杂来源压缩成短状态并保留折叠详情。
+- 新增报价诊断快照：生成报价表时写入 `youyixing_quote_diagnostics_latest`，用于排查匹配状态、来源和原因。
+- 新增回归测试：`tests/quote-display.test.js`、`tests/product-resource-match-scoring.test.js`。
+- 新增结单冲刺验收审查报告：`docs/acceptance-closing-sprint-20260703.md`。
 - 新增 V1.4 可报价资源 core：`quotable-resource-core.js`。
 - 新增浏览器内查询服务：`window.YouyixingServices.queryQuotableResources(params)`。
 - 新增产品资源与供应商服务明细关联层：`productResources`、`resourceSupplierLinks`、`quotableResources`。
@@ -54,6 +58,8 @@
 - 产品库模板导入的 `rawFields` 增加 Excel 列坐标和多行表头组合字段，避免尾部成本列、备注列和说明列丢失。
 - `.env`、`.env.*`、`node_modules`、`.DS_Store` 已加入忽略规则，真实 Supabase 密钥只保存在本机。
 - 云端产品库 API 返回数据库原始字段，同时补充前端惯用字段，避免下一轮接入时成本字段因命名不一致读空。
+- 图片/PDF 导出依赖从 CDN 改为本地 `vendor/html2canvas.min.js` 和 `vendor/jspdf.umd.min.js`，降低客户网络拦截导致导出不可用的风险。
+- 报价明细中的成本来源说明默认改为短状态，完整来源、候选和失败原因放入折叠详情与诊断面板。
 
 ### Fixed
 
@@ -72,6 +78,9 @@
 - 修复导游、特色体验、门票 Sheet 空白行被 fill-down 后生成假资源的问题。
 - 修复空成本在产品库数据中被误写成数字 0 的回归风险；空成本继续保存为空字符串。
 - 修复云端导入脚本读取备选价格字段时可能把真实数字 0 当空值跳过的问题。
+- 修复云端用车匹配中“同城 + 同服务类型 + 同车型”压过路线的风险；重庆市内一日游 8 小时 7 座不再错配到武隆 7 座。
+- 修复报价行成本输入框下方默认展示过长候选和失败原因的问题。
+- 修复客户方案导出依赖依赖外部 CDN 时，在客户网络不可访问 CDN 的环境下容易加载失败的问题。
 
 ### Known Risks
 
@@ -79,8 +88,9 @@
 - Agent Gateway 只是权限与日志骨架，尚未接入真实模型工具执行。
 - 餐厅 Sheet 的人均最低成本列在当前 Excel 中为空，151 条餐厅全部保留为待补成本。
 - 供应商成本回填仍需要用真实供应商明细继续完整复测。
-- 图片导出和 PDF 下载仍需要复测。
+- 图片导出和 PDF 下载依赖已本地化并完成库加载 smoke check；仍需在已确认客户方案上实点下载文件。
 - 运行日志当前不足以完整复盘 AI 原始输出、归一化结果和回退原因。
+- 餐厅当前 151 条均缺真实成本字段，报价时必须继续显示待补成本，不能伪装为正常 0 成本。
 
 ## [v0.1.0-baseline-2026-07-02] - 2026-07-02
 

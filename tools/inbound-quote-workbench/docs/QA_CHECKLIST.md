@@ -119,6 +119,8 @@
 - [ ] 生成客户方案。
 - [ ] 编辑方案后保存状态正确。
 - [ ] 确认方案后导出按钮可用。
+- [x] 导出图片依赖 `html2canvas` 能本地加载。
+- [x] 下载 PDF 依赖 `jsPDF` 能本地加载。
 - [ ] 导出图片能下载文件。
 - [ ] 下载 PDF 能下载文件。
 - [ ] 英文方案不显示内部成本、利润、供应商联系方式。
@@ -134,10 +136,19 @@
 
 ## 提交前检查
 
-- [ ] `git status --short` 中只包含本次任务相关文件。
-- [ ] 已更新 `docs/DEV_LOG.md`。
-- [ ] 若修 bug，已更新 `docs/BUG_LOG.md`。
-- [ ] 若改变功能，已更新 `docs/CHANGELOG.md`。
-- [ ] 若要交付版本，已更新 `docs/RELEASE_NOTES.md`。
-- [ ] 若新增架构/领域模块，已更新 `docs/FEATURE_MAP.md` 和相关契约文档。
-- [ ] 已记录回退方式。
+- [x] `node --check app.js`。
+- [x] `node --check server.js`。
+- [x] `node --test tests/*.test.js`。
+- [x] 8787 服务返回 `HTTP/1.1 200 OK`。
+- [x] 重庆接机 / 7座返回成本 250。
+- [x] 重庆送机 / 7座返回成本 250。
+- [x] 重庆武隆包车 / 14座~17座返回成本 1500。
+- [x] 重庆市内一日游 8 小时 / 7座返回成本 700。
+- [x] 产品库严格数据审计已记录缺成本分布。
+- [x] `git status --short` 中只包含本次任务相关文件。
+- [x] 已更新 `docs/DEV_LOG.md`。
+- [x] 若修 bug，已更新 `docs/BUG_LOG.md`。
+- [x] 若改变功能，已更新 `docs/CHANGELOG.md`。
+- [x] 若要交付版本，已更新 `docs/RELEASE_NOTES.md`。
+- [x] 若新增架构/领域模块，已更新 `docs/FEATURE_MAP.md` 和相关契约文档。
+- [x] 已记录回退方式。

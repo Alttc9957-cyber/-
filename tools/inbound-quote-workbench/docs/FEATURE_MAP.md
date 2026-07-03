@@ -113,15 +113,15 @@
 
 涉及页面：报价项目详情，报价项目区。
 
-涉及组件：`quoteTabs`、`quoteTablePanel`、`buildQuote`、`openSyncQuoteItemModal`
+涉及组件：`quoteTabs`、`quoteTablePanel`、`buildQuote`、`sourceNote`、`renderQuoteDiagnosticsPanel`、`openSyncQuoteItemModal`
 
 涉及接口：本地产品库和供应商库；云端出口 `POST /api/product-resources/match`
 
-涉及数据字段：`state.quoteResources`、`sourceType`、`sourceProductId`、`sourceResourceId`、`supplierName`、`serviceDetailId`、`costSource`、`matchStatus`、`matchReason`、`missingCost`
+涉及数据字段：`state.quoteResources`、`sourceType`、`sourceProductId`、`sourceResourceId`、`supplierName`、`serviceDetailId`、`costSource`、`matchStatus`、`matchReason`、`missingCost`、`youyixing_quote_diagnostics_latest`
 
 当前状态：待确认
 
-风险说明：北京和重庆浏览器验收已通过产品库成本回填；多个候选时仍按当前规则标记 `need_confirm`。供应商服务明细云端化仍需下一阶段复测。
+风险说明：重庆云端 API 四例已通过；路线不命中会降级为待确认，避免错算成本。多个候选仍需 OP 确认。供应商服务明细云端化仍需下一阶段复测。
 
 是否为核心交付功能：是
 
@@ -135,7 +135,7 @@
 
 涉及页面：报价项目详情，报价项目区和报价汇总区。
 
-涉及组件：`renderVehicleTable`、`renderGuideTable`、`renderTicketTable`、`renderHotelTable`、`renderMealTable`、`renderTrafficTable`、`summaryPanel`
+涉及组件：`renderVehicleTable`、`renderGuideTable`、`renderTicketTable`、`renderHotelTable`、`renderMealTable`、`renderTrafficTable`、`summaryPanel`、`quote-display.js`
 
 涉及接口：无直接后端接口。
 
@@ -143,7 +143,7 @@
 
 当前状态：待确认
 
-风险说明：空成本不能显示为正常 0；汇总可临时按 0 计算，但必须保留缺成本提示。
+风险说明：空成本不能显示为正常 0；汇总可临时按 0 计算，但必须保留缺成本提示。报价行默认只显示短状态，完整匹配原因放折叠详情和诊断快照。
 
 是否为核心交付功能：是
 
@@ -163,9 +163,9 @@
 
 涉及数据字段：`proposalContent`、`outputLang`、`translation.glossary`、`translation.memory`、`proposalAssets`
 
-当前状态：有 bug
+当前状态：待确认
 
-风险说明：用户反馈图片和 PDF 当前完全下载不了；需独立复现，不要和产品库修复混在一起。
+风险说明：图片/PDF 导出依赖已本地化，浏览器 smoke check 已确认 `html2canvas` 和 `jsPDF` 加载成功；仍需在已确认客户方案上实点下载文件。
 
 是否为核心交付功能：是
 

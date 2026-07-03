@@ -781,16 +781,53 @@ function normalizeApiSearchText(value) {
 
 function productResourceMatchScore(resource = {}, query = {}) {
   let score = 0;
-  const resourceText = normalizeApiSearchText([resource.name, resource.route, resource.spec].filter(Boolean).join(" "));
   const routeText = normalizeApiSearchText(query.route || query.name || query.productName || "");
+  const routeMatch = productResourceRouteMatch(resource, routeText);
   if (query.city && resource.city === query.city) score += 30;
   if (query.category && resource.category === query.category) score += 20;
   if (query.serviceType && resource.service_type === query.serviceType) score += 20;
   if (query.model && resource.model === query.model) score += 15;
-  if (routeText && resourceText.includes(routeText)) score += 20;
-  if (routeText && resource.route && routeText.includes(normalizeApiSearchText(resource.route))) score += 10;
-  if (!routeText && score > 0) score += 5;
+  if (routeMatch.hasRoute && routeMatch.matched) score += routeMatch.score;
+  if (routeMatch.hasRoute && !routeMatch.matched) score = Math.min(score, 79);
+  if (!routeMatch.hasRoute && score > 0) score += 5;
   return score;
+}
+
+function compactApiMatchText(value) {
+  return normalizeApiSearchText(value).toLowerCase().replace(/\s+/g, "");
+}
+
+function routeFamiliesFromText(value) {
+  const text = compactApiMatchText(value);
+  const families = new Set();
+  if (/机场|airport|接机|送机|接送机|大兴|首都/.test(text)) families.add("airport");
+  if (/高铁|火车站|station|接站|送站|接送站/.test(text)) families.add("station");
+  if (/市内|市区|本地游|一日游|8小时|八小时|9小时|九小时/.test(text)) families.add("city_day");
+  if (/武隆/.test(text)) families.add("wulong");
+  return families;
+}
+
+function hasRouteFamilyOverlap(left, right) {
+  const leftFamilies = routeFamiliesFromText(left);
+  const rightFamilies = routeFamiliesFromText(right);
+  for (const family of leftFamilies) {
+    if (rightFamilies.has(family)) return true;
+  }
+  return false;
+}
+
+function productResourceRouteMatch(resource = {}, routeText = "") {
+  const queryRoute = compactApiMatchText(routeText);
+  if (!queryRoute) return { hasRoute: false, matched: true, score: 0 };
+  const resourceRoute = compactApiMatchText(resource.route || "");
+  const resourceText = compactApiMatchText([resource.name, resource.route, resource.spec].filter(Boolean).join(" "));
+  if (resourceText.includes(queryRoute) || (resourceRoute && queryRoute.includes(resourceRoute))) {
+    return { hasRoute: true, matched: true, score: 25 };
+  }
+  if (hasRouteFamilyOverlap(queryRoute, resourceText)) {
+    return { hasRoute: true, matched: true, score: 18 };
+  }
+  return { hasRoute: true, matched: false, score: 0 };
 }
 
 function productResourceMatchReason(status, resource, query) {
@@ -932,5 +969,9 @@ if (!process.env.VERCEL) {
     console.log(`Travel workbench running at http://${host}:${port}`);
   });
 }
+
+requestHandler.productResourceMatchScore = productResourceMatchScore;
+requestHandler.productResourceRouteMatch = productResourceRouteMatch;
+requestHandler.productResourceMatchReason = productResourceMatchReason;
 
 module.exports = requestHandler;

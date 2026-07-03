@@ -980,6 +980,39 @@ textarea { min-height: 84px; resize: vertical; line-height: 1.55; }
   color: var(--brand);
   font-size: 11px;
   line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.quote-source-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border: 1px solid #cdd9e8;
+  border-radius: 999px;
+  padding: 2px 7px;
+  background: #fff;
+  color: #34546f;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.quote-source-chip.ok { color: #027a48; border-color: #abefc6; background: #ecfdf3; }
+.quote-source-chip.warn { color: #8a5a00; border-color: #f4d99a; background: #fff8e6; }
+.quote-source-chip.danger { color: #b42318; border-color: #fecdca; background: #fef3f2; }
+.quote-source-chip.info { color: #34546f; border-color: #cdd9e8; background: #f5f8fb; }
+.quote-source-detail {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.quote-source-detail summary {
+  cursor: pointer;
+  width: fit-content;
+  color: #526980;
+  list-style-position: inside;
+}
+.quote-source-detail div {
+  margin-top: 2px;
+  max-width: 520px;
 }
 .itinerary-cell { overflow-wrap: anywhere; }
 .itinerary-cell strong { display: block; margin-bottom: 4px; }
@@ -1003,6 +1036,27 @@ textarea { min-height: 84px; resize: vertical; line-height: 1.55; }
   display: block;
   color: #b42318;
   margin-top: 3px;
+}
+.quote-diagnostics-panel {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px 12px;
+}
+.quote-diagnostics-panel > summary {
+  cursor: pointer;
+  color: #34546f;
+  font-weight: 700;
+}
+.quote-diagnostics-table {
+  margin-top: 10px;
+  table-layout: fixed;
+}
+.quote-diagnostics-table td,
+.quote-diagnostics-table th {
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 .sub-items { display: grid; gap: 8px; min-width: 0; }
 .sub-item {

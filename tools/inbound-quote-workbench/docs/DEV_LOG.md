@@ -432,3 +432,83 @@
 
 - 第三阶段把供应商服务明细入云端，并验证同城市、同服务类型、同车型 / 票种 / 房型的供应商成本覆盖规则。
 - 单独修复客户方案图片和 PDF 下载问题。
+
+---
+
+日期：2026-07-03
+
+修改目标：结单冲刺补丁：收敛报价明细长备注、修复客户方案导出依赖、修复云端用车路线错配，并输出当前产品库数据完整度审计。
+
+修改原因：客户测试时更关心“价格是否直接准确进入报价表”。旧报价行把来源、候选、失败原因全量铺在成本输入框下方，干扰交付观感；图片/PDF 导出依赖 CDN，外部网络拦截时会直接不可用；云端匹配 API 在同城同服务同车型但路线不命中时仍可能判为 matched，导致重庆市内一日游错配到武隆包车。
+
+关联 bug：
+
+- BUG-20260702-003
+- BUG-20260703-007
+- BUG-20260703-008
+
+关联功能：
+
+- F-005 产品资源匹配与报价成本回填
+- F-006 报价明细、汇总与缺成本检查
+- F-007 客户方案生成、多语言与导出
+
+涉及文件：
+
+- `app.js`
+- `server.js`
+- `index.html`
+- `styles.css`
+- `public/js/domain/quote/quote-display.js`
+- `public/js/domain/quote/index.js`
+- `vendor/html2canvas.min.js`
+- `vendor/jspdf.umd.min.js`
+- `tests/quote-display.test.js`
+- `tests/product-resource-match-scoring.test.js`
+- `docs/DEV_LOG.md`
+- `docs/CHANGELOG.md`
+- `docs/BUG_LOG.md`
+- `docs/FEATURE_MAP.md`
+- `docs/QA_CHECKLIST.md`
+- `docs/RELEASE_NOTES.md`
+- `docs/acceptance-closing-sprint-20260703.md`
+
+具体改动：
+
+- 新增报价展示纯函数 `quote-display.js`，把复杂来源统一压缩为“产品库成本 / 供应商成本 / 待确认 / 待补成本 / 未匹配”等短状态。
+- `sourceNote()` 改为短状态 + 折叠详情，不再默认把候选资源和失败原因铺满报价明细。
+- 用车分段缺价只显示“待补成本”，完整原因放在详情或 hover 中。
+- 新增折叠的本次报价诊断面板，并把最新诊断快照保存到 `youyixing_quote_diagnostics_latest`。
+- 图片/PDF 导出依赖改为本地 `vendor/html2canvas.min.js` 和 `vendor/jspdf.umd.min.js`。
+- 云端产品匹配 API 增强路线匹配：有明确路线词时，路线不命中最高只能进入待确认，不能直接判定 matched；机场/接送机、站点、市内一日游、武隆等关键词按同义族匹配。
+- 新增回归测试，锁定报价来源短标签和重庆市内一日游不再错配武隆。
+- 新增本轮验收审查报告，记录测试命令、重庆硬用例和产品库严格数据审计结果。
+
+验证结果：
+
+- `node --check app.js` 通过。
+- `node --check server.js` 通过。
+- `node --test tests/*.test.js` 31 项通过。
+- 8787 服务重启后 `curl -I --max-time 2 http://127.0.0.1:8787/` 返回 `HTTP/1.1 200 OK`。
+- 浏览器 smoke check 通过：`window.html2canvas=true`、`window.jspdf.jsPDF=true`、`window.YouyixingQuoteDisplay=true`。
+- 报价生成 smoke check 通过：报价短标签出现，默认正文不再出现“候选资源：”，诊断面板能输出状态和原因。
+- 云端 API 重庆四例通过：
+  - 重庆接机 / 7座：成本 250。
+  - 重庆送机 / 7座：成本 250。
+  - 重庆武隆包车 / 14座~17座：成本 1500。
+  - 重庆市内一日游 8 小时 / 7座：成本 700。
+- 产品库严格数据审计：用车 940/缺成本 0，导游 48/缺成本 0，景点门票 145/缺成本 13，酒店 153/缺成本 5，餐厅 151/缺成本 151，特色体验 77/缺成本 2，线路产品 24/缺成本 0；所有品类 `rawFields` 均有保留；三类历史脏字段命中 0。
+
+是否影响旧功能：影响报价来源展示、报价诊断面板、客户方案导出依赖加载、云端产品匹配 API 评分；不重写报价主流程，不新增业务模块。
+
+回退方式：
+
+- 回退本次提交：`git revert <本次提交哈希>`。
+- 若只回退导出依赖，可把 `index.html` 中 `html2canvas/jspdf` script 改回 CDN。
+- 若只回退路线评分，可恢复 `server.js` 中 `productResourceMatchScore()` 的旧评分逻辑。
+
+下一步建议：
+
+- 用真实客户行程跑北京和跨城成都/重庆测试，重点看主行程城市是否被接送机阶段带偏。
+- 继续补餐厅真实成本或在报价规则中把餐厅默认显示为待补成本，不要参与正常 0 成本展示。
+- 用已确认客户方案实点“导出图片 / 下载 PDF”，确认下载文件在公网预览和本地服务都可用。

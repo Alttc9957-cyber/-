@@ -44281,6 +44281,7 @@ const state = {
   quoteVersions: [],
   activeQuote: 0,
   activeService: "vehicle",
+  quoteDiagnostics: { generatedAt: "", rows: [], counts: {} },
   historyCandidates: [],
   agent: { pendingType: "", pendingData: null, loading: false },
   agentQuoteItems: [],
@@ -53901,6 +53902,7 @@ function buildQuote(options = {}) {
   });
   if (!options.forceRematch) applyManualOverrides(previousData, quote.data);
   quote.status = "待检查";
+  state.quoteDiagnostics = buildQuoteDiagnosticsSnapshot();
   $("#projectStatus").textContent = "报价明细已同步";
   $("#projectStatus").className = "status ok";
   renderQuoteTabs();
@@ -54020,7 +54022,11 @@ function renderQuoteTable() {
     traffic: renderTrafficTable,
     other: renderOtherTable,
   }[service];
-  $("#quoteTablePanel").innerHTML = renderer ? renderer() : `<div class="empty">暂无报价表。</div>`;
+  state.quoteDiagnostics = buildQuoteDiagnosticsSnapshot();
+  const panel = $("#quoteTablePanel");
+  panel.innerHTML = renderer ? renderer() : `<div class="empty">暂无报价表。</div>`;
+  const diagnostics = renderQuoteDiagnosticsPanel(service);
+  if (diagnostics) panel.insertAdjacentHTML("beforeend", diagnostics);
   bindQuoteInputs();
 }
 
@@ -54040,7 +54046,7 @@ function renderVehicleTable() {
       detail: [row.productName, row.route, day.overview].filter(Boolean).join(" / "),
     };
     return `<tr>${baseCols(displayDay)}
-      <td><input data-q="vehicle:${index}:charterCost" type="number" value="${row.charterCost}" />${sourceNote(row.source, row.candidates, row.matchReason)}${vehicleBreakdownHtml(row)}${row.crossCityNote ? `<small class="cost-source">${escapeHtml(row.crossCityNote)}</small>` : ""}</td>
+      <td><input data-q="vehicle:${index}:charterCost" type="number" value="${row.charterCost}" />${sourceNote(row)}${vehicleBreakdownHtml(row)}${row.crossCityNote ? compactInfoNote("跨城拆分", row.crossCityNote) : ""}</td>
       <td><input data-q="vehicle:${index}:driverCost" type="number" value="${row.driverCost}" /></td>
       <td class="money-cell">${money(cost)}</td>
       <td class="money-cell">${money(sellMargin(cost))}</td>
@@ -54054,8 +54060,8 @@ function vehicleBreakdownHtml(row = {}) {
   const items = row.quoteLegBreakdown || [];
   if (!items.length) return "";
   return `<div class="quote-leg-breakdown">${items.map((item) => `
-    <span class="${item.matchReason ? "warn" : "ok"}">
-      ${escapeHtml(item.label || item.serviceType || "用车")}：${item.cost === "" ? escapeHtml(item.matchReason || "待补录成本") : money(item.cost)}
+    <span class="${item.cost === "" || item.cost == null || item.matchReason ? "warn" : "ok"}" title="${escapeHtml([item.matchReason, item.source].filter(Boolean).join(" / "))}">
+      ${escapeHtml(item.label || item.serviceType || "用车")}：${item.cost === "" || item.cost == null ? "待补成本" : money(item.cost)}
     </span>
   `).join("")}</div>`;
 }
@@ -54064,7 +54070,7 @@ function renderGuideTable() {
   const rows = activeQuote().data.guide.map((row, index) => {
     const cost = guideCost(row);
     return `<tr>${baseCols(state.itinerary[index])}
-      <td><input data-q="guide:${index}:serviceCost" type="number" value="${row.serviceCost}" />${sourceNote(row.source, row.candidates)}</td>
+      <td><input data-q="guide:${index}:serviceCost" type="number" value="${row.serviceCost}" />${sourceNote(row)}</td>
       <td><input data-q="guide:${index}:ticketCost" type="number" value="${row.ticketCost}" /></td>
       <td><input data-q="guide:${index}:hotelCost" type="number" value="${row.hotelCost}" /></td>
       <td class="money-cell">${money(cost)}</td>
@@ -54097,7 +54103,7 @@ function ticketItemHtml(dayIndex, subIndex, item) {
     <input data-ticket="${dayIndex}:${subIndex}:adultCost" type="number" value="${item.adultCost}" placeholder="成人成本" />
     <input data-ticket="${dayIndex}:${subIndex}:childCost" type="number" value="${item.childCost}" placeholder="儿童成本" />
     <button class="mini-danger" data-remove-ticket="${dayIndex}:${subIndex}">×</button>
-    ${sourceNote(item.source, item.candidates)}
+    ${sourceNote(item)}
     <datalist id="ticket-options">${options}</datalist>
   </div>`;
 }
@@ -54124,8 +54130,8 @@ function roomItemHtml(dayIndex, subIndex, room) {
     <input data-room="${dayIndex}:${subIndex}:rooms" type="number" value="${room.rooms}" placeholder="房间数" />
     <input data-room="${dayIndex}:${subIndex}:unitCost" type="number" value="${room.unitCost}" placeholder="单房成本" />
     <button class="mini-danger" data-remove-room="${dayIndex}:${subIndex}">×</button>
-    ${sourceNote(room.source, room.candidates)}
-    ${room.agreementStatus ? `<small class="cost-source">${escapeHtml(room.agreementStatus)}</small>` : ""}
+    ${sourceNote(room)}
+    ${room.agreementStatus ? compactInfoNote("协议状态", room.agreementStatus) : ""}
   </div>`;
 }
 
@@ -54137,7 +54143,7 @@ function renderMealTable() {
         <div class="check-row">
           ${["早餐", "午餐", "晚餐"].map((meal) => `<label><input data-meal="${index}:${meal}" type="checkbox" ${row.meals.includes(meal) ? "checked" : ""} /> ${meal}</label>`).join("")}
         </div>
-        ${sourceNote(row.source, row.candidates)}
+        ${sourceNote(row)}
       </td>
       <td><input data-q="meal:${index}:perPersonCost" type="number" value="${row.perPersonCost}" /></td>
       <td class="money-cell">${money(cost)}</td>
@@ -54154,7 +54160,7 @@ function renderTrafficTable() {
     return `<tr>${baseCols(state.itinerary[index])}
       <td><select data-q="traffic:${index}:type"><option ${row.type === "" ? "selected" : ""}></option><option ${row.type === "火车" ? "selected" : ""}>火车</option><option ${row.type === "飞机" ? "selected" : ""}>飞机</option><option ${row.type === "都可以" ? "selected" : ""}>都可以</option></select></td>
       <td><input data-q="traffic:${index}:info" value="${escapeHtml(row.info)}" placeholder="车次或航班信息" /></td>
-      <td><input data-q="traffic:${index}:adultCost" type="number" value="${row.adultCost}" placeholder="成人成本" />${sourceNote(row.source)}</td>
+      <td><input data-q="traffic:${index}:adultCost" type="number" value="${row.adultCost}" placeholder="成人成本" />${sourceNote(row)}</td>
       <td><input data-q="traffic:${index}:childCost" type="number" value="${row.childCost}" placeholder="儿童成本" /></td>
       <td class="money-cell">${money(cost)}</td>
       <td class="money-cell">${money(sellTraffic(cost))}</td>
@@ -54172,7 +54178,7 @@ function renderOtherTable() {
       <td><input data-q="other:${index}:headset" type="number" value="${row.headset}" /></td>
       <td><input data-q="other:${index}:water" type="number" value="${row.water}" /></td>
       <td><input data-q="other:${index}:gift" type="number" value="${row.gift}" /></td>
-      <td><input data-q="other:${index}:routeProductUnitCost" type="number" value="${row.routeProductUnitCost || ""}" />${sourceNote(row.routeProductSource)}</td>
+      <td><input data-q="other:${index}:routeProductUnitCost" type="number" value="${row.routeProductUnitCost || ""}" />${sourceNote({ source: row.routeProductSource, matchStatus: row.routeProductUnitCost === "" ? "need_price" : row.routeProductSource ? "matched" : "" })}</td>
       <td class="money-cell">${money(cost)}</td>
       <td class="money-cell">${money(sellMargin(cost))}</td>
       <td>${quoteRowActions("other", index)}</td>
@@ -54590,13 +54596,197 @@ function resourceCandidateLabel(resource) {
   return parts.join(" / ");
 }
 
-function sourceNote(source, candidates = [], reason = "") {
-  const visibleSource = String(source || "").replace(/待补价|待询价|大交通待录入/g, "待补成本");
-  const candidateText = candidates?.length
-    ? `<span class="candidate-source">候选：${candidates.slice(0, 4).map((item) => escapeHtml(resourceCandidateLabel(item))).join("；")}${candidates.length > 4 ? `；等 ${candidates.length} 条` : ""}</span>`
+function quoteSourceInput(sourceOrRow, candidates = [], reason = "") {
+  if (sourceOrRow && typeof sourceOrRow === "object" && !Array.isArray(sourceOrRow)) {
+    return {
+      source: sourceOrRow.source || sourceOrRow.routeProductSource || "",
+      candidates: sourceOrRow.candidates || candidates || [],
+      reason: sourceOrRow.matchReason || reason || "",
+      matchStatus: sourceOrRow.matchStatus || "",
+      sourceType: sourceOrRow.sourceType || sourceOrRow.costSource || "",
+      costSource: sourceOrRow.costSource || sourceOrRow.sourceType || "",
+      sourceName: sourceOrRow.sourceName || sourceOrRow.productName || sourceOrRow.name || sourceOrRow.hotelName || "",
+      supplierName: sourceOrRow.supplierName || "",
+      missingCost: Boolean(sourceOrRow.missingCost),
+    };
+  }
+  return { source: sourceOrRow || "", candidates: candidates || [], reason: reason || "" };
+}
+
+function fallbackQuoteSourceSummary(input = {}) {
+  const source = String(input.source || "").replace(/待补价|待询价|大交通待录入/g, "待补成本");
+  const reason = input.reason || "";
+  const candidates = input.candidates || [];
+  const combined = `${source} ${reason}`;
+  const status = input.matchStatus
+    || (/未匹配|不匹配|未找到|车型缺失/.test(combined) ? "unmatched" : /待确认|候选|待选择/.test(combined) ? "need_confirm" : /待补成本|缺成本/.test(combined) || input.missingCost ? "need_price" : source ? "matched" : "");
+  const label = status === "unmatched" ? "未匹配"
+    : status === "need_confirm" ? (candidates.length ? `待确认 · ${candidates.length} 个候选` : "待确认")
+    : status === "need_price" ? "待补成本"
+    : /产品库|Excel|云端|系统底库/.test(`${input.sourceType || ""} ${source}`) ? "产品库成本"
+    : /供应商/.test(input.sourceType || "") ? "供应商成本"
+    : source ? "产品库成本"
     : "";
-  const reasonText = reason ? `<span class="match-reason">匹配失败：${escapeHtml(reason)}</span>` : "";
-  return visibleSource || candidateText || reasonText ? `<small class="cost-source">${visibleSource ? escapeHtml(visibleSource) : ""}${candidateText}${reasonText}</small>` : "";
+  const details = [
+    source ? `来源：${source}` : "",
+    reason ? `原因：${reason}` : "",
+    candidates.length ? `候选：${candidates.slice(0, 6).map(resourceCandidateLabel).join("；")}${candidates.length > 6 ? `；等 ${candidates.length} 条` : ""}` : "",
+  ].filter(Boolean);
+  return { label, status, level: status === "unmatched" ? "danger" : status === "matched" ? "ok" : "warn", detail: details.join("\n"), candidateCount: candidates.length };
+}
+
+function quoteSourceSummary(sourceOrRow, candidates = [], reason = "") {
+  const input = quoteSourceInput(sourceOrRow, candidates, reason);
+  const displayApi = globalThis.YouyixingQuoteDisplay || globalThis.YouyixingQuoteDomain || {};
+  return (displayApi.summarizeQuoteSource || fallbackQuoteSourceSummary)(input);
+}
+
+function quoteDetailHtml(detail = "") {
+  const lines = String(detail || "").split("\n").filter(Boolean);
+  if (!lines.length) return "";
+  return `<details class="quote-source-detail"><summary>详情</summary>${lines.map((line) => `<div>${escapeHtml(line)}</div>`).join("")}</details>`;
+}
+
+function sourceNote(sourceOrRow, candidates = [], reason = "") {
+  const meta = quoteSourceSummary(sourceOrRow, candidates, reason);
+  if (!meta?.label) return "";
+  return `<div class="cost-source cost-source-${escapeHtml(meta.level || "info")}"><span class="quote-source-chip ${escapeHtml(meta.level || "info")}">${escapeHtml(meta.label)}</span>${quoteDetailHtml(meta.detail)}</div>`;
+}
+
+function compactInfoNote(label, detail, level = "info") {
+  if (!detail) return "";
+  return `<div class="cost-source cost-source-${escapeHtml(level)}"><span class="quote-source-chip ${escapeHtml(level)}">${escapeHtml(label)}</span>${quoteDetailHtml(String(detail))}</div>`;
+}
+
+function quoteDiagnosticCostValue(service, row = {}) {
+  const fields = {
+    vehicle: ["charterCost", "unitCost", "totalCost"],
+    guide: ["serviceCost", "unitCost", "totalCost"],
+    ticket: ["adultCost", "unitCost", "totalCost"],
+    hotel: ["unitCost", "totalCost"],
+    meal: ["perPersonCost", "unitCost", "totalCost"],
+    traffic: ["adultCost", "unitCost", "totalCost"],
+    other: ["routeProductUnitCost", "unitCost", "totalCost"],
+  }[service] || ["unitCost", "cost", "totalCost"];
+  for (const field of fields) {
+    if (row[field] !== "" && row[field] != null) return row[field];
+  }
+  return "";
+}
+
+function quoteDiagnosticProductName(service, row = {}, context = {}) {
+  if (service === "vehicle") return row.productName || row.legLabel || row.route || row.serviceType || "用车";
+  if (service === "guide") return row.sourceName || `${context.city || ""}导游`;
+  if (service === "ticket") return row.name || row.sourceName || "门票";
+  if (service === "hotel") return row.hotelName || row.sourceName || "酒店";
+  if (service === "meal") return row.sourceName || (row.meals || []).join("、") || "餐";
+  if (service === "traffic") return row.sourceName || row.info || row.type || "大交通";
+  if (service === "other") return row.sourceName || "其他费用";
+  return row.sourceName || row.name || serviceLabels[service] || "服务";
+}
+
+function quoteDiagnosticStatusText(status) {
+  return {
+    matched: "已匹配",
+    need_confirm: "待确认",
+    need_price: "待补成本",
+    unmatched: "未匹配",
+  }[status] || "待确认";
+}
+
+function shortDiagnosticText(value, limit = 92) {
+  const textValue = String(value || "").replace(/\s+/g, " ").trim();
+  return textValue.length > limit ? `${textValue.slice(0, limit)}...` : textValue;
+}
+
+function pushQuoteDiagnosticRow(rows, service, row = {}, index = 0, context = {}) {
+  const itineraryDay = state.itinerary[context.dayIndex ?? index] || {};
+  const city = row.city || context.city || itineraryDay.city || "";
+  const sourceMeta = quoteSourceSummary(row);
+  const unitCost = quoteDiagnosticCostValue(service, row);
+  const missingCost = Boolean(row.missingCost) || unitCost === "";
+  const status = row.matchStatus || (missingCost ? "need_price" : sourceMeta?.status || "matched");
+  rows.push({
+    service,
+    serviceName: serviceLabels[service] || service,
+    city,
+    productName: quoteDiagnosticProductName(service, row, { city }),
+    unitCost,
+    missingCost,
+    matchStatus: status,
+    matchReason: row.matchReason || "",
+    source: row.source || row.routeProductSource || "",
+    sourceType: row.sourceType || row.costSource || "",
+    sourceName: row.sourceName || "",
+    supplierName: row.supplierName || "",
+    sourceProductId: row.sourceProductId || "",
+    sourceResourceId: row.sourceResourceId || "",
+    serviceDetailId: row.serviceDetailId || "",
+    candidateCount: (row.candidates || []).length,
+  });
+}
+
+function buildQuoteDiagnosticsSnapshot(serviceFilter = "") {
+  const quote = activeQuote();
+  const data = quote?.data || {};
+  const rows = [];
+  const services = serviceFilter ? [serviceFilter] : Object.keys(data);
+  services.forEach((service) => {
+    (data[service] || []).forEach((row, index) => {
+      if (service === "ticket") {
+        (row.items || []).forEach((item) => pushQuoteDiagnosticRow(rows, service, item, index, { dayIndex: index }));
+        return;
+      }
+      if (service === "hotel") {
+        (row.rooms || []).forEach((room) => pushQuoteDiagnosticRow(rows, service, room, index, { dayIndex: index }));
+        return;
+      }
+      pushQuoteDiagnosticRow(rows, service, row, index, { dayIndex: row.dayIndex ?? index });
+    });
+  });
+  const counts = rows.reduce((acc, row) => {
+    const key = row.missingCost && row.matchStatus === "matched" ? "need_price" : row.matchStatus || "need_confirm";
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, { matched: 0, need_confirm: 0, need_price: 0, unmatched: 0 });
+  const snapshot = { generatedAt: new Date().toISOString(), rows, counts };
+  try {
+    localStorage.setItem("youyixing_quote_diagnostics_latest", JSON.stringify(snapshot));
+  } catch (error) {
+    console.warn("quote diagnostics not persisted", error);
+  }
+  return snapshot;
+}
+
+function renderQuoteDiagnosticsPanel(service) {
+  const snapshot = buildQuoteDiagnosticsSnapshot(service);
+  const rows = snapshot.rows || [];
+  if (!rows.length) return "";
+  const counts = snapshot.counts || {};
+  const issueRows = rows.filter((row) => row.matchStatus !== "matched" || row.missingCost);
+  const displayRows = (issueRows.length ? issueRows : rows).slice(0, 12);
+  const summary = `${serviceLabels[service] || "报价"}诊断：${counts.matched || 0} 已匹配，${counts.need_confirm || 0} 待确认，${counts.need_price || 0} 待补成本，${counts.unmatched || 0} 未匹配`;
+  return `
+    <details class="quote-diagnostics-panel">
+      <summary>${escapeHtml(summary)}</summary>
+      <table class="simple-table quote-diagnostics-table">
+        <thead><tr><th>服务</th><th>城市</th><th>项目</th><th>状态</th><th>成本</th><th>来源</th><th>说明</th></tr></thead>
+        <tbody>
+          ${displayRows.map((row) => `
+            <tr>
+              <td>${escapeHtml(row.serviceName)}</td>
+              <td>${escapeHtml(row.city || "-")}</td>
+              <td>${escapeHtml(row.productName || "-")}</td>
+              <td><span class="quote-source-chip ${row.matchStatus === "matched" && !row.missingCost ? "ok" : row.matchStatus === "unmatched" ? "danger" : "warn"}">${escapeHtml(row.missingCost ? "待补成本" : quoteDiagnosticStatusText(row.matchStatus))}</span></td>
+              <td>${row.unitCost === "" ? "待补成本" : money(row.unitCost)}</td>
+              <td>${escapeHtml(row.sourceName || row.supplierName || row.sourceType || "-")}</td>
+              <td title="${escapeHtml(row.source || row.matchReason || "")}">${escapeHtml(shortDiagnosticText(row.matchReason || row.source || (row.candidateCount ? `${row.candidateCount} 个候选` : "")))}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </details>
+  `;
 }
 
 function bindQuoteInputs() {
