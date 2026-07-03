@@ -139,6 +139,14 @@ def row_values(ws):
         yield [clean(cell) for cell in row]
 
 
+def row_has_value(row):
+    return any(str(value).strip() for value in row)
+
+
+def any_cell(row, indexes):
+    return any(index < len(row) and clean(row[index]) != "" for index in indexes)
+
+
 def raw(labels, row):
     return {label: clean(row[i]) if i < len(row) else "" for i, label in enumerate(labels) if label}
 
@@ -290,7 +298,10 @@ def parse_guides(ws, report):
     labels = ["城市", "语种", "淡季卖价", "淡季超时费", "淡季住宿费", "旺季卖价", "旺季超时费", "旺季住宿费", "导游是否需要门票", "空列", "淡季成本", "淡季成本超时费", "淡季成本住宿费", "旺季成本", "旺季成本超时费", "旺季成本住宿费"]
     out, city = [], ""
     for idx, row in enumerate(list(row_values(ws))[2:], start=3):
-        if not any(str(x).strip() for x in row):
+        if not row_has_value(row):
+            report["skippedEmptyRows"] += 1
+            continue
+        if not clean(row[1] if len(row) > 1 else "") and not any_cell(row, [2, 3, 5, 6, 10, 11, 13, 14]):
             report["skippedEmptyRows"] += 1
             continue
         if len(row) > 0 and row[0]:
@@ -340,10 +351,16 @@ def parse_experiences(ws, report):
     labels = ["城市", "体验名称", "票种", "体验时间", "体验介绍信息", "成人卖价", "儿童卖价", "官方成人价", "官方儿童价", "成人成本", "儿童成本", "空列", "备注"]
     out, city, exp = [], "", ""
     for idx, row in enumerate(list(row_values(ws))[1:], start=2):
+        if not row_has_value(row):
+            report["skippedEmptyRows"] += 1
+            continue
         if len(row) > 0 and row[0]:
             city = norm_city(row[0])
         if len(row) > 1 and row[1]:
             exp = clean(row[1])
+        if not any_cell(row, [2, 3, 4, 5, 6, 7, 8, 9, 10, 12]):
+            report["skippedEmptyRows"] += 1
+            continue
         ticket_type = clean(row[2] if len(row) > 2 else "") or "体验项目"
         if not city or not exp:
             if any(str(x).strip() for x in row):
@@ -385,10 +402,16 @@ def parse_tickets(ws, report):
     labels = ["城市", "景点名称", "类型", "票种", "淡季成人", "淡季儿童", "旺季成人", "旺季儿童", "旅行社成人", "旅行社儿童", "免费政策", "备注", "保票政策", "保票联系人", "保票电话"]
     out, city, scenic = [], "", ""
     for idx, row in enumerate(list(row_values(ws))[2:], start=3):
+        if not row_has_value(row):
+            report["skippedEmptyRows"] += 1
+            continue
         if len(row) > 0 and row[0]:
             city = norm_city(row[0])
         if len(row) > 1 and row[1]:
             scenic = clean(row[1])
+        if not any_cell(row, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]):
+            report["skippedEmptyRows"] += 1
+            continue
         ticket_type = clean(row[3] if len(row) > 3 else "") or clean(row[2] if len(row) > 2 else "") or "景区门票"
         if not city or not scenic:
             if any(str(x).strip() for x in row):

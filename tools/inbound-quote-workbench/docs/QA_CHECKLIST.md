@@ -29,7 +29,7 @@
 - [ ] 导入《产品库汇总.xlsx》。
 - [ ] 确认识别 7 个模板 Sheet：线路报价、仅包车报价、导游报价、特色体验价、门票报价、餐、酒店。
 - [ ] 执行 `node --test tests/product-catalog-import.test.js`，确认真实 Excel 关键成本点未回退。
-- [ ] 系统产品库导入数量应覆盖当前基准：线路 24、用车 940、导游 52、特色体验 198、门票 316、餐厅 151、酒店 153。
+- [ ] 系统产品库有效产品数量应覆盖当前基准：线路 24、用车 940、导游 48、特色体验 77、门票 145、餐厅 151、酒店 153。
 - [ ] 确认各 Sheet 进入正确品类。
 - [ ] 产品库主表不出现错位字段，例如“导入景资源名称”“城市服务类型”“8人以下一小时规格”。
 - [ ] 空成本显示为“待补成本”，不是 0。
@@ -37,6 +37,16 @@
 - [ ] 刷新页面后，本地导入产品库仍然存在。
 - [ ] 产品库切换品类不卡死。
 - [ ] 清理重复不会对“全部”虚拟分类执行实际去重。
+
+## Supabase 产品库专项
+
+- [ ] `.env.supabase.local` 存在于本机且未进入 `git status --short`。
+- [ ] 执行 `node --check scripts/import-product-catalog-to-supabase.js`。
+- [ ] 执行 `node scripts/import-product-catalog-to-supabase.js` 时，质量门禁通过后才发布新批次。
+- [ ] `GET /api/product-imports/latest/report` 返回 `status=published`、`qualityReport.pass=true`。
+- [ ] `GET /api/product-resources?category=用车&city=重庆&serviceType=接送机&model=7座` 返回成本 250、卖价 450。
+- [ ] `POST /api/product-resources/match` 对重庆接机 7 座返回 `matchStatus=matched`、`costPrice=250`。
+- [ ] publishable key 不能直接读取 `product_resources` 业务数据，浏览器必须走服务端 API。
 
 ## 报价匹配专项
 

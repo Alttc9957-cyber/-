@@ -92,6 +92,77 @@
 
 日期：2026-07-03
 
+修改目标：按 B 方案建立 Supabase 云端产品库数据底座，先把真实产品库导入云端并开放服务端查询 API。
+
+修改原因：静态浏览器 + localStorage 容易让旧产品库覆盖新产品库，且前端导 Excel 无法形成稳定数据审查和发布流程；产品库需要变成可追溯、可发布、可查询的数据库。
+
+关联 bug：
+
+- BUG-20260702-001
+- BUG-20260703-003
+
+关联功能：
+
+- F-004 产品资源库导入与清洗
+- F-005 产品资源匹配与报价成本回填
+- F-010 本地数据加载与持久化
+
+涉及文件：
+
+- `.gitignore`
+- `app.js`
+- `server.js`
+- `db/schema.sql`
+- `package.json`
+- `package-lock.json`
+- `scripts/build-system-product-catalog.py`
+- `scripts/import-product-catalog-to-supabase.js`
+- `data/products/youyixing-product-catalog.json`
+- `tests/product-catalog-import.test.js`
+- `docs/acceptance-product-catalog-20260703.md`
+- `docs/acceptance-supabase-product-catalog-20260703.md`
+
+具体改动：
+
+- 修复 Excel 解析中过度 fill-down 的问题，空白行不再继承上一行名称生成假资源。
+- 将真实产品库重新生成：线路 24、用车 940、导游 48、特色体验 77、门票 145、酒店 153、餐厅 151。
+- 新增 Supabase Postgres 表结构和索引。
+- 新增云端导入脚本，导入前执行质量门禁，失败则拒绝发布。
+- 已将产品库导入 Supabase，导入批次 `4d50f5cc-d8ff-47ff-89bd-1028056814b3`。
+- 新增后端 API：最新导入报告、产品资源查询、产品资源匹配。
+- 产品资源 API 保留数据库原始字段，同时补充 `costPrice`、`salePrice`、`supplierName`、`serviceType` 等前端惯用字段。
+- 云端导入脚本读取多个备选价格字段时保留真实数字 0，不再用 `||` 把 0 当成空值跳过。
+- `.gitignore` 排除 `.env`、`.env.*`、`node_modules`、`.DS_Store`，防止密钥进入仓库或压缩包。
+
+验证结果：
+
+- `node --check app.js` 通过。
+- `node --check server.js` 通过。
+- `node --check scripts/import-product-catalog-to-supabase.js` 通过。
+- `python3 -m py_compile scripts/build-system-product-catalog.py` 通过。
+- `node --test tests/product-catalog-import.test.js` 5 项通过。
+- `node --test tests/quotable-resource-core.test.js` 6 项通过。
+- `http://127.0.0.1:8787/` 返回 `HTTP/1.1 200 OK`。
+- `GET /api/product-imports/latest/report` 返回 `status=published`、`pass=true`。
+- `POST /api/product-resources/match` 测试重庆接机 7 座，返回 `matched`、成本 250。
+
+是否影响旧功能：新增云端数据底座和服务端 API；未把前端报价主流程完全切换到云端。
+
+回退方式：
+
+- 回退本次提交：`git revert <本次提交哈希>`。
+- 云端数据保留历史批次；如需停止使用云端 API，删除本机 `.env.supabase.local` 或停用相关环境变量即可。
+
+下一步建议：
+
+- 产品库页面读取 `/api/product-resources`。
+- 报价匹配从本地 `state.productCatalog` 逐步切换到 `/api/product-resources/match`。
+- 浏览器 localStorage 只保留项目草稿，不再保存完整产品库。
+
+---
+
+日期：2026-07-03
+
 修改目标：用真实《产品库汇总.xlsx》重建系统产品库，修复模板导入漏行、错列和原始字段丢失问题。
 
 修改原因：产品库是报价成本的来源；旧构建脚本会把特色体验、门票里票种为空但有价格的有效行跳过，并且部分 Sheet 的备注 / 建议价列错位，导致成本或辅助字段进库前已经丢失。
@@ -123,14 +194,14 @@
 - 特色体验中票种为空但有体验名称和价格的行导入为 `ticketType=体验项目`。
 - 门票中票种为空但有景点名称和价格的行不再跳过，优先用类型补票种。
 - 修正系统产品库构建脚本中 `特色体验价` M 列备注、`餐` K/L 列建议价和加价信息的保存。
-- 用 `/Users/alic/Downloads/产品库汇总.xlsx` 重新生成 `youyixing-product-catalog.json`。
+- 用 `/Users/alic/Downloads/产品库汇总.xlsx` 重新生成 `youyixing-product-catalog.json`，并在后续审查中剔除空白行继承生成的假资源。
 - 新增产品库导入回归测试，锁住重庆 / 北京关键成本点和空成本规则。
 
 验证结果：
 
 - `node --check app.js` 通过。
 - `python3 -m py_compile scripts/build-system-product-catalog.py` 通过。
-- `node --test tests/product-catalog-import.test.js` 4 项通过。
+- `node --test tests/product-catalog-import.test.js` 5 项通过。
 - `node --test tests/quotable-resource-core.test.js` 6 项通过。
 - 本地 `http://127.0.0.1:8787/` 返回 `HTTP/1.1 200 OK`。
 - 产品库 JSON 返回 `HTTP/1.1 200 OK`，且重庆接送机 7 座成本为 250。

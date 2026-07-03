@@ -87,19 +87,19 @@
 
 功能名称：产品资源库导入与清洗
 
-功能描述：管理产品资源，支持按品类查看、筛选、分页、导入 Excel/CSV/JSON、字段映射、友易行产品库模板解析、去重、导出和重置系统产品库。
+功能描述：管理产品资源，支持按品类查看、筛选、分页、导入 Excel/CSV/JSON、字段映射、友易行产品库模板解析、去重、导出和重置系统产品库。本轮已新增 Supabase 云端产品库底座和服务端查询出口，前端页面尚未完全切换。
 
 涉及页面：产品资源库。
 
 涉及组件：`productCategoryTabs`、`resourceTable`、`productImportModal`、`productImportFile`、`dedupeProducts`、`clearProductCatalog`、`exportProducts`
 
-涉及接口：加载静态数据 `data/products/*.json`
+涉及接口：加载静态数据 `data/products/*.json`；云端出口 `GET /api/product-imports/latest/report`、`GET /api/product-resources`
 
 涉及数据字段：`state.productCatalog`、`rawFields`、`sourceSheet`、`sourceRow`、`supplierName`、`costPrice`、`salePrice`、`lowSeasonCost`、`highSeasonCost`、`adultCost`、`childCost`、`status`
 
-当前状态：有 bug
+当前状态：待确认
 
-风险说明：这是当前最高风险模块。多 Sheet 模板导入、自动分类、空价格、原始字段保留、本地覆盖层和系统底库合并都必须重新验收。
+风险说明：真实 Excel 构建和 Supabase 发布已通过脚本验收，但产品库页面还未完全改为读取云端 API；本地覆盖层与云端底库的边界需要下一轮继续收口。
 
 是否为核心交付功能：是
 
@@ -115,13 +115,13 @@
 
 涉及组件：`quoteTabs`、`quoteTablePanel`、`buildQuote`、`openSyncQuoteItemModal`
 
-涉及接口：无直接后端接口，依赖本地产品库和供应商库。
+涉及接口：本地产品库和供应商库；云端出口 `POST /api/product-resources/match`
 
 涉及数据字段：`state.quoteResources`、`sourceType`、`sourceProductId`、`sourceResourceId`、`supplierName`、`serviceDetailId`、`costSource`、`matchStatus`、`matchReason`、`missingCost`
 
 当前状态：有 bug
 
-风险说明：用户反馈过重庆接送机、包车、市内一日游有价格但匹配失败；当前需要把用车、导游、酒店、门票、餐厅逐项做对抗性验收。
+风险说明：云端 API 已能命中重庆接机 7 座成本 250；报价主流程尚未完全切到云端匹配，需要下一轮做前端调用替换和客户案例验收。
 
 是否为核心交付功能：是
 

@@ -8,6 +8,7 @@ const port = Number(process.env.PORT || 8787);
 const runtimeSettingsPath = path.join(root, "runtime-settings.json");
 const operationLogPath = path.join(root, "data", "agent-operation-log.json");
 loadLocalEnv(path.join(root, ".env"));
+loadLocalEnv(path.join(root, ".env.supabase.local"));
 
 const types = {
   ".html": "text/html;charset=utf-8",
@@ -68,6 +69,21 @@ async function requestHandler(req, res) {
 
   if (req.method === "POST" && route === "/api/translate/segment") {
     await handleTranslateSegmentRequest(req, res);
+    return;
+  }
+
+  if (req.method === "GET" && route === "/api/product-imports/latest/report") {
+    await handleLatestProductImportReport(req, res);
+    return;
+  }
+
+  if (req.method === "GET" && route === "/api/product-resources") {
+    await handleProductResources(req, res);
+    return;
+  }
+
+  if (req.method === "POST" && route === "/api/product-resources/match") {
+    await handleProductResourceMatch(req, res);
     return;
   }
 
@@ -650,6 +666,168 @@ function sanitizeAiInput(input = {}) {
 
 function handleGetSettings(res) {
   sendJson(res, 200, { ai: publicAiConfig() });
+}
+
+function readSupabaseConfig() {
+  const url = (process.env.SUPABASE_URL || "").replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_KEY || "";
+  return { url, serviceKey };
+}
+
+async function supabaseRest(pathname, params = {}) {
+  const { url, serviceKey } = readSupabaseConfig();
+  if (!url || !serviceKey) throw new Error("Supabase 未配置");
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== "" && value != null) query.set(key, value);
+  });
+  const response = await fetch(`${url}/rest/v1/${pathname}${query.size ? `?${query}` : ""}`, {
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      Prefer: "count=exact",
+    },
+  });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) throw new Error(data?.message || data?.error || `Supabase ${response.status}`);
+  return { data, count: response.headers.get("content-range") || "" };
+}
+
+async function handleLatestProductImportReport(req, res) {
+  try {
+    const result = await supabaseRest("product_import_batches", {
+      select: "id,source_file,source_version,status,counts,quality_report,published_at,created_at",
+      order: "created_at.desc",
+      limit: "1",
+    });
+    sendJson(res, 200, { batch: result.data?.[0] ? normalizeProductImportBatchApiFields(result.data[0]) : null });
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "读取产品库导入报告失败" });
+  }
+}
+
+async function handleProductResources(req, res) {
+  try {
+    const url = new URL(req.url, `http://${host}:${port}`);
+    const params = {
+      select: "id,category,city,name,service_type,route,model,spec,supplier_name,cost_price,sale_price,low_season_cost,high_season_cost,adult_cost,child_cost,pricing_unit,status,source_sheet,source_row,quality_flags,published_version",
+      is_published: "eq.true",
+      order: "category.asc,city.asc,name.asc",
+      limit: String(Math.min(Number(url.searchParams.get("limit") || 100), 500)),
+    };
+    const exactFilters = {
+      category: "category",
+      city: "city",
+      serviceType: "service_type",
+      service_type: "service_type",
+      model: "model",
+      status: "status",
+    };
+    Object.entries(exactFilters).forEach(([queryKey, column]) => {
+      const value = url.searchParams.get(queryKey);
+      if (value) params[column] = `eq.${value}`;
+    });
+    const q = normalizeApiSearchText(url.searchParams.get("q") || "");
+    if (q) params.or = `(name.ilike.*${q}*,route.ilike.*${q}*,spec.ilike.*${q}*)`;
+    const result = await supabaseRest("product_resources", params);
+    sendJson(res, 200, { resources: (result.data || []).map(normalizeProductResourceApiFields), count: result.count });
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "查询产品资源失败" });
+  }
+}
+
+async function handleProductResourceMatch(req, res) {
+  try {
+    const body = await readJsonBody(req);
+    const category = body.category || body.sourceCategory || "";
+    const city = body.city || "";
+    const params = {
+      select: "id,category,city,name,service_type,route,model,spec,supplier_name,cost_price,sale_price,pricing_unit,status,source_sheet,source_row,quality_flags,published_version",
+      is_published: "eq.true",
+      limit: "300",
+    };
+    if (category) params.category = `eq.${category}`;
+    if (city) params.city = `eq.${city}`;
+    const result = await supabaseRest("product_resources", params);
+    const candidates = (result.data || []).map((resource) => ({
+      ...resource,
+      score: productResourceMatchScore(resource, body),
+    })).filter((resource) => resource.score > 0).sort((a, b) => b.score - a.score);
+    const best = candidates[0] || null;
+    const diagnostics = {
+      cityCandidateCount: (result.data || []).filter((resource) => !city || resource.city === city).length,
+      typeCandidateCount: candidates.filter((resource) => !body.serviceType || resource.service_type === body.serviceType).length,
+      modelCandidateCount: candidates.filter((resource) => !body.model || resource.model === body.model).length,
+      finalCandidateCount: candidates.length,
+    };
+    const cost = best?.cost_price == null ? null : Number(best.cost_price);
+    const matchStatus = !best ? "unmatched" : cost == null ? "need_confirm" : best.score >= 80 ? "matched" : "need_confirm";
+    sendJson(res, 200, {
+      matchStatus,
+      matchReason: productResourceMatchReason(matchStatus, best, body),
+      resource: best ? normalizeProductResourceApiFields(best) : null,
+      candidates: candidates.slice(0, 10).map(normalizeProductResourceApiFields),
+      diagnostics,
+    });
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "匹配产品资源失败" });
+  }
+}
+
+function normalizeApiSearchText(value) {
+  return String(value || "").trim().replace(/[(),]/g, " ").replace(/\s+/g, " ");
+}
+
+function productResourceMatchScore(resource = {}, query = {}) {
+  let score = 0;
+  const resourceText = normalizeApiSearchText([resource.name, resource.route, resource.spec].filter(Boolean).join(" "));
+  const routeText = normalizeApiSearchText(query.route || query.name || query.productName || "");
+  if (query.city && resource.city === query.city) score += 30;
+  if (query.category && resource.category === query.category) score += 20;
+  if (query.serviceType && resource.service_type === query.serviceType) score += 20;
+  if (query.model && resource.model === query.model) score += 15;
+  if (routeText && resourceText.includes(routeText)) score += 20;
+  if (routeText && resource.route && routeText.includes(normalizeApiSearchText(resource.route))) score += 10;
+  if (!routeText && score > 0) score += 5;
+  return score;
+}
+
+function productResourceMatchReason(status, resource, query) {
+  if (status === "unmatched") return "云端产品库无匹配资源";
+  if (status === "need_confirm" && resource?.cost_price == null) return "命中候选资源，但成本为空";
+  if (status === "need_confirm") return "命中候选资源，但路线或规格需要确认";
+  return `命中云端产品库：${resource?.name || query.name || ""}`;
+}
+
+function normalizeProductResourceApiFields(resource = {}) {
+  return {
+    ...resource,
+    serviceType: resource.service_type ?? resource.serviceType ?? "",
+    supplierName: resource.supplier_name ?? resource.supplierName ?? "",
+    costPrice: resource.cost_price ?? resource.costPrice ?? null,
+    salePrice: resource.sale_price ?? resource.salePrice ?? null,
+    lowSeasonCost: resource.low_season_cost ?? resource.lowSeasonCost ?? null,
+    highSeasonCost: resource.high_season_cost ?? resource.highSeasonCost ?? null,
+    adultCost: resource.adult_cost ?? resource.adultCost ?? null,
+    childCost: resource.child_cost ?? resource.childCost ?? null,
+    pricingUnit: resource.pricing_unit ?? resource.pricingUnit ?? "",
+    sourceSheet: resource.source_sheet ?? resource.sourceSheet ?? "",
+    sourceRow: resource.source_row ?? resource.sourceRow ?? null,
+    qualityFlags: resource.quality_flags ?? resource.qualityFlags ?? [],
+    publishedVersion: resource.published_version ?? resource.publishedVersion ?? "",
+  };
+}
+
+function normalizeProductImportBatchApiFields(batch = {}) {
+  return {
+    ...batch,
+    sourceFile: batch.source_file ?? batch.sourceFile ?? "",
+    sourceVersion: batch.source_version ?? batch.sourceVersion ?? "",
+    qualityReport: batch.quality_report ?? batch.qualityReport ?? null,
+    publishedAt: batch.published_at ?? batch.publishedAt ?? null,
+    createdAt: batch.created_at ?? batch.createdAt ?? null,
+  };
 }
 
 async function handleSaveAiSettings(req, res) {

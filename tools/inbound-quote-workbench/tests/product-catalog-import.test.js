@@ -22,9 +22,11 @@ test("product catalog imports every template sheet into the right category", () 
   assert.equal(payload.report.sheets["餐"].category, "餐厅");
   assert.equal(payload.report.sheets["酒店"].category, "酒店");
 
+  assert.equal(catalog.routes.length, 24);
   assert.ok(catalog.vehicles.length >= 900);
-  assert.ok(catalog.experiences.length >= 190);
-  assert.ok(catalog.tickets.length >= 300);
+  assert.equal(catalog.guides.length, 48);
+  assert.equal(catalog.experiences.length, 77);
+  assert.equal(catalog.tickets.length, 145);
   assert.ok(catalog.meals.length >= 150);
 });
 
@@ -77,4 +79,16 @@ test("valid rows without explicit ticket type are still imported", () => {
   ), "张家界黄龙洞门票");
   assert.equal(huanglong.ticketType, "门票");
   assert.equal(huanglong.costPrice, 120);
+});
+
+test("blank inherited rows are not promoted into fake products", () => {
+  const fakeExperienceRows = catalog.experiences.filter((item) => (
+    item.experienceName === "绒绣体验" && item.ticketType === "体验项目" && item.costPrice === "" && item.salePrice === ""
+  ));
+  assert.equal(fakeExperienceRows.length, 0);
+
+  const fakeTicketRows = catalog.tickets.filter((item) => (
+    item.scenicName === "功夫体验" && item.ticketType === "景区门票" && item.costPrice === "" && item.salePrice === ""
+  ));
+  assert.equal(fakeTicketRows.length, 0);
 });

@@ -48244,6 +48244,8 @@ function parseGuidePriceSheet(sheetName, rows, report) {
   return rows.slice(2).flatMap((row, offset) => {
     const rowNumber = offset + 3;
     if (rowIsEmpty(row)) { templateSkip(report, sheetName, category); return []; }
+    const hasGuidePayload = [1, 2, 3, 5, 6, 10, 11, 13, 14].some((index) => String(row[index] ?? "").trim());
+    if (!hasGuidePayload) { templateSkip(report, sheetName, category); return []; }
     if (row[0]) currentCity = normalizeRouteCity(row[0]) || row[0];
     const language = normalizeGuideLanguage(row[1]);
     if (!currentCity || !language) { templateIssue(report, sheetName, rowNumber, category, "缺城市或语种"); return []; }
