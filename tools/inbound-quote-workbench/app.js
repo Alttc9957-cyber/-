@@ -44259,6 +44259,7 @@ const state = {
   quoteResources: [],
   importQuality: null,
   systemProductCatalog: { loaded: false },
+  cloudProductCatalog: { loaded: false },
   activeSupplierCategory: "全部",
   activeSupplierId: "",
   projects: [
@@ -45241,6 +45242,7 @@ const IMPORT_AUTO_CATEGORY = "按 Sheet 自动分类";
 const IMPORT_VALID_FROM = "2026-06-21";
 const IMPORT_VALID_TO = "2027-12-31";
 const SYSTEM_PRODUCT_CATALOG_URL = "data/products/youyixing-product-catalog.json";
+const CLOUD_PRODUCT_RESOURCE_CATEGORIES = ["用车", "景点门票", "特色体验", "导游", "酒店", "餐厅"];
 
 function hydrateImportedProductCatalog() {
   state.productCatalog.routes.forEach((route, index) => {
@@ -45270,6 +45272,11 @@ async function loadSystemProductCatalog() {
     systemBaseLoaded: true,
     sourceFile: state.systemProductCatalog.sourceFile,
   };
+  const cloudLoaded = await loadCloudProductCatalog();
+  if (cloudLoaded) {
+    state.systemProductCatalog.mode = "supabase_published_overlay";
+    state.systemProductCatalog.cloudLoaded = true;
+  }
   return true;
 }
 
@@ -45277,6 +45284,200 @@ function replaceSystemProductCatalog(catalog = {}) {
   Object.keys(productCatalogKeyCategory).forEach((key) => {
     if (Array.isArray(state.productCatalog[key])) state.productCatalog[key] = Array.isArray(catalog[key]) ? catalog[key] : [];
   });
+}
+
+async function loadCloudProductCatalog() {
+  try {
+    const report = await fetchOptionalJson("/api/product-imports/latest/report", null);
+    const entries = await Promise.all(CLOUD_PRODUCT_RESOURCE_CATEGORIES.map(async (category) => {
+      const payload = await fetchCloudProductResources(category);
+      return [category, payload.resources || []];
+    }));
+    const catalog = {
+      vehicles: [],
+      experiences: [],
+      tickets: [],
+      guides: [],
+      hotels: [],
+      meals: [],
+    };
+    entries.forEach(([category, resources]) => {
+      const key = cloudProductCategoryKey(category);
+      if (!key) return;
+      catalog[key] = resources.map((resource) => cloudResourceToCatalogItem(resource, category)).filter(Boolean);
+    });
+    const total = Object.values(catalog).reduce((sum, rows) => sum + rows.length, 0);
+    if (!total) return false;
+    Object.entries(catalog).forEach(([key, rows]) => {
+      if (Array.isArray(state.productCatalog[key])) state.productCatalog[key] = rows;
+    });
+    state.cloudProductCatalog = {
+      loaded: true,
+      source: "Supabase",
+      batchId: report?.batch?.id || "",
+      sourceVersion: report?.batch?.sourceVersion || report?.batch?.source_version || "",
+      qualityReport: report?.batch?.qualityReport || report?.batch?.quality_report || null,
+      counts: Object.fromEntries(Object.entries(catalog).map(([key, rows]) => [key, rows.length])),
+      loadedAt: new Date().toISOString(),
+    };
+    return true;
+  } catch (error) {
+    state.cloudProductCatalog = { loaded: false, error: error.message || "云端产品库加载失败" };
+    return false;
+  }
+}
+
+async function fetchCloudProductResources(category) {
+  const query = new URLSearchParams({ category, limit: "5000" });
+  return fetchOptionalJson(`/api/product-resources?${query}`, { resources: [] });
+}
+
+function cloudProductCategoryKey(category) {
+  return {
+    用车: "vehicles",
+    景点门票: "tickets",
+    特色体验: "experiences",
+    导游: "guides",
+    酒店: "hotels",
+    餐厅: "meals",
+    餐: "meals",
+  }[category] || "";
+}
+
+function rawFirst(raw = {}, keys = []) {
+  for (const key of keys) {
+    if (raw[key] !== "" && raw[key] != null) return raw[key];
+  }
+  return "";
+}
+
+function cloudNumber(value) {
+  if (value === "" || value == null) return "";
+  const numeric = Number(String(value).replace(/[¥￥,\s]/g, ""));
+  return Number.isFinite(numeric) ? numeric : "";
+}
+
+function cloudResourceBase(resource = {}, category = "") {
+  const raw = resource.rawFields || resource.raw_fields || {};
+  const cost = cloudNumber(resource.costPrice ?? resource.cost_price);
+  const sale = cloudNumber(resource.salePrice ?? resource.sale_price);
+  return {
+    id: resource.id,
+    cloudResourceId: resource.id,
+    category,
+    city: resource.city || "",
+    name: resource.name || "",
+    costPrice: cost,
+    salePrice: sale,
+    supplierName: resource.supplierName || resource.supplier_name || IMPORTED_PENDING_SUPPLIER,
+    pricingUnit: resource.pricingUnit || resource.pricing_unit || "",
+    status: resource.status || (cost === "" ? "待补成本" : "可报价"),
+    source: "Supabase产品库",
+    originalSource: resource.source || "",
+    sourceSheet: resource.sourceSheet || resource.source_sheet || "",
+    sourceRow: resource.sourceRow || resource.source_row || "",
+    rawFields: raw,
+    extraFields: resource.extraFields || resource.extra_fields || {},
+    qualityFlags: resource.qualityFlags || resource.quality_flags || [],
+    importWarnings: [],
+  };
+}
+
+function cloudResourceToCatalogItem(resource = {}, category = "") {
+  const raw = resource.rawFields || resource.raw_fields || {};
+  const base = cloudResourceBase(resource, category);
+  if (category === "用车") {
+    const serviceType = normalizeVehicleType(resource.serviceType || resource.service_type || rawFirst(raw, ["订单类型", "B列 / 订单类型"]) || resource.name);
+    const model = normalizeVehicleModel(resource.model || rawFirst(raw, ["车型"]));
+    return {
+      ...base,
+      serviceType,
+      vehicleType: serviceType,
+      route: resource.route || rawFirst(raw, ["行程", "C列 / 行程 (超过8小时，每小时+50元) （夜间22:00~7:00 报价需要加100元）"]) || "",
+      model,
+      seatCount: parseSeatCount(model),
+      dayCost: serviceType === "包车" ? base.costPrice : "",
+      airportTransferCost: serviceType === "接送机" ? base.costPrice : "",
+      stationTransferCost: serviceType === "接送站" ? base.costPrice : "",
+    };
+  }
+  if (category === "景点门票") {
+    return {
+      ...base,
+      scenicName: resource.name || rawFirst(raw, ["景点名称", "B列 / 景点名称"]),
+      attractionLevel: rawFirst(raw, ["类型", "C列 / 类型"]),
+      ticketType: rawFirst(raw, ["票种", "D列 / 票种"]) || resource.spec || "景区门票",
+      offAdult: cloudNumber(rawFirst(raw, ["淡季成人", "E列 / 淡季票价 / 成人票价（元）"])),
+      offDiscount: cloudNumber(rawFirst(raw, ["淡季儿童", "F列 / 淡季票价 / 优待票价(元)"])),
+      peakAdult: cloudNumber(rawFirst(raw, ["旺季成人", "G列 / 旺季票价 / 成人票价(元)"])),
+      peakDiscount: cloudNumber(rawFirst(raw, ["旺季儿童", "H列 / 旺季票价 / 优待票价（老人、小孩、军人等）(元)"])),
+      agencyAdult: cloudNumber(rawFirst(raw, ["旅行社成人", "I列 / 旅行社合作价 / 成人票价（元）"])),
+      agencyDiscount: cloudNumber(rawFirst(raw, ["旅行社儿童", "J列 / 旅行社合作价 / 优待票价(元)"])),
+      freePolicy: rawFirst(raw, ["免费政策", "K列 / 免费政策"]),
+      remark: rawFirst(raw, ["备注", "L列 / 备注"]),
+      guaranteePolicy: rawFirst(raw, ["保票政策", "M列 / 保票政策"]),
+      guaranteeContactName: rawFirst(raw, ["保票联系人", "保票联系人姓名", "N列 / 保票联系人姓名"]),
+      guaranteeContactPhone: rawFirst(raw, ["保票电话", "保票联系人电话", "O列 / 保票联系人电话"]),
+    };
+  }
+  if (category === "特色体验") {
+    return {
+      ...base,
+      experienceName: rawFirst(raw, ["体验名称", "B列 / 体验名称"]) || resource.name || "",
+      ticketType: rawFirst(raw, ["票种", "C列 / 票种"]) || resource.spec || "体验项目",
+      duration: rawFirst(raw, ["体验时间", "D列 / 体验时间"]),
+      introLink: rawFirst(raw, ["体验介绍信息", "E列 / 体验介绍信息 （图片附件或链接）"]),
+      adultSale: firstPresent(cloudNumber(rawFirst(raw, ["成人卖价", "F列 / 成人卖价（对客销售价）"])), base.salePrice),
+      childSale: cloudNumber(rawFirst(raw, ["儿童卖价", "G列 / 儿童卖价 （老幼等）"])),
+      officialPrice: cloudNumber(rawFirst(raw, ["官方成人价", "官网价格", "H列 / 官网价格"])),
+      officialChildPrice: cloudNumber(rawFirst(raw, ["官方儿童价", "I列 / 官网儿童价格 （老幼等）"])),
+      adultCost: firstPresent(cloudNumber(resource.adultCost ?? resource.adult_cost), base.costPrice),
+      childCost: cloudNumber(resource.childCost ?? resource.child_cost),
+      remark: rawFirst(raw, ["备注", "M列 / 备注"]),
+    };
+  }
+  if (category === "导游") {
+    return {
+      ...base,
+      language: normalizeGuideLanguage(rawFirst(raw, ["语种", "B列 / 语种"]) || resource.spec || resource.name),
+      lowSeasonSale: cloudNumber(rawFirst(raw, ["淡季卖价", "C列 / 淡季卖价 / 导游服务费（含餐补） （8小时）"])),
+      highSeasonSale: cloudNumber(rawFirst(raw, ["旺季卖价", "F列 / 旺季卖价（4-10月、节假日、暑假） / 导游服务费（含餐补） （8小时）"])),
+      needsTicket: rawFirst(raw, ["导游是否需要门票", "I列 / 导游是否需要门票"]),
+      lowSeasonCost: firstPresent(cloudNumber(resource.lowSeasonCost ?? resource.low_season_cost), cloudNumber(rawFirst(raw, ["淡季成本", "K列 / 淡季成本 / 导游服务费（含餐补） （8小时）"])), base.costPrice),
+      highSeasonCost: firstPresent(cloudNumber(resource.highSeasonCost ?? resource.high_season_cost), cloudNumber(rawFirst(raw, ["旺季成本", "N列 / 旺季成本 / 导游服务费（含餐补） （8小时）"]))),
+      fullDayCost: base.costPrice,
+    };
+  }
+  if (category === "酒店") {
+    return {
+      ...base,
+      hotelName: resource.name || rawFirst(raw, ["酒店名称", "酒店名", "B列 / 酒店名"]),
+      star: rawFirst(raw, ["星级", "C列 / 星级"]) || resource.spec || "",
+      roomType: rawFirst(raw, ["房型", "H列 / 房型"]) || resource.spec || "",
+      breakfast: rawFirst(raw, ["早餐", "是否含双早", "J列 / 是否含双早"]),
+      hasAgreement: rawFirst(raw, ["是否有协议", "是否有协议价", "F列 / 是否有协议价"]),
+      agreementFixed: rawFirst(raw, ["协议固定", "协议价是否固定还是随时单询", "G列 / 协议价是否固定还是随时单询"]),
+      locationAdvantage: rawFirst(raw, ["位置优势", "D列 / 酒店位置优势"]),
+      ctripLink: rawFirst(raw, ["携程链接", "E列 / 酒店携程链接"]),
+      agreementCost: base.costPrice,
+      remark: rawFirst(raw, ["备注", "其他备注", "K列 / 其他备注"]),
+    };
+  }
+  if (category === "餐厅") {
+    return {
+      ...base,
+      restaurant: resource.name || rawFirst(raw, ["饭店", "D列 / 饭店"]),
+      cuisine: rawFirst(raw, ["菜品", "B列 / 菜品"]),
+      halal: rawFirst(raw, ["是否清真", "C列 / 是否清真"]),
+      minSale: cloudNumber(rawFirst(raw, ["人均最低卖价", "E列 / 人均最低卖价"])),
+      phone: rawFirst(raw, ["电话", "F列 / 电话"]),
+      area: rawFirst(raw, ["地段", "G列 / 地段"]),
+      suggestedSale: firstPresent(cloudNumber(rawFirst(raw, ["建议卖价", "I列 / 建议卖价", "K列 / 建议卖价"])), base.salePrice),
+      minCost: firstPresent(cloudNumber(rawFirst(raw, ["人均最低成本", "J列 / 人均最低成本"])), base.costPrice),
+      remark: rawFirst(raw, ["加价或备注", "L列 / L列", "备注"]),
+    };
+  }
+  return base;
 }
 
 async function loadRuntimeData() {
@@ -45434,7 +45635,7 @@ function runtimeVehicleToProduct(item) {
     route: item.route || "市区",
     model,
     seatCount,
-    costPrice: valueOrEmpty(item.full_day_price || item.cost_price || item.costPrice),
+    costPrice: valueOrEmpty(firstPresent(item.full_day_price, item.cost_price, item.costPrice)),
     lowSeasonCost: valueOrEmpty(item.full_day_price),
     highSeasonCost: valueOrEmpty(item.full_day_price),
     dayCost: valueOrEmpty(item.full_day_price),
@@ -45543,6 +45744,7 @@ function vehicleQuoteVariants(item, index) {
     supplierName: item.supplierName || IMPORTED_PENDING_SUPPLIER,
     sourceCategory: "用车",
     sourceProductId: item.id || item.runtimeId || `VEH-${index + 1}`,
+    sourceResourceId: item.cloudResourceId || item.id || item.runtimeId || "",
     tags: [item.vehicleType, item.serviceType, item.route, item.model, model, seatCount ? `${seatCount}座` : "", rawText],
     matchKeys: [item.city, item.vehicleType, item.serviceType, item.route, item.model, model, rawText],
     model,
@@ -45596,7 +45798,8 @@ function generateQuoteResources() {
       childPrice: valueOrEmpty(childCost),
       isFree,
       supplierName: item.supplierName || IMPORTED_PENDING_SUPPLIER,
-      sourceProductId: `TICKET-${index + 1}`,
+      sourceProductId: item.cloudResourceId || item.id || `TICKET-${index + 1}`,
+      sourceResourceId: item.cloudResourceId || item.id || "",
       sourceCategory: "景点门票",
       status: adultCost === "" && !isFree ? "待补成本" : "可用",
       tags: [item.scenicName, item.ticketType, item.type, item.freePolicy, item.remark, ...(ticketAliases(item.scenicName) || [])],
@@ -45619,7 +45822,8 @@ function generateQuoteResources() {
       childCost: valueOrEmpty(item.childCost),
       childPrice: valueOrEmpty(item.childSale),
       supplierName: item.supplierName || IMPORTED_PENDING_SUPPLIER,
-      sourceProductId: `EXP-${index + 1}`,
+      sourceProductId: item.cloudResourceId || item.id || `EXP-${index + 1}`,
+      sourceResourceId: item.cloudResourceId || item.id || "",
       sourceCategory: "特色体验",
       status: item.adultCost === "" || item.adultCost == null ? "待补成本" : "可用",
       tags: [item.experienceName, item.ticketType, item.duration, item.remark],
@@ -45643,7 +45847,8 @@ function generateQuoteResources() {
       cost: valueOrEmpty(cost),
       salePrice: valueOrEmpty(sale),
       supplierName: item.supplierName || IMPORTED_PENDING_SUPPLIER,
-      sourceProductId: `GUIDE-${index + 1}`,
+      sourceProductId: item.cloudResourceId || item.id || `GUIDE-${index + 1}`,
+      sourceResourceId: item.cloudResourceId || item.id || "",
       sourceCategory: "导游",
       status: cost === "" ? "待补成本" : "可用",
       tags: [normalizeGuideLanguage(item.language), item.needsTicket],
@@ -45665,7 +45870,8 @@ function generateQuoteResources() {
       cost: valueOrEmpty(hotelCost),
       salePrice: valueOrEmpty(item.salePrice),
       supplierName: item.supplierName || IMPORTED_PENDING_SUPPLIER,
-      sourceProductId: `HOTEL-${index + 1}`,
+      sourceProductId: item.cloudResourceId || item.id || `HOTEL-${index + 1}`,
+      sourceResourceId: item.cloudResourceId || item.id || "",
       sourceCategory: "酒店",
       status: hotelCost === "" || hotelCost == null ? "待补成本" : "可用",
       tags: [item.hotelName, item.star, item.roomType, item.breakfast, item.hasAgreement, item.agreementFixed],
@@ -45689,7 +45895,8 @@ function generateQuoteResources() {
       cost: valueOrEmpty(item.costPrice),
       salePrice: valueOrEmpty(firstPresent(item.suggestedSale, item.minSale)),
       supplierName: item.supplierName || IMPORTED_PENDING_SUPPLIER,
-      sourceProductId: `MEAL-${index + 1}`,
+      sourceProductId: item.cloudResourceId || item.id || `MEAL-${index + 1}`,
+      sourceResourceId: item.cloudResourceId || item.id || "",
       sourceCategory: "餐",
       status: item.costPrice === "" || item.costPrice == null ? "待补成本" : "可用",
       tags: [item.cuisine, item.halal, item.restaurant, item.area],
@@ -45961,11 +46168,13 @@ function sourceFromResource(resource, sourceType = "产品库") {
   const supplier = resource.supplierName || supplierById(resource.supplierId)?.name || IMPORTED_PENDING_SUPPLIER;
   const resolvedType = resource.costSource || sourceType;
   const expiry = resource.validTo && daysUntil(resource.validTo) < 0 ? " / 价格已过期" : resource.validTo && daysUntil(resource.validTo) <= 30 ? " / 即将过期" : "";
+  const sourceResourceId = resource.sourceResourceId || resource.cloudResourceId || resource.raw?.cloudResourceId || resource.id || "";
+  const sourceProductId = resource.sourceProductId || resource.cloudResourceId || resource.raw?.cloudResourceId || resource.id || "";
   return {
     source: `${resolvedType} / ${supplier} / ${resource.name}${expiry}`,
     sourceType: resolvedType,
-    sourceResourceId: resource.id,
-    sourceProductId: resource.sourceProductId,
+    sourceResourceId,
+    sourceProductId,
     sourceName: resource.name,
     supplierId: resource.supplierId || "",
     supplierName: supplier,
@@ -46482,7 +46691,7 @@ function productColumnFilterHit(category, item) {
 
 function productColumnKeyMap(category) {
   if (category === "景点门票" || category === "门票") {
-    return { 城市: "city", 景点名称: "scenicName", 类型: "type", 票种: "ticketType", 免费政策: "freePolicy", 备注: "remark" };
+    return { 城市: "city", 景点名称: "scenicName", 类型: "attractionLevel", 票种: "ticketType", 免费政策: "freePolicy", 保票政策: "guaranteePolicy", 备注: "remark" };
   }
   if (category === "特色体验") {
     return { 城市: "city", 体验名称: "experienceName", 票种: "ticketType", 体验时间: "duration", 体验介绍信息: "intro", 备注: "remark" };
@@ -46566,7 +46775,7 @@ function productCostValue(item, category) {
   if (category === "酒店") return firstPresent(item.costPrice, item.nightly_price, item.protocolCost, item.agreementCost);
   if (category === "导游") return firstPresent(item.fullDayCost, item.full_day_price, item.lowSeasonCost, item.highSeasonCost, item.halfDayCost);
   if (category === "用车") return firstPresent(item.costPrice, item.full_day_price, item.dayCost, item.airportTransferCost, item.airport_transfer_price);
-  if (category === "门票" || category === "景点门票") return firstPresent(item.agencyAdult, item.adult_price, item.offAdult, item.peakAdult);
+  if (category === "门票" || category === "景点门票") return firstPresent(item.costPrice, item.agencyAdult, item.adult_price, item.peakAdult, item.offAdult);
   if (category === "特色体验") return firstPresent(item.adultCost, item.costPrice);
   if (category === "餐厅" || category === "餐") return firstPresent(item.costPrice, item.minCost);
   if (category === "大交通") return firstPresent(item.adultCost, item.cost);
@@ -46637,6 +46846,7 @@ function renderCatalogExtraFilters(category) {
 }
 
 function renderProductCategoryTable(category, items) {
+  if (category === "景点门票" || category === "门票") return renderTicketProductCategoryTable(category, items);
   const headers = [
     "资源名称", "品类", "城市", "服务类型", "规格", "成本价", "参考售价", "淡季成本", "旺季成本", "供应商", "状态", "来源", "备注", "操作",
   ];
@@ -46669,6 +46879,44 @@ function renderProductCategoryTable(category, items) {
   });
   const empty = `<tr><td colspan="${headers.length}">当前筛选条件下暂无数据。</td></tr>`;
   return `${renderProductPager(items.length, start, visibleItems.length, totalPages)}${tableWrap(headers, rows, empty, "wide-product-table")}${renderProductPager(items.length, start, visibleItems.length, totalPages)}`;
+}
+
+function renderTicketProductCategoryTable(category, items) {
+  const headers = [
+    "景点名称", "城市", "类型", "票种", "成本价", "参考售价", "淡季成人", "旺季成人", "旅行社成人", "免费政策", "保票政策", "供应商", "状态", "来源", "操作",
+  ];
+  const pageSize = state.productPageSize || 100;
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  state.productPage = Math.min(Math.max(1, state.productPage || 1), totalPages);
+  const start = (state.productPage - 1) * pageSize;
+  const visibleItems = items.slice(start, start + pageSize);
+  const rows = visibleItems.map((item, index) => {
+    const token = productEditToken(category, item, index);
+    const source = [item.source || "产品库", item.sourceSheet, item.sourceRow ? `第${item.sourceRow}行` : ""].filter(Boolean).join(" / ");
+    return [
+      `<strong>${escapeHtml(item.scenicName || item.name || "未命名景点")}</strong>${productExtraBadges(item, category)}`,
+      editableProductCell(token, "city", item.city || ""),
+      escapeHtml(item.attractionLevel || item.type || ""),
+      editableProductCell(token, "spec", item.ticketType || "景区门票"),
+      editableProductCell(token, "cost", productCostValue(item, category), "number"),
+      editableProductCell(token, "sale", productSaleValue(item, category), "number"),
+      priceOrPending(item.offAdult),
+      priceOrPending(item.peakAdult),
+      priceOrPending(item.agencyAdult),
+      escapeHtml(item.freePolicy || "-"),
+      escapeHtml(item.guaranteePolicy || "-"),
+      editableProductCell(token, "supplier", productSupplierName(item)),
+      editableProductStatusCell(token, productStatus(item, category)),
+      escapeHtml(source),
+      productRowActions(category, item, productCatalogItems(category).findIndex((candidate) => candidate === item || productDedupeKey(candidate, category) === productDedupeKey(item, category))),
+    ];
+  });
+  const empty = `<tr><td colspan="${headers.length}">当前筛选条件下暂无景点门票数据。</td></tr>`;
+  return `${renderProductPager(items.length, start, visibleItems.length, totalPages)}${tableWrap(headers, rows, empty, "wide-product-table ticket-product-table")}${renderProductPager(items.length, start, visibleItems.length, totalPages)}`;
+}
+
+function priceOrPending(value) {
+  return value === "" || value == null ? "待补" : money(value);
 }
 
 function renderProductPager(total, start, count, totalPages) {
@@ -46720,7 +46968,7 @@ function productExtraBadges(item, category) {
   if (category === "酒店") tags.push(item.star || normalizeHotelStar(item.star_rating), item.roomType || item.room_type, item.breakfast || (item.breakfast_included ? "含早" : ""));
   if (category === "导游") tags.push(item.language || (Array.isArray(item.languages) ? item.languages.join("/") : item.languages), item.guide_type || item.guideType);
   if (category === "用车") tags.push(item.vehicleType || item.vehicle_type, item.model || (item.seat_count ? `${item.seat_count}座` : ""));
-  if (category === "门票") tags.push(item.ticketType || item.category, item.requires_reservation ? "需预约" : "");
+  if (category === "门票" || category === "景点门票") tags.push(item.attractionLevel || item.type, item.ticketType || item.category, item.requires_reservation ? "需预约" : "");
   return tags.filter(Boolean).slice(0, 3).map((tag) => `<span class="small-badge">${escapeHtml(tag)}</span>`).join("");
 }
 
@@ -47630,6 +47878,17 @@ function loadLocalProductState() {
   const saved = safeJsonParse(localStorage.getItem("youyixing_product_state"), null);
   if (!saved) return;
   state.customProductFields = Array.isArray(saved.customProductFields) ? saved.customProductFields : [];
+  if (state.cloudProductCatalog?.loaded) {
+    state.productCatalogLocalState = {
+      loaded: true,
+      ignoredBecauseCloudCatalog: true,
+      cloudBaseLoaded: true,
+      systemBaseLoaded: Boolean(state.systemProductCatalog?.loaded),
+      mergedKeys: [],
+      emptyKeysKeptFromDefault: [],
+    };
+    return;
+  }
   const savedCatalog = saved.productCatalog || {};
   const hasSavedProducts = productCatalogHasCallableItems(savedCatalog);
   state.productCatalogLocalState = {
@@ -47652,9 +47911,9 @@ function loadLocalProductState() {
 }
 
 function saveLocalProductState() {
-  localStorage.setItem("youyixing_product_state", JSON.stringify({
-    customProductFields: state.customProductFields,
-    productCatalog: {
+  const catalog = state.cloudProductCatalog?.loaded
+    ? {}
+    : {
       routes: state.productCatalog.routes,
       vehicles: state.productCatalog.vehicles,
       experiences: state.productCatalog.experiences,
@@ -47664,7 +47923,11 @@ function saveLocalProductState() {
       meals: state.productCatalog.meals,
       transports: state.productCatalog.transports || [],
       others: state.productCatalog.others || [],
-    },
+    };
+  localStorage.setItem("youyixing_product_state", JSON.stringify({
+    customProductFields: state.customProductFields,
+    cloudCatalogActive: Boolean(state.cloudProductCatalog?.loaded),
+    productCatalog: catalog,
   }));
 }
 
@@ -55747,9 +56010,9 @@ function ticketCandidates(city) {
     (item.tags || []).forEach((tag) => rows.push({ name: item.name, alias: tag }));
   });
   state.productCatalog.tickets.filter((item) => !city || item.city === city).forEach((item) => {
-    rows.push({ name: shortTicketName(item.scenicName), alias: item.scenicName });
-    rows.push({ name: shortTicketName(item.scenicName), alias: shortTicketName(item.scenicName) });
-    ticketAliases(item.scenicName).forEach((alias) => rows.push({ name: shortTicketName(item.scenicName), alias }));
+    rows.push({ name: item.scenicName, alias: item.scenicName });
+    rows.push({ name: item.scenicName, alias: shortTicketName(item.scenicName) });
+    ticketAliases(item.scenicName).forEach((alias) => rows.push({ name: item.scenicName, alias }));
   });
   return rows.filter((item) => normalizeTicketText(item.alias).length >= 2);
 }
@@ -55768,7 +56031,20 @@ function detectTickets(text, city) {
     .sort((a, b) => normalizedText.indexOf(normalizeTicketText(a.alias)) - normalizedText.indexOf(normalizeTicketText(b.alias)))
     .map((candidate) => candidate.name);
   const inferred = inferTicketNamesFromText(text, city).filter((name) => !hits.some((hit) => sameTicketName(hit, name)));
-  return unique([...hits, ...inferred]);
+  return dedupeTicketNames([...hits, ...inferred]);
+}
+
+function dedupeTicketNames(names = []) {
+  const result = [];
+  names.filter(Boolean).forEach((name) => {
+    const index = result.findIndex((existing) => sameTicketName(existing, name));
+    if (index >= 0) {
+      if (normalizeTicketText(name).length > normalizeTicketText(result[index]).length) result[index] = name;
+      return;
+    }
+    result.push(name);
+  });
+  return result;
 }
 
 function inferTicketNamesFromText(text, city) {

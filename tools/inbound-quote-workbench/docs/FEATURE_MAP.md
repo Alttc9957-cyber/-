@@ -87,7 +87,7 @@
 
 功能名称：产品资源库导入与清洗
 
-功能描述：管理产品资源，支持按品类查看、筛选、分页、导入 Excel/CSV/JSON、字段映射、友易行产品库模板解析、去重、导出和重置系统产品库。本轮已新增 Supabase 云端产品库底座和服务端查询出口，前端页面尚未完全切换。
+功能描述：管理产品资源，支持按品类查看、筛选、分页、导入 Excel/CSV/JSON、字段映射、友易行产品库模板解析、去重、导出和重置系统产品库。当前系统产品库加载后会优先读取 Supabase 已发布批次，用云端产品资源覆盖静态底库中的用车、门票、导游、酒店、餐厅和特色体验。
 
 涉及页面：产品资源库。
 
@@ -99,7 +99,7 @@
 
 当前状态：待确认
 
-风险说明：真实 Excel 构建和 Supabase 发布已通过脚本验收，但产品库页面还未完全改为读取云端 API；本地覆盖层与云端底库的边界需要下一轮继续收口。
+风险说明：前端已验证读取云端批次，产品页景点门票专用字段已恢复；餐厅源表缺成本仍保留为待补成本。供应商服务明细尚未入云端。
 
 是否为核心交付功能：是
 
@@ -109,7 +109,7 @@
 
 功能名称：产品资源匹配与报价成本回填
 
-功能描述：从产品库和供应商服务明细生成可报价资源，按城市、服务类型、车型、路线、语种、星级、票种等条件匹配报价行，填入成本、来源和匹配状态。
+功能描述：从产品库和供应商服务明细生成可报价资源，按城市、服务类型、车型、路线、语种、星级、票种等条件匹配报价行，填入成本、来源和匹配状态。云端产品库加载后，报价资源池由云端产品资源生成，报价行保留云端 `sourceProductId`、`sourceResourceId`。
 
 涉及页面：报价项目详情，报价项目区。
 
@@ -119,9 +119,9 @@
 
 涉及数据字段：`state.quoteResources`、`sourceType`、`sourceProductId`、`sourceResourceId`、`supplierName`、`serviceDetailId`、`costSource`、`matchStatus`、`matchReason`、`missingCost`
 
-当前状态：有 bug
+当前状态：待确认
 
-风险说明：云端 API 已能命中重庆接机 7 座成本 250；报价主流程尚未完全切到云端匹配，需要下一轮做前端调用替换和客户案例验收。
+风险说明：北京和重庆浏览器验收已通过产品库成本回填；多个候选时仍按当前规则标记 `need_confirm`。供应商服务明细云端化仍需下一阶段复测。
 
 是否为核心交付功能：是
 
@@ -225,13 +225,13 @@
 
 涉及组件：`loadSystemProductCatalog`、`loadRuntimeData`、`loadLocalProductState`、`saveLocalProductState`、`loadProjectState`、`saveProjectState`
 
-涉及接口：静态 JSON 文件、浏览器 `localStorage`
+涉及接口：静态 JSON 文件、浏览器 `localStorage`、云端产品库 API
 
 涉及数据字段：`youyixing_product_state`、`youyixing_supplier_state`、`youyixing_project_state`、`youyixing_quote_versions`、`youyixing_order_state`
 
-当前状态：有 bug
+当前状态：待确认
 
-风险说明：历史上系统底库可能覆盖本地导入；必须确认刷新页面后本地产品库仍存在。
+风险说明：云端产品库启用时，本地旧产品库覆盖层会被忽略，避免坏缓存污染报价；若后续恢复本地导入覆盖层，需要重新定义本地层与云端层的合并规则。
 
 是否为核心交付功能：是
 

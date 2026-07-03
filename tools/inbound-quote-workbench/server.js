@@ -711,10 +711,10 @@ async function handleProductResources(req, res) {
   try {
     const url = new URL(req.url, `http://${host}:${port}`);
     const params = {
-      select: "id,category,city,name,service_type,route,model,spec,supplier_name,cost_price,sale_price,low_season_cost,high_season_cost,adult_cost,child_cost,pricing_unit,status,source_sheet,source_row,quality_flags,published_version",
+      select: "id,category,city,name,service_type,route,model,spec,supplier_name,cost_price,sale_price,low_season_cost,high_season_cost,adult_cost,child_cost,pricing_unit,status,source,source_sheet,source_row,raw_fields,extra_fields,quality_flags,published_version",
       is_published: "eq.true",
       order: "category.asc,city.asc,name.asc",
-      limit: String(Math.min(Number(url.searchParams.get("limit") || 100), 500)),
+      limit: String(Math.min(Number(url.searchParams.get("limit") || 100), 5000)),
     };
     const exactFilters = {
       category: "category",
@@ -743,7 +743,7 @@ async function handleProductResourceMatch(req, res) {
     const category = body.category || body.sourceCategory || "";
     const city = body.city || "";
     const params = {
-      select: "id,category,city,name,service_type,route,model,spec,supplier_name,cost_price,sale_price,pricing_unit,status,source_sheet,source_row,quality_flags,published_version",
+      select: "id,category,city,name,service_type,route,model,spec,supplier_name,cost_price,sale_price,low_season_cost,high_season_cost,adult_cost,child_cost,pricing_unit,status,source,source_sheet,source_row,raw_fields,extra_fields,quality_flags,published_version",
       is_published: "eq.true",
       limit: "300",
     };
@@ -814,6 +814,8 @@ function normalizeProductResourceApiFields(resource = {}) {
     pricingUnit: resource.pricing_unit ?? resource.pricingUnit ?? "",
     sourceSheet: resource.source_sheet ?? resource.sourceSheet ?? "",
     sourceRow: resource.source_row ?? resource.sourceRow ?? null,
+    rawFields: resource.raw_fields ?? resource.rawFields ?? {},
+    extraFields: resource.extra_fields ?? resource.extraFields ?? {},
     qualityFlags: resource.quality_flags ?? resource.qualityFlags ?? [],
     publishedVersion: resource.published_version ?? resource.publishedVersion ?? "",
   };

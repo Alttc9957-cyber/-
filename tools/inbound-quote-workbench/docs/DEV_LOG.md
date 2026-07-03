@@ -286,3 +286,72 @@
 
 - 用真实《产品库汇总.xlsx》重新导入后，手工关联供应商服务明细并验证报价行选择。
 - 继续单独修复客户方案图片和 PDF 下载问题。
+
+---
+
+日期：2026-07-03
+
+修改目标：把产品资源库页面和报价匹配切到 Supabase 云端产品库已发布批次，并修复景点门票字段显示和门票重复识别。
+
+修改原因：云端产品库底座已建立，但前端仍存在读取本地产品库 / 旧缓存的风险，导致产品页看不到完整云端字段，报价明细可能继续使用旧数据或临时来源编号。
+
+关联 bug：
+
+- BUG-20260703-005
+- BUG-20260703-006
+
+关联功能：
+
+- F-004 产品资源库导入与清洗
+- F-005 产品资源匹配与报价成本回填
+- F-010 本地数据加载与持久化
+
+涉及文件：
+
+- `app.js`
+- `server.js`
+- `docs/CHANGELOG.md`
+- `docs/BUG_LOG.md`
+- `docs/FEATURE_MAP.md`
+- `docs/QA_CHECKLIST.md`
+- `docs/RELEASE_NOTES.md`
+- `docs/acceptance-cloud-product-ui-match-20260703.md`
+
+具体改动：
+
+- `loadSystemProductCatalog()` 在加载静态底库后读取 Supabase 最新发布批次。
+- 产品页和报价资源池使用 `/api/product-resources` 的云端产品资源覆盖用车、门票、导游、酒店、餐厅和特色体验。
+- 云端启用时忽略旧 `youyixing_product_state` 产品覆盖层，避免坏缓存覆盖云端底库。
+- 云端资源转前端产品时保留 `rawFields`、`extraFields`、来源 Sheet / 行号和云端资源 UUID。
+- 景点门票列表改为专用字段表头，不再把门票字段压进通用“服务类型 / 规格”。
+- 价格解析只接受真实数字，空值继续为空，不自动转 0。
+- 报价资源和报价行补齐 `sourceProductId`、`sourceResourceId`、`supplierName`、`matchStatus`、`matchReason`。
+- 门票识别按别名组去重，避免“故宫博物院 / 故宫”等重复生成报价项。
+
+验证结果：
+
+- `node --check app.js` 通过。
+- `node --check server.js` 通过。
+- `node --check scripts/import-product-catalog-to-supabase.js` 通过。
+- `python3 -m py_compile scripts/build-system-product-catalog.py` 通过。
+- `node --test tests/product-catalog-import.test.js` 5 项通过。
+- `node --test tests/quotable-resource-core.test.js` 6 项通过。
+- `GET /api/product-imports/latest/report` 返回 `status=published`、`qualityReport.pass=true`。
+- `GET /api/product-resources` 统计：用车 940、门票 145、特色体验 77、导游 48、酒店 153、餐厅 151。
+- 重庆接机 / 送机 7 座成本 250，重庆武隆包车 14 座成本 1500，重庆市内一日游 7 座成本 700。
+- 北京大兴接机成本 260，北京市内用车成本 700，英文导游成本 860，故宫博物院门票成人 60 / 儿童 30，酒店返回北京同星级候选。
+- 餐厅成本为空时显示待补成本，不显示 0。
+- 浏览器控制台无 error。
+- 产品库景点门票页截图：`/Users/alic/Downloads/youyixing-product-ticket-fields-20260703.png`。
+
+是否影响旧功能：影响产品资源库加载、报价匹配数据来源和门票识别去重；不重写报价主流程，不新增业务模块。
+
+回退方式：
+
+- 回退本次提交：`git revert <本次提交哈希>`。
+- 临时停用云端产品库：删除本机 `.env.supabase.local` 或让 `/api/product-resources` 不可用，前端会保留静态系统产品库 fallback。
+
+下一步建议：
+
+- 第三阶段把供应商服务明细入云端，并验证同城市、同服务类型、同车型 / 票种 / 房型的供应商成本覆盖规则。
+- 单独修复客户方案图片和 PDF 下载问题。

@@ -44,6 +44,9 @@
 - [ ] 执行 `node --check scripts/import-product-catalog-to-supabase.js`。
 - [ ] 执行 `node scripts/import-product-catalog-to-supabase.js` 时，质量门禁通过后才发布新批次。
 - [ ] `GET /api/product-imports/latest/report` 返回 `status=published`、`qualityReport.pass=true`。
+- [ ] 前端 `state.cloudProductCatalog.loaded=true`，产品页读取云端产品数量。
+- [ ] 产品页景点门票表头显示景点名称、类型、票种、淡季成人、旺季成人、旅行社成人、免费政策、保票政策。
+- [ ] 旧 `youyixing_product_state` 坏缓存不会覆盖云端产品库。
 - [ ] `GET /api/product-resources?category=用车&city=重庆&serviceType=接送机&model=7座` 返回成本 250、卖价 450。
 - [ ] `POST /api/product-resources/match` 对重庆接机 7 座返回 `matchStatus=matched`、`costPrice=250`。
 - [ ] publishable key 不能直接读取 `product_resources` 业务数据，浏览器必须走服务端 API。
@@ -58,6 +61,7 @@
 - [ ] 北京市内用车命中产品库成本。
 - [ ] 英文导游命中导游报价。
 - [ ] 故宫门票命中门票报价。
+- [ ] 同一景点别名不重复生成门票项，例如“故宫博物院 / 故宫”只保留一条。
 - [ ] 酒店按城市和星级返回候选。
 - [ ] 餐厅无成本时显示待补成本，不显示 0。
 
