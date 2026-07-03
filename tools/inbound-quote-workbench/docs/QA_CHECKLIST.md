@@ -19,9 +19,25 @@
 
 - [ ] 执行 `node --check app.js`。
 - [ ] 执行 `node --check server.js`。
+- [ ] 执行 `for f in $(find public/js -type f | sort); do node --check "$f" || exit 1; done`。
+- [ ] 执行 `node --test tests/*.test.js`。
 - [ ] 启动服务：`node server.js`。
 - [ ] 打开 `http://127.0.0.1:8787/` 或当前服务端口。
 - [ ] 确认首页、报价项目、产品资源库、供应商管理、系统设置能切换。
+
+## Domain / Agent 骨架专项
+
+- [ ] `normalizeProductRemarks(product)` 保留 `rawFields`，并输出 `rawRemark`。
+- [ ] 保票、保房、保证类备注归为 `guarantee_policy`。
+- [ ] 内部备注不进入 `customerVisibleRemarks`。
+- [ ] `buildQuoteCandidates` 无候选时输出 `NO_PRODUCT_CANDIDATE`。
+- [ ] 候选缺成本时输出 `MISSING_COST`，不把空成本显示为正常 0。
+- [ ] 过期价格输出 `PRICE_EXPIRED`。
+- [ ] `buildQuoteLineFromCandidate` 能写入来源、供应商、成本来源和匹配状态。
+- [ ] `buildQuoteVersion` 能统计总成本、总售价、毛利和缺成本数。
+- [ ] Agent L3 工具调用返回 `approval_required`。
+- [ ] Agent context 缺 `userId`、`role` 或 `tenantId` 时拒绝执行。
+- [ ] `createDomainEvent` 缺 `tenantId` 或 `actorId` 时拒绝创建事件。
 
 ## 产品库导入专项
 
@@ -123,4 +139,5 @@
 - [ ] 若修 bug，已更新 `docs/BUG_LOG.md`。
 - [ ] 若改变功能，已更新 `docs/CHANGELOG.md`。
 - [ ] 若要交付版本，已更新 `docs/RELEASE_NOTES.md`。
+- [ ] 若新增架构/领域模块，已更新 `docs/FEATURE_MAP.md` 和相关契约文档。
 - [ ] 已记录回退方式。

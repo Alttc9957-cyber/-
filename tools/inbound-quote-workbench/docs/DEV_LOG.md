@@ -92,6 +92,83 @@
 
 日期：2026-07-03
 
+修改目标：按调研文档建立友易行 P0/P1 可审查改造边界，新增报价 domain、产品备注结构化、Agent Gateway、领域事件和对应测试，不替换现有报价主流程。
+
+修改原因：当前 `app.js` 仍承担大部分业务逻辑，产品库、报价匹配、供应商成本、AI 建议之间缺少稳定契约；继续直接在主流程里改会让问题更难追踪。本轮先把可测试的纯函数边界和文档契约立起来。
+
+关联 bug：
+
+- BUG-20260702-001
+- BUG-20260703-007
+
+关联功能：
+
+- F-004 产品资源库导入与清洗
+- F-005 产品资源匹配与报价成本回填
+- F-006 报价明细、汇总与缺成本检查
+- F-008 小易 AI 助手
+- F-017 报价 domain 纯函数层
+- F-018 Agent Gateway 权限与日志骨架
+- F-019 领域事件模型
+
+涉及文件：
+
+- `index.html`
+- `public/js/domain/quote/*`
+- `public/js/domain/product/*`
+- `public/js/domain/events/domain-events.js`
+- `public/js/agent/*`
+- `public/js/adapters/quote-engine-adapter.js`
+- `tests/remark-atoms.test.js`
+- `tests/quote-candidate-builder.test.js`
+- `tests/quote-line-version-builder.test.js`
+- `tests/agent-gateway.test.js`
+- `tests/domain-events.test.js`
+- `docs/ARCHITECTURE_CURRENT.md`
+- `docs/REFACTOR_PLAN_P0_P1.md`
+- `docs/QUOTE_ENGINE_CONTRACT.md`
+- `docs/DATABASE_TARGET_SCHEMA_P1.md`
+- `docs/BOSS_DASHBOARD_EVENT_MODEL.md`
+- `docs/DEV_LOG.md`
+- `docs/CHANGELOG.md`
+- `docs/BUG_LOG.md`
+- `docs/FEATURE_MAP.md`
+- `docs/QA_CHECKLIST.md`
+- `docs/RELEASE_NOTES.md`
+
+具体改动：
+
+- 新增 quote domain 纯函数：需求归一化、候选生成、报价行生成、报价版本汇总和警告结构。
+- 新增产品备注拆分：`normalizeProductRemarks(product)` 返回 `cleanProduct` 和 `remarkAtoms`，保留 `rawFields` 与 `rawRemark`。
+- 新增 Agent 工具注册、权限判断、执行网关和日志骨架；L3 操作固定返回 `approval_required`。
+- 新增领域事件创建函数，要求事件上下文必须包含 `tenantId` 和 `actorId`。
+- 新增 quote-engine adapter，只提供旧流程兼容入口，不替换 `buildQuote`。
+- 新增 5 个 Node 单测，覆盖本轮新模块。
+- 补齐架构、报价契约、P0/P1 计划、数据库目标模型和老板看板事件模型文档。
+
+验证结果：
+
+- `node --check app.js` 通过。
+- `node --check server.js` 通过。
+- `find public/js -type f | xargs node --check` 等价检查通过。
+- `node --test tests/*.test.js` 26 项通过。
+
+是否影响旧功能：低。本轮只在 `index.html` 增加脚本引入，未修改 `app.js` 报价主流程和 `server.js` API。
+
+回退方式：
+
+- 回退本次提交：`git revert <本次提交哈希>`。
+- 如只需临时停用新增模块，可移除 `index.html` 中 `public/js/**` 的新增脚本引入。
+
+下一步建议：
+
+- 先给 `buildQuote` 增加只读诊断日志，记录每个需求项的候选数量、最终来源和缺成本原因。
+- 再选门票或导游作为低风险品类，逐步接入 `buildQuoteCandidates`，旧逻辑保留 fallback。
+
+---
+
+日期：2026-07-03
+
 修改目标：按 B 方案建立 Supabase 云端产品库数据底座，先把真实产品库导入云端并开放服务端查询 API。
 
 修改原因：静态浏览器 + localStorage 容易让旧产品库覆盖新产品库，且前端导 Excel 无法形成稳定数据审查和发布流程；产品库需要变成可追溯、可发布、可查询的数据库。

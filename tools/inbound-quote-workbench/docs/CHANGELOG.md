@@ -6,6 +6,17 @@
 
 ### Added
 
+- 新增当前架构审计文档：`docs/ARCHITECTURE_CURRENT.md`。
+- 新增 P0/P1 渐进改造计划：`docs/REFACTOR_PLAN_P0_P1.md`。
+- 新增报价引擎契约文档：`docs/QUOTE_ENGINE_CONTRACT.md`。
+- 新增 P1 目标数据库模型文档：`docs/DATABASE_TARGET_SCHEMA_P1.md`。
+- 新增老板看板事件模型文档：`docs/BOSS_DASHBOARD_EVENT_MODEL.md`。
+- 新增报价 domain 纯函数模块：`public/js/domain/quote/**`。
+- 新增产品备注结构化模块：`public/js/domain/product/**`。
+- 新增 Agent 工具注册、权限、执行网关和日志骨架：`public/js/agent/**`。
+- 新增领域事件创建模块：`public/js/domain/events/domain-events.js`。
+- 新增旧报价流程兼容 adapter：`public/js/adapters/quote-engine-adapter.js`。
+- 新增 5 个 Node 单测，覆盖备注拆分、候选生成、报价行/版本、Agent 网关和领域事件。
 - 新增 V1.4 可报价资源 core：`quotable-resource-core.js`。
 - 新增浏览器内查询服务：`window.YouyixingServices.queryQuotableResources(params)`。
 - 新增产品资源与供应商服务明细关联层：`productResources`、`resourceSupplierLinks`、`quotableResources`。
@@ -30,6 +41,7 @@
 
 ### Changed
 
+- `index.html` 新增 `public/js/**` 脚本加载，顺序位于 `quotable-resource-core.js` 之后、`app.js` 之前，保留旧业务主流程。
 - 产品资源库页面在系统产品库加载后优先读取 Supabase 已发布批次，云端数据覆盖静态底库中的用车、门票、导游、酒店、餐厅和特色体验。
 - 报价匹配资源池由云端产品库生成，报价行保留云端 `sourceProductId`、`sourceResourceId`、供应商、匹配状态和诊断字段。
 - 景点门票列表改为专用表头，展示景点名称、类型、票种、淡季成人、旺季成人、旅行社成人、免费政策和保票政策。
@@ -45,6 +57,7 @@
 
 ### Fixed
 
+- 修复新增备注拆分模块中“保票/保证”同时包含“确认”时被误归为预约政策的问题，保票政策优先归为 `guarantee_policy`。
 - 修复产品库页面仍读取本地旧产品库、导致云端底库没有进入产品页和报价匹配的问题。
 - 修复景点门票字段被通用“服务类型 / 规格”压扁，淡旺季票价、免费政策和保票政策只能藏在原始字段里的问题。
 - 修复云端数字解析中非数字值可能进入价格字段、以及真实 0 可能被 `||` 回退吞掉的风险。
@@ -62,6 +75,8 @@
 
 ### Known Risks
 
+- 新增 quote domain 当前只通过 adapter 与旧流程兼容，尚未接管 `app.js` 的报价生成主路径。
+- Agent Gateway 只是权限与日志骨架，尚未接入真实模型工具执行。
 - 餐厅 Sheet 的人均最低成本列在当前 Excel 中为空，151 条餐厅全部保留为待补成本。
 - 供应商成本回填仍需要用真实供应商明细继续完整复测。
 - 图片导出和 PDF 下载仍需要复测。

@@ -366,3 +366,69 @@
 风险说明：当前仍是浏览器本地状态，不是真实数据库；自动报价匹配保留旧主流程，本轮新增的是稳定查询出口和人工选择快照。需要用真实产品库和真实供应商明细继续验收。
 
 是否为核心交付功能：是
+
+### F-017
+
+功能编号：F-017
+
+功能名称：报价 domain 纯函数层
+
+功能描述：新增独立报价域模块，用纯函数处理需求项归一化、产品候选生成、报价行构建、报价版本汇总和警告生成。当前作为测试边界和兼容 adapter，不直接替换 `app.js` 旧报价主流程。
+
+涉及页面：当前无独立页面；后续用于报价项目详情。
+
+涉及组件：`public/js/domain/quote/quote-types.js`、`quote-requirement-normalizer.js`、`quote-candidate-builder.js`、`quote-line-builder.js`、`quote-version-builder.js`、`quote-warnings.js`、`index.js`、`public/js/adapters/quote-engine-adapter.js`
+
+涉及接口：无直接后端接口。
+
+涉及数据字段：`QuoteRequirementItem`、`QuoteLineCandidate`、`QuoteLine`、`QuoteVersion`、`warnings`、`matchReason`、`costSource`
+
+当前状态：待确认
+
+风险说明：当前只完成纯函数和测试，尚未接管 `buildQuote`。接入旧流程时必须保留 fallback，并逐品类验收。
+
+是否为核心交付功能：是
+
+### F-018
+
+功能编号：F-018
+
+功能名称：Agent Gateway 权限与日志骨架
+
+功能描述：新增 Agent 工具注册、权限判断、执行网关和日志骨架，用于约束 AI/工具对系统数据的操作等级。L3 操作需要人工确认，当前固定返回 `approval_required`。
+
+涉及页面：当前无独立页面；后续用于小易 AI 助手和系统设置。
+
+涉及组件：`public/js/agent/agent-tool-registry.js`、`agent-permissions.js`、`agent-gateway.js`、`agent-logger.js`
+
+涉及接口：无新增后端接口。
+
+涉及数据字段：`toolName`、`permissionLevel`、`userId`、`role`、`tenantId`、`status`、`approval_required`、`agent_logs`
+
+当前状态：待确认
+
+风险说明：当前只是浏览器侧骨架，尚未接入真实模型工具调用和后端审计表；不能当成正式权限系统。
+
+是否为核心交付功能：否
+
+### F-019
+
+功能编号：F-019
+
+功能名称：领域事件模型
+
+功能描述：新增统一领域事件创建函数，要求事件上下文包含租户、操作者和角色，为后续老板看板、审计和运营统计提供事件契约。
+
+涉及页面：当前无独立页面。
+
+涉及组件：`public/js/domain/events/domain-events.js`
+
+涉及接口：无新增后端接口。
+
+涉及数据字段：`type`、`payload`、`tenantId`、`actorId`、`actorRole`、`createdAt`、`schemaVersion`
+
+当前状态：待确认
+
+风险说明：当前只创建事件对象，不写数据库，不做实时看板。后续接 Supabase 前需要先定义事件落库策略。
+
+是否为核心交付功能：否

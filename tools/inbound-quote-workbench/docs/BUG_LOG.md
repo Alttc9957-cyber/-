@@ -40,6 +40,44 @@ Bug 编号：
 
 ## 当前已知问题登记
 
+### BUG-20260703-007
+
+Bug 编号：BUG-20260703-007
+
+发现日期：2026-07-03
+
+发现来源：开发过程 / 自测
+
+问题描述：新增产品备注结构化模块中，`保票政策：保证出票，需二次确认` 同时命中“确认”和“保票”，旧判断顺序先归类为 `booking_policy`，导致保票政策没有进入 `guarantee_policy`。
+
+出现位置：`public/js/domain/product/remark-atoms.js`
+
+复现步骤：
+
+1. 调用 `normalizeProductRemarks`。
+2. 传入 `rawFields: { 保票政策: "保证出票，需二次确认" }`。
+3. 检查 `remarkAtoms` 是否包含 `guarantee_policy`。
+
+预期结果：包含 `guarantee_policy`。
+
+实际结果：修复前归为 `booking_policy`。
+
+严重程度：低
+
+影响范围：新增备注结构化模块；未影响旧报价主流程。
+
+可能原因：预约确认关键词判断顺序高于保票/保证关键词。
+
+修复方案：把 `保证|保留|占位|保票|保房` 的判断顺序提前到预约确认之前。
+
+涉及文件：`public/js/domain/product/remark-atoms.js`、`tests/remark-atoms.test.js`
+
+验证步骤：执行 `node --test tests/remark-atoms.test.js` 和 `node --test tests/*.test.js`。
+
+验证结果：已通过，全部测试 26 项通过。
+
+当前状态：已修复
+
 ### BUG-20260703-005
 
 Bug 编号：BUG-20260703-005
