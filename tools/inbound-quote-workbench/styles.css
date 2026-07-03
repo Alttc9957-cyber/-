@@ -2471,11 +2471,38 @@ textarea { min-height: 84px; resize: vertical; line-height: 1.55; }
 .settings-placeholder-grid strong { display: block; margin-bottom: 6px; }
 .settings-placeholder-grid span { color: var(--muted); font-size: 13px; line-height: 1.5; }
 
+.quotable-resource-list {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 16px;
+}
+.resource-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(120px, .6fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e6ebf2;
+  border-radius: 8px;
+  background: #fff;
+}
+.resource-option div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.resource-option span,
+.resource-option small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 @media (max-width: 1200px) {
   .app { display: block; }
   .sidebar { width: auto; height: auto; position: relative; }
   .module-nav { grid-template-columns: repeat(3, minmax(0,1fr)); }
-  .demand-panel, .service-config-grid, .grid.two, .summary-grid, .proposal-grid, .project-filters, .resource-filters, .supplier-filters, .linkage-rules, .product-row, .supplier-row, .cost-line, .product-detail-card, .category-fields, .table-filter-bar, .quality-summary-grid, .route-detail-grid, .quality-detail-list, .quote-workspace-shell, .workbench-overview, .trip-overview, .asset-actions { grid-template-columns: 1fr; }
+  .demand-panel, .service-config-grid, .grid.two, .summary-grid, .proposal-grid, .project-filters, .resource-filters, .supplier-filters, .linkage-rules, .product-row, .supplier-row, .cost-line, .product-detail-card, .category-fields, .table-filter-bar, .quality-summary-grid, .route-detail-grid, .quality-detail-list, .quote-workspace-shell, .workbench-overview, .trip-overview, .asset-actions, .resource-option { grid-template-columns: 1fr; }
   .overview-right { position: static; }
   .agent-sidebar { left: 18px; right: 18px; bottom: 104px; width: auto; max-height: calc(100vh - 128px); }
   .product-row-tail, .supplier-row-tail { justify-items: start; }

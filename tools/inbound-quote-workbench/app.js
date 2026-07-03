@@ -44247,6 +44247,12 @@ const state = {
   routeEditor: { tab: "draft", selectedDay: 0, buffer: [], pasteText: "", preview: [], selectedHistoryIndex: 0 },
   supplierImport: { rows: [], preview: [] },
   supplierCallRecords: [],
+  productRequirementItems: [],
+  productResources: [],
+  resourceSupplierLinks: [],
+  quotableResources: [],
+  operationLogs: [],
+  currentRole: "admin",
   activeProductCategory: "全部",
   activeProductId: "",
   selectedRouteProductId: "",
@@ -44313,10 +44319,12 @@ async function init() {
   await loadSystemProductCatalog();
   loadLocalProductState();
   loadLocalSupplierState();
+  loadLocalV14ResourceState();
   loadProjectState();
   loadQuoteVersions();
   loadOrderState();
   hydrateImportedProductCatalog();
+  refreshV14ResourceState();
   bindEvents();
   if (!state.quoteVersions.length) resetQuoteVersions();
   renderAll();
@@ -44614,6 +44622,12 @@ function bindDelegatedActions() {
       event.preventDefault();
       event.stopPropagation();
       openSyncQuoteItemModal(button.dataset.syncQuoteRow);
+      return;
+    }
+    if (button.dataset.openQuotableSelector) {
+      event.preventDefault();
+      event.stopPropagation();
+      openQuotableResourceSelector(button.dataset.openQuotableSelector);
       return;
     }
     if (button.dataset.rematchQuoteRow) {
@@ -45504,6 +45518,7 @@ function appendRuntimeHistoricalRoutes(routes) {
 function refreshQuoteResources() {
   state.quoteResources = generateQuoteResources();
   state.importQuality = buildImportQualityReport();
+  refreshV14ResourceState();
   return state.quoteResources;
 }
 
@@ -45702,30 +45717,34 @@ function generateQuoteResources() {
 
 function supplierServiceDetailToQuoteResource(supplier, detail) {
   const category = supplier.category;
+  const quotable = quotableCore()?.supplierServiceDetailToQuotableResource(supplier, detail, { today: getTodayDateString() });
   const type = categoryToType[category] || "other";
   const city = detail.city || detail.fromCity || supplier.city || supplier.cities?.[0] || "";
   const name = serviceDetailName(detail, category);
   const base = {
-    id: detail.id || `SD-${supplier.id}-${name}`,
+    ...(quotable || {}),
+    id: quotable?.id || detail.id || `SD-${supplier.id}-${name}`,
     type,
-    city,
-    name,
+    city: quotable?.city || city,
+    name: quotable?.title || name,
     unit: supplierDetailUnit(category, detail),
-    cost: valueOrEmpty(firstPresent(detail.costPrice, detail.packageCostPrice, detail.dailyCostPrice)),
-    salePrice: valueOrEmpty(detail.salePrice),
+    cost: valueOrEmpty(firstPresent(quotable?.costPrice, detail.costPrice, detail.packageCostPrice, detail.dailyCostPrice)),
+    salePrice: valueOrEmpty(firstPresent(quotable?.referencePrice, detail.referencePrice, detail.salePrice)),
     supplierId: supplier.id,
     supplierName: supplier.name,
-    sourceProductId: "",
-    sourceResourceId: detail.id || "",
+    sourceProductId: quotable?.sourceProductId || "",
+    sourceResourceId: quotable?.serviceDetailId || detail.id || "",
     sourceCategory: category,
-    status: firstPresent(detail.costPrice, detail.packageCostPrice, detail.dailyCostPrice, detail.perPersonCost) === "" ? "待补成本" : "可用",
-    validFrom: detail.validFrom || IMPORT_VALID_FROM,
-    validTo: detail.validTo || IMPORT_VALID_TO,
+    status: firstPresent(quotable?.costPrice, detail.costPrice, detail.packageCostPrice, detail.dailyCostPrice, detail.perPersonCost) === "" ? "待补成本" : "可用",
+    validFrom: quotable?.priceValidFrom || detail.validFrom || IMPORT_VALID_FROM,
+    validTo: quotable?.priceValidUntil || detail.validTo || IMPORT_VALID_TO,
+    priceStatus: quotable?.priceStatus || "",
+    supplierStatus: supplier.status,
     tags: [category, detail.serviceCategory, detail.routeName, detail.vehicleModel, detail.roomTypeName, detail.languages, detail.ticketTypeName, detail.remark],
     matchKeys: [city, name, detail.routeName, detail.vehicleModel, detail.roomTypeName, detail.languages, detail.attractionName],
     costSource: "供应商服务明细",
-    serviceDetailId: detail.id || "",
-    serviceDetailName: name,
+    serviceDetailId: quotable?.serviceDetailId || detail.id || "",
+    serviceDetailName: quotable?.title || name,
     raw: detail,
   };
   if (category === "酒店") Object.assign(base, { roomType: normalizeRoomType(detail.roomTypeName), star: normalizeHotelStar(detail.star || detail.hotelLevel || ""), breakfast: detail.breakfastIncluded || "" });
@@ -45952,6 +45971,9 @@ function sourceFromResource(resource, sourceType = "产品库") {
     supplierName: supplier,
     serviceDetailId: resource.serviceDetailId || "",
     serviceDetailName: resource.serviceDetailName || "",
+    costSource: resolvedType,
+    priceStatus: resource.priceStatus || "",
+    priceValidUntil: resource.priceValidUntil || resource.validTo || "",
     priceExpired: resource.validTo ? daysUntil(resource.validTo) < 0 : false,
     priceExpiringSoon: resource.validTo ? daysUntil(resource.validTo) <= 30 && daysUntil(resource.validTo) >= 0 : false,
   };
@@ -46017,6 +46039,9 @@ function traceFields(result, fallbackType = "") {
     serviceDetailId: result?.serviceDetailId || resource.serviceDetailId || "",
     serviceDetailName: result?.serviceDetailName || resource.serviceDetailName || "",
     costSource: result?.sourceType || resource.costSource || fallbackType || "",
+    priceStatus: result?.priceStatus || resource.priceStatus || "",
+    priceValidUntil: result?.priceValidUntil || resource.priceValidUntil || resource.validTo || "",
+    quoteLineSnapshot: result?.quoteLineSnapshot || null,
     matchReason: result?.matchReason || "",
     cityCandidateCount: result?.cityCandidateCount ?? "",
     typeCandidateCount: result?.typeCandidateCount ?? "",
@@ -46051,7 +46076,7 @@ function candidateSummary(candidates) {
 }
 
 function activeQuoteResource(resource) {
-  return resource && resource.status !== "停用";
+  return resource && resource.status !== "停用" && resource.supplierStatus !== "停用" && resource.priceStatus !== "expired";
 }
 
 function bestResourceCandidate(candidates = []) {
@@ -46707,6 +46732,7 @@ function productRowActions(category, item, index) {
   return `<div class="row-actions">
     ${routeAction}
     <button class="secondary-btn" data-view-product-raw="${escapeHtml(category)}:${index}">原始字段</button>
+    <button class="secondary-btn" data-open-product-resource="${escapeHtml(category)}:${index}">供应商资源</button>
     <button class="secondary-btn" data-edit-product="${escapeHtml(category)}:${index}">编辑</button>
     <button class="secondary-btn" data-clean-product="${escapeHtml(category)}:${index}">AI清洗当前数据</button>
     <button class="ghost-btn" data-open-supplier-category="${escapeHtml(supplierCategory)}">供应商</button>
@@ -46757,6 +46783,7 @@ function bindProductCategoryActions() {
   $$("[data-use-route-product]").forEach((btn) => btn.addEventListener("click", () => useRouteProductInQuote(btn.dataset.useRouteProduct)));
   $$("[data-open-project]").forEach((btn) => btn.addEventListener("click", () => openProject(btn.dataset.openProject)));
   $$("[data-view-product-raw]").forEach((btn) => btn.addEventListener("click", () => showProductRawFields(btn.dataset.viewProductRaw)));
+  $$("[data-open-product-resource]").forEach((btn) => btn.addEventListener("click", () => openProductResourceDetail(btn.dataset.openProductResource)));
   $$("[data-edit-product]").forEach((btn) => btn.addEventListener("click", () => quickEditProduct(btn.dataset.editProduct)));
   $$("[data-clean-product]").forEach((btn) => btn.addEventListener("click", () => cleanProductRow(btn.dataset.cleanProduct)));
 }
@@ -46810,6 +46837,137 @@ function applyProductInlineEdit(token, value) {
   saveLocalProductState();
   refreshQuoteResources();
   renderResourceLibrary();
+}
+
+function productResourceByToken(token) {
+  const [category, indexText] = String(token || "").split(":");
+  const item = productCatalogItems(category)[Number(indexText)];
+  if (!item) return null;
+  const id = ensureProductResourceId(item, category, Number(indexText));
+  syncProductResourcesFromCatalog();
+  return state.productResources.find((resource) => resource.id === id) || catalogItemToProductResource(item, category, id);
+}
+
+function openProductResourceDetail(token) {
+  const productResource = productResourceByToken(token);
+  if (!productResource) return alert("未找到产品资源。");
+  refreshV14ResourceState();
+  const linked = linkedQuotableResourcesForProduct(productResource.id);
+  const candidates = queryQuotableResources({
+    category: productResource.category,
+    city: productResource.city,
+    keyword: [productResource.title, productResource.serviceType, productResource.spec, productResource.areaOrScope].filter(Boolean).join(" "),
+    serviceCategory: productResource.serviceType,
+    vehicleModel: productResource.spec,
+    routeName: productResource.areaOrScope,
+  }).filter((resource) => !linked.some((item) => item.id === resource.id)).slice(0, 20);
+  const modal = ensureProductResourceModal();
+  modal.querySelector("[data-product-resource-body]").innerHTML = `
+    <div class="sync-preview-grid">
+      ${[
+        ["产品资源", productResource.title],
+        ["品类", productResource.category],
+        ["城市", productResource.city || "-"],
+        ["规格", productResource.spec || "-"],
+        ["当前状态", productResource.status || "-"],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`).join("")}
+    </div>
+    <h5>已关联供应商资源</h5>
+    <div class="quotable-resource-list">
+      ${linked.map((resource) => renderProductLinkedResource(productResource, resource)).join("") || `<div class="empty">尚未关联供应商服务明细。</div>`}
+    </div>
+    <h5>可匹配候选</h5>
+    <div class="quotable-resource-list">
+      ${candidates.map((resource) => renderProductCandidateResource(productResource, resource)).join("") || `<div class="empty">没有找到候选供应商资源。</div>`}
+    </div>`;
+  modal.classList.remove("hidden");
+  modal.querySelectorAll("[data-link-product-resource]").forEach((btn) => btn.addEventListener("click", () => linkProductResourceToQuotable(btn.dataset.productResourceId, btn.dataset.linkProductResource)));
+  modal.querySelectorAll("[data-unlink-resource-link]").forEach((btn) => btn.addEventListener("click", () => unlinkResourceSupplierLink(btn.dataset.unlinkResourceLink, productResource.id)));
+  modal.querySelectorAll("[data-prefer-resource-link]").forEach((btn) => btn.addEventListener("click", () => preferResourceSupplierLink(btn.dataset.preferResourceLink, productResource.id)));
+  renderIcons();
+}
+
+function ensureProductResourceModal() {
+  let modal = $("#productResourceModal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "productResourceModal";
+  modal.className = "modal-backdrop hidden";
+  modal.innerHTML = `<div class="modal-card wide-modal"><div class="modal-head"><div><h3>产品资源供应商明细</h3><p>产品负责需求和展示，供应商服务明细负责真实成本。</p></div><button class="icon-btn" data-close-product-resource aria-label="关闭"><i data-lucide="x"></i></button></div><div class="modal-body" data-product-resource-body></div></div>`;
+  document.body.appendChild(modal);
+  modal.querySelector("[data-close-product-resource]").addEventListener("click", () => modal.classList.add("hidden"));
+  return modal;
+}
+
+function linkedQuotableResourcesForProduct(productResourceId) {
+  return (state.quotableResources || []).filter((resource) => (resource.productResourceIds || []).includes(productResourceId));
+}
+
+function renderProductLinkedResource(productResource, resource) {
+  const link = (state.resourceSupplierLinks || []).find((item) => item.productResourceId === productResource.id && item.supplierId === resource.supplierId && item.serviceDetailId === resource.serviceDetailId);
+  const preferred = link?.preferred ? `<span class="ok-text">首选</span>` : "";
+  return `<div class="resource-option">
+    <div><strong>${escapeHtml(resource.title || resource.name)}</strong><span>${escapeHtml(resource.supplierName)} · ${escapeHtml(resource.city || "-")} · ${escapeHtml(resource.priceStatus || "")}</span></div>
+    <div><strong>${resource.costPrice === "" ? "待补成本" : money(resource.costPrice)}</strong>${preferred}</div>
+    <button class="secondary-btn" data-prefer-resource-link="${escapeHtml(link?.id || "")}" ${link?.preferred ? "disabled" : ""}>设为首选</button>
+    <button class="ghost-btn" data-unlink-resource-link="${escapeHtml(link?.id || "")}">取消关联</button>
+  </div>`;
+}
+
+function renderProductCandidateResource(productResource, resource) {
+  return `<div class="resource-option">
+    <div><strong>${escapeHtml(resource.title || resource.name)}</strong><span>${escapeHtml(resource.supplierName)} · ${escapeHtml(resource.city || "-")} · 匹配分 ${number(resource.matchScore)}</span></div>
+    <div><strong>${resource.costPrice === "" ? "待补成本" : money(resource.costPrice)}</strong><span>${escapeHtml(resource.priceStatus || "")}</span></div>
+    <button class="primary-btn" data-link-product-resource="${escapeHtml(resource.id)}" data-product-resource-id="${escapeHtml(productResource.id)}">关联</button>
+  </div>`;
+}
+
+function linkProductResourceToQuotable(productResourceId, resourceId) {
+  const resource = (state.quotableResources || []).find((item) => item.id === resourceId);
+  if (!productResourceId || !resource) return;
+  const existing = (state.resourceSupplierLinks || []).find((link) => link.productResourceId === productResourceId && link.supplierId === resource.supplierId && link.serviceDetailId === resource.serviceDetailId);
+  if (!existing) {
+    state.resourceSupplierLinks.unshift({
+      id: `RSL-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      productResourceId,
+      supplierId: resource.supplierId,
+      supplierName: resource.supplierName,
+      serviceDetailId: resource.serviceDetailId,
+      serviceDetailType: resource.serviceDetailType,
+      category: resource.category,
+      preferred: !state.resourceSupplierLinks.some((link) => link.productResourceId === productResourceId),
+      createdAt: new Date().toISOString(),
+    });
+    recordOperationLog("product_resource_linked", { productResourceId, supplierId: resource.supplierId, supplierName: resource.supplierName, serviceDetailId: resource.serviceDetailId });
+  }
+  refreshV14ResourceState({ persist: true });
+  openProductResourceDetail(productResourceTokenById(productResourceId));
+}
+
+function unlinkResourceSupplierLink(linkId, productResourceId) {
+  if (!linkId) return;
+  state.resourceSupplierLinks = (state.resourceSupplierLinks || []).filter((link) => link.id !== linkId);
+  recordOperationLog("product_resource_unlinked", { productResourceId, linkId });
+  refreshV14ResourceState({ persist: true });
+  openProductResourceDetail(productResourceTokenById(productResourceId));
+}
+
+function preferResourceSupplierLink(linkId, productResourceId) {
+  if (!linkId) return;
+  state.resourceSupplierLinks.forEach((link) => {
+    if (link.productResourceId === productResourceId) link.preferred = link.id === linkId;
+  });
+  recordOperationLog("product_resource_preferred_supplier_changed", { productResourceId, linkId });
+  refreshV14ResourceState({ persist: true });
+  openProductResourceDetail(productResourceTokenById(productResourceId));
+}
+
+function productResourceTokenById(productResourceId) {
+  for (const category of ["线路产品", "用车", "景点门票", "导游", "酒店", "餐", "特色体验", "大交通", "其他"]) {
+    const index = productCatalogItems(category).findIndex((item, itemIndex) => ensureProductResourceId(item, category, itemIndex) === productResourceId);
+    if (index >= 0) return `${category}:${index}`;
+  }
+  return "";
 }
 
 function quickEditProduct(token) {
@@ -47188,7 +47346,7 @@ function renderSupplierResources() {
       <section>
         <h5>服务明细</h5>
         <table class="simple-table"><thead><tr>${supplierDetailHeaders(category).map((header) => `<th>${header}</th>`).join("")}</tr></thead>
-          <tbody>${(supplier.serviceDetails || []).map((detail) => `<tr>${supplierDetailCells(detail, category).map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${supplierDetailHeaders(category).length}">暂无服务明细。</td></tr>`}</tbody>
+          <tbody>${(supplier.serviceDetails || []).map((detail) => `<tr>${supplierDetailCells(detail, category, supplier).map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${supplierDetailHeaders(category).length}">暂无服务明细。</td></tr>`}</tbody>
         </table>
       </section>
       <section>
@@ -47202,6 +47360,7 @@ function renderSupplierResources() {
   if (primary && !primary.phone && !primary.wechat && !primary.whatsapp) {
     $("#supplierResourceHint").textContent = `${$("#supplierResourceHint").textContent} · 联系方式待补`;
   }
+  $$("[data-view-supplier-detail-links]").forEach((btn) => btn.addEventListener("click", () => openSupplierDetailLinksModal(btn.dataset.viewSupplierDetailLinks)));
 }
 
 function supplierDetailHeaders(category) {
@@ -47215,21 +47374,54 @@ function supplierDetailHeaders(category) {
     特色体验: ["体验项目名称", "城市", "适用人群", "服务时长", "成本价", "参考售价", "价格有效期", "取消规则", "备注"],
     其他: ["项目名称", "城市 / 适用范围", "计费方式", "成本价", "参考售价", "价格有效期", "备注"],
   };
-  return map[category] || map.其他;
+  return [...(map[category] || map.其他), "关联产品资源", "报价调用"];
 }
 
-function supplierDetailCells(detail, category) {
+function supplierDetailCells(detail, category, supplier = {}) {
   const priceStatus = detail.validTo && daysUntil(detail.validTo) < 0 ? `<span class="resource-status danger">价格已过期</span>` : detail.validTo && daysUntil(detail.validTo) <= 30 ? `<span class="resource-status warn">即将过期</span>` : escapeHtml(detail.validTo || "-");
   const cost = detail.costPrice === "" || detail.costPrice == null ? "缺成本" : money(detail.costPrice);
   const sale = detail.salePrice === "" || detail.salePrice == null ? "-" : money(detail.salePrice);
-  if (category === "酒店") return [escapeHtml(detail.roomTypeName || detail.name), escapeHtml(detail.bedType || ""), escapeHtml(detail.capacity || ""), escapeHtml(detail.breakfastIncluded || ""), cost, sale, priceStatus, escapeHtml(detail.cancelRule || ""), escapeHtml(detail.remark || "")];
-  if (category === "包车") return [escapeHtml(detail.serviceCategory || ""), escapeHtml(detail.routeName || detail.name), escapeHtml(detail.fromCity || ""), escapeHtml(detail.toArea || ""), escapeHtml(detail.vehicleModel || ""), escapeHtml(detail.seats || ""), cost, sale, priceStatus, escapeHtml(detail.remark || "")];
-  if (category === "导游") return [escapeHtml(detail.guideName || detail.name), escapeHtml(detail.serviceCities || ""), escapeHtml(detail.languages || ""), escapeHtml(detail.serviceType || ""), cost, escapeHtml(detail.serviceHours || ""), escapeHtml(detail.driverGuide || ""), priceStatus, escapeHtml(detail.remark || "")];
-  if (category === "门票") return [escapeHtml(detail.attractionName || detail.name), escapeHtml(detail.city || ""), escapeHtml(detail.ticketTypeName || ""), escapeHtml(detail.audience || ""), cost, sale, priceStatus, escapeHtml(detail.cancelRule || ""), escapeHtml(detail.remark || "")];
-  if (category === "大交通") return [escapeHtml(detail.trafficType || ""), escapeHtml(detail.agentScope || ""), escapeHtml(detail.serviceFeeRule || ""), escapeHtml(detail.refundRule || ""), escapeHtml(detail.contact || ""), escapeHtml(detail.status || "启用"), escapeHtml(detail.remark || "")];
-  if (category === "餐") return [escapeHtml(detail.restaurantName || detail.name), escapeHtml(detail.city || ""), escapeHtml(detail.mealStandardName || ""), escapeHtml(detail.cuisine || ""), cost, sale, escapeHtml(detail.halalFriendly || ""), escapeHtml(detail.teamFriendly || ""), escapeHtml(detail.cancelRule || ""), escapeHtml(detail.remark || "")];
-  if (category === "特色体验") return [escapeHtml(detail.experienceName || detail.name), escapeHtml(detail.city || ""), escapeHtml(detail.audience || ""), escapeHtml(detail.serviceDuration || ""), cost, sale, priceStatus, escapeHtml(detail.cancelRule || ""), escapeHtml(detail.remark || "")];
-  return [escapeHtml(detail.name || ""), escapeHtml(detail.scope || detail.city || ""), escapeHtml(detail.billingMethod || ""), cost, sale, priceStatus, escapeHtml(detail.remark || "")];
+  const append = supplierDetailLinkCells(supplier, detail);
+  if (category === "酒店") return [...[escapeHtml(detail.roomTypeName || detail.name), escapeHtml(detail.bedType || ""), escapeHtml(detail.capacity || ""), escapeHtml(detail.breakfastIncluded || ""), cost, sale, priceStatus, escapeHtml(detail.cancelRule || ""), escapeHtml(detail.remark || "")], ...append];
+  if (category === "包车") return [...[escapeHtml(detail.serviceCategory || ""), escapeHtml(detail.routeName || detail.name), escapeHtml(detail.fromCity || ""), escapeHtml(detail.toArea || ""), escapeHtml(detail.vehicleModel || ""), escapeHtml(detail.seats || ""), cost, sale, priceStatus, escapeHtml(detail.remark || "")], ...append];
+  if (category === "导游") return [...[escapeHtml(detail.guideName || detail.name), escapeHtml(detail.serviceCities || ""), escapeHtml(detail.languages || ""), escapeHtml(detail.serviceType || ""), cost, escapeHtml(detail.serviceHours || ""), escapeHtml(detail.driverGuide || ""), priceStatus, escapeHtml(detail.remark || "")], ...append];
+  if (category === "门票") return [...[escapeHtml(detail.attractionName || detail.name), escapeHtml(detail.city || ""), escapeHtml(detail.ticketTypeName || ""), escapeHtml(detail.audience || ""), cost, sale, priceStatus, escapeHtml(detail.cancelRule || ""), escapeHtml(detail.remark || "")], ...append];
+  if (category === "大交通") return [...[escapeHtml(detail.trafficType || ""), escapeHtml(detail.agentScope || ""), escapeHtml(detail.serviceFeeRule || ""), escapeHtml(detail.refundRule || ""), escapeHtml(detail.contact || ""), escapeHtml(detail.status || "启用"), escapeHtml(detail.remark || "")], ...append];
+  if (category === "餐") return [...[escapeHtml(detail.restaurantName || detail.name), escapeHtml(detail.city || ""), escapeHtml(detail.mealStandardName || ""), escapeHtml(detail.cuisine || ""), cost, sale, escapeHtml(detail.halalFriendly || ""), escapeHtml(detail.teamFriendly || ""), escapeHtml(detail.cancelRule || ""), escapeHtml(detail.remark || "")], ...append];
+  if (category === "特色体验") return [...[escapeHtml(detail.experienceName || detail.name), escapeHtml(detail.city || ""), escapeHtml(detail.audience || ""), escapeHtml(detail.serviceDuration || ""), cost, sale, priceStatus, escapeHtml(detail.cancelRule || ""), escapeHtml(detail.remark || "")], ...append];
+  return [...[escapeHtml(detail.name || ""), escapeHtml(detail.scope || detail.city || ""), escapeHtml(detail.billingMethod || ""), cost, sale, priceStatus, escapeHtml(detail.remark || "")], ...append];
+}
+
+function supplierDetailLinkCells(supplier, detail) {
+  const detailId = detail.id || detail.serviceDetailId || "";
+  const links = (state.resourceSupplierLinks || []).filter((link) => link.supplierId === supplier.id && link.serviceDetailId === detailId);
+  const calls = state.supplierCallRecords.filter((item) => item.supplierId === supplier.id && item.serviceDetailId === detailId).length;
+  return [
+    `<button class="link-btn" data-view-supplier-detail-links="${escapeHtml(`${supplier.id}:${detailId}`)}">查看 ${links.length}</button>`,
+    calls ? `${calls} 次` : "0 次",
+  ];
+}
+
+function openSupplierDetailLinksModal(token) {
+  const [supplierId, detailId] = String(token || "").split(":");
+  const supplier = supplierById(supplierId);
+  const links = (state.resourceSupplierLinks || []).filter((link) => link.supplierId === supplierId && link.serviceDetailId === detailId);
+  const products = links.map((link) => state.productResources.find((resource) => resource.id === link.productResourceId)).filter(Boolean);
+  const modal = ensureProductResourceModal();
+  modal.querySelector("[data-product-resource-body]").innerHTML = `
+    <div class="sync-preview-grid">
+      ${[
+        ["供应商", supplier?.name || supplierId],
+        ["服务明细", detailId || "-"],
+        ["关联产品资源", `${products.length} 个`],
+        ["报价调用", `${state.supplierCallRecords.filter((item) => item.supplierId === supplierId && item.serviceDetailId === detailId).length} 次`],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`).join("")}
+    </div>
+    <div class="quotable-resource-list">
+      ${products.map((product) => `<div class="resource-option"><div><strong>${escapeHtml(product.title || product.name)}</strong><span>${escapeHtml(product.category)} · ${escapeHtml(product.city || "-")}</span></div><div><strong>${product.manualCost === "" ? "产品成本待补" : money(product.manualCost)}</strong></div></div>`).join("") || `<div class="empty">暂无关联产品资源。</div>`}
+    </div>`;
+  modal.classList.remove("hidden");
+  renderIcons();
 }
 
 function minSupplierCost(details = []) {
@@ -47249,9 +47441,16 @@ function supplierValidityText(details = []) {
 function toggleSupplierStatus(id) {
   const supplier = supplierById(id);
   if (!supplier) return;
+  const before = supplier.status;
   supplier.status = supplier.status === "启用" ? "停用" : "启用";
   supplier.updatedAt = new Date().toISOString().slice(0, 10);
+  recordOperationLog("supplier_status_changed", {
+    supplierId: supplier.id,
+    supplierName: supplier.name,
+    changes: [{ field: "status", label: "合作状态", before, after: supplier.status }],
+  });
   saveLocalSupplierState();
+  saveLocalV14ResourceState();
   refreshQuoteResources();
   renderSupplierManagement();
 }
@@ -47285,6 +47484,7 @@ function handleSupplierImportFile(file) {
         else state.suppliers.unshift(supplier);
       });
       saveLocalSupplierState();
+      refreshV14ResourceState({ persist: true });
       refreshQuoteResources();
       renderSupplierManagement();
       renderQuoteTable();
@@ -47482,6 +47682,125 @@ function saveLocalSupplierState() {
     suppliers: state.suppliers,
     supplierCallRecords: state.supplierCallRecords,
   }));
+}
+
+function quotableCore() {
+  return window.YouyixingQuotableCore || null;
+}
+
+function loadLocalV14ResourceState() {
+  const saved = safeJsonParse(localStorage.getItem("youyixing_v14_resource_state"), null);
+  if (!saved) return;
+  state.productRequirementItems = Array.isArray(saved.productRequirementItems) ? saved.productRequirementItems : [];
+  state.productResources = Array.isArray(saved.productResources) ? saved.productResources : [];
+  state.resourceSupplierLinks = Array.isArray(saved.resourceSupplierLinks) ? saved.resourceSupplierLinks : [];
+  state.operationLogs = Array.isArray(saved.operationLogs) ? saved.operationLogs : [];
+  state.currentRole = saved.currentRole || state.currentRole || "admin";
+}
+
+function saveLocalV14ResourceState() {
+  localStorage.setItem("youyixing_v14_resource_state", JSON.stringify({
+    productRequirementItems: state.productRequirementItems || [],
+    productResources: state.productResources || [],
+    resourceSupplierLinks: state.resourceSupplierLinks || [],
+    operationLogs: (state.operationLogs || []).slice(0, 500),
+    currentRole: state.currentRole || "admin",
+  }));
+}
+
+function refreshV14ResourceState(options = {}) {
+  syncProductResourcesFromCatalog();
+  const core = quotableCore();
+  state.quotableResources = core
+    ? core.buildQuotableResources({
+      suppliers: state.suppliers || [],
+      productResources: state.productResources || [],
+      resourceSupplierLinks: state.resourceSupplierLinks || [],
+      today: getTodayDateString(),
+    })
+    : [];
+  if (options.persist) saveLocalV14ResourceState();
+  return state.quotableResources;
+}
+
+function queryQuotableResources(params = {}) {
+  const core = quotableCore();
+  if (!state.quotableResources?.length) refreshV14ResourceState();
+  if (!core) return [];
+  return core.queryQuotableResources(params, state.quotableResources || []);
+}
+
+function syncProductResourcesFromCatalog() {
+  const derivedCategories = ["线路产品", "用车", "景点门票", "导游", "酒店", "餐", "特色体验", "大交通", "其他"];
+  const derived = [];
+  derivedCategories.forEach((category) => {
+    productCatalogItems(category).forEach((item, index) => {
+      const id = ensureProductResourceId(item, category, index);
+      derived.push(catalogItemToProductResource(item, category, id));
+    });
+  });
+  const derivedIds = new Set(derived.map((item) => item.id));
+  const manual = (state.productResources || []).filter((item) => !item.catalogDerived && !derivedIds.has(item.id));
+  state.productResources = [...derived, ...manual];
+}
+
+function ensureProductResourceId(item, category, index = 0) {
+  if (!item.productResourceId) {
+    item.productResourceId = item.sourceProductId || item.runtimeId || item.routeProductId || item.id || `PR-${categoryToType[category] || "other"}-${index + 1}-${normalizeResourceText(productName(item, category) || Date.now())}`;
+  }
+  return item.productResourceId;
+}
+
+function productResourceCategory(category) {
+  return ({ 用车: "包车", 景点门票: "门票", 门票: "门票", 餐厅: "餐" })[category] || category || "其他";
+}
+
+function catalogItemToProductResource(item, category, id) {
+  const title = productName(item, category);
+  return {
+    id,
+    requirementItemId: item.requirementItemId || "",
+    productCategory: category,
+    category: productResourceCategory(category),
+    title,
+    name: title,
+    city: item.city || item.startCity || item.fromCity || item.from || "",
+    areaOrScope: item.route || item.area || item.citiesText || item.serviceScope || "",
+    serviceType: productServiceValue(item, category),
+    spec: productSpecValue(item, category),
+    matchFields: {
+      city: item.city || "",
+      keyword: title,
+      routeName: item.route || item.routeName || "",
+      serviceCategory: item.serviceType || item.vehicleType || "",
+      vehicleModel: item.model || item.vehicle_type || "",
+      language: item.language || item.languages || "",
+      roomType: item.roomType || item.room_type || "",
+      ticketType: item.ticketType || item.type || "",
+    },
+    manualCost: productCostValue(item, category),
+    referencePrice: productSaleValue(item, category),
+    status: productStatus(item, category),
+    preferredSupplierLinkId: (state.resourceSupplierLinks || []).find((link) => link.productResourceId === id && link.preferred)?.id || "",
+    rawFields: item.rawFields || item.extraFields || item.raw || item,
+    catalogDerived: true,
+    updatedAt: item.updatedAt || item.importUpdatedAt || "",
+  };
+}
+
+function recordOperationLog(action, payload = {}) {
+  const entry = {
+    id: `LOG-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    action,
+    actor: state.currentRole || "admin",
+    at: new Date().toISOString(),
+    projectId: state.currentProjectId || "",
+    ...payload,
+  };
+  state.operationLogs.unshift(entry);
+  state.operationLogs = state.operationLogs.slice(0, 500);
+  saveLocalV14ResourceState();
+  return entry;
 }
 
 function loadProjectState() {
@@ -48473,7 +48792,11 @@ async function clearProductCatalog() {
   if (!ok) return;
   try {
     localStorage.removeItem("youyixing_product_state");
+    localStorage.removeItem("youyixing_v14_resource_state");
   } catch {}
+  state.productRequirementItems = [];
+  state.productResources = [];
+  state.resourceSupplierLinks = [];
   await loadSystemProductCatalog();
   refreshQuoteResources();
   renderResourceLibrary();
@@ -49266,16 +49589,40 @@ function saveSupplierFromModal() {
     updatedAt: new Date().toISOString().slice(0, 10),
     createdAt: base.createdAt || new Date().toISOString().slice(0, 10),
   });
+  const changes = supplierAuditChanges(base, supplier);
   const index = state.suppliers.findIndex((item) => item.id === supplier.id);
   if (index >= 0) state.suppliers[index] = supplier;
   else state.suppliers.unshift(supplier);
+  if (changes.length) {
+    recordOperationLog("supplier_saved", {
+      supplierId: supplier.id,
+      supplierName: supplier.name,
+      changes,
+    });
+  }
   state.activeSupplierCategory = supplier.category;
   state.activeSupplierId = supplier.id;
   saveLocalSupplierState();
+  saveLocalV14ResourceState();
   refreshQuoteResources();
   renderSupplierManagement();
   renderQuoteTable();
   closeSupplierModal();
+}
+
+function supplierAuditChanges(before = {}, after = {}) {
+  const changes = [];
+  [["status", "合作状态"], ["settlement", "结算信息"]].forEach(([field, label]) => {
+    if ((before[field] || "") !== (after[field] || "")) changes.push({ field, label, before: before[field] || "", after: after[field] || "" });
+  });
+  const beforeDetail = before.serviceDetails?.[0] || {};
+  const afterDetail = after.serviceDetails?.[0] || {};
+  [["costPrice", "成本价"], ["referencePrice", "参考售价"], ["salePrice", "参考售价"], ["validTo", "价格有效期"]].forEach(([field, label]) => {
+    if ((beforeDetail[field] ?? "") !== (afterDetail[field] ?? "")) {
+      changes.push({ field: `serviceDetails[0].${field}`, label, before: beforeDetail[field] ?? "", after: afterDetail[field] ?? "" });
+    }
+  });
+  return changes;
 }
 
 function supplierFormValue(field) {
@@ -49377,6 +49724,7 @@ function normalizeSupplierStatus(value) {
 }
 
 function normalizeContacts(contacts = []) {
+  if (quotableCore()) return quotableCore().normalizeContacts(contacts);
   const list = (Array.isArray(contacts) ? contacts : []).map((item, index) => ({
     name: item.name || item.contactName || item.contact || "",
     role: item.role || item.contactRole || "销售",
@@ -49389,7 +49737,8 @@ function normalizeContacts(contacts = []) {
   }));
   if (!list.length) list.push({ name: "", role: "销售", phone: "", wechat: "", whatsapp: "", email: "", primary: true, note: "" });
   if (!list.some((item) => item.primary)) list[0].primary = true;
-  return list;
+  const primaryIndex = Math.max(0, list.findIndex((item) => item.primary));
+  return list.map((item, index) => ({ ...item, primary: index === primaryIndex }));
 }
 
 function normalizeServiceDetail(detail = {}, category = "酒店") {
@@ -49397,8 +49746,28 @@ function normalizeServiceDetail(detail = {}, category = "酒店") {
   base.id = base.id || base.serviceDetailId || `SD-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   base.category = category;
   base.costPrice = valueOrBlank(firstPresent(detail.costPrice, detail.cost, detail.packageCostPrice, detail.dailyCostPrice, detail.roomCostPrice, detail.adultCost, detail.perPersonCost));
-  base.salePrice = valueOrBlank(firstPresent(detail.salePrice, detail.referenceSalePrice, detail.packageSalePrice, detail.adultSale, detail.perPersonSale));
+  base.referencePrice = valueOrBlank(firstPresent(detail.referencePrice, detail.salePrice, detail.referenceSalePrice, detail.packageSalePrice, detail.adultSale, detail.perPersonSale));
+  base.salePrice = base.referencePrice;
   base.validTo = detail.validTo || detail.priceValidTo || detail.priceValidUntil || IMPORT_VALID_TO;
+  base.priceValidUntil = base.validTo;
+  base.priceValidFrom = detail.priceValidFrom || detail.validFrom || IMPORT_VALID_FROM;
+  if (category === "包车") {
+    base.serviceCategory = normalizeVehicleType(detail.serviceCategory || detail.routeName || detail.name || base.serviceCategory);
+    base.vehicleModel = normalizeVehicleModel(detail.vehicleModel || detail.model || base.vehicleModel);
+    base.packageCostPrice = valueOrBlank(firstPresent(detail.packageCostPrice, base.costPrice));
+    base.packageSalePrice = valueOrBlank(firstPresent(detail.packageSalePrice, base.referencePrice));
+    base.costPrice = valueOrBlank(firstPresent(base.packageCostPrice, base.costPrice));
+    base.referencePrice = valueOrBlank(firstPresent(base.packageSalePrice, base.referencePrice));
+    base.salePrice = base.referencePrice;
+    delete base.crossCityAllowed;
+    delete base.canCrossCity;
+  }
+  if (category === "导游") {
+    base.languages = normalizeGuideLanguage(detail.languages || detail.language || base.languages);
+    base.dailyCostPrice = valueOrBlank(firstPresent(detail.dailyCostPrice, base.costPrice));
+    base.costPrice = valueOrBlank(firstPresent(base.dailyCostPrice, base.costPrice));
+    base.originalRegistrationFields = detail.originalRegistrationFields || detail.rawFields || detail.raw || base.originalRegistrationFields || {};
+  }
   return base;
 }
 
@@ -53543,6 +53912,7 @@ function renderOtherTable() {
 
 function quoteRowActions(service, index) {
   return `<div class="row-actions quote-row-actions">
+    <button class="primary-btn" data-open-quotable-selector="${service}:${index}">从资源库选择</button>
     <button class="secondary-btn" data-rematch-quote-row="${service}:${index}">重新匹配</button>
     <button class="secondary-btn" data-sync-quote-row="${service}:${index}">同步产品库</button>
     <button class="ghost-btn" data-current-only-row="${service}:${index}">仅当前报价</button>
@@ -53559,6 +53929,215 @@ function quoteRowByToken(token) {
   const { service, index } = parseQuoteRowToken(token);
   const row = activeQuote().data?.[service]?.[index];
   return { service, index, row, day: state.itinerary[service === "vehicle" ? (row?.dayIndex ?? index) : index] || {} };
+}
+
+function quoteServiceCategory(service) {
+  return ({ vehicle: "包车", guide: "导游", ticket: "门票", hotel: "酒店", meal: "餐", traffic: "大交通", other: "其他", experience: "特色体验" })[service] || "其他";
+}
+
+function quoteRowResourceQuery({ service, row, day }) {
+  const category = quoteServiceCategory(service);
+  const d = getDemandSafe();
+  const city = row?.city || day?.city || "";
+  const keyword = [
+    row?.productName,
+    row?.sourceName,
+    row?.legLabel,
+    row?.route,
+    row?.serviceType,
+    service === "ticket" ? row?.items?.map((item) => item.name).join(" ") : "",
+    service === "hotel" ? row?.rooms?.map((room) => `${room.hotelName || ""} ${room.roomType || ""}`).join(" ") : "",
+  ].filter(Boolean).join(" ");
+  return {
+    category,
+    city,
+    keyword,
+    serviceCategory: service === "vehicle" ? row?.serviceType : "",
+    vehicleModel: service === "vehicle" ? row?.model : "",
+    language: service === "guide" ? d.guideLang : "",
+    roomType: service === "hotel" ? row?.rooms?.[0]?.roomType : "",
+    ticketType: service === "ticket" ? row?.items?.[0]?.ticketType : "",
+    routeName: service === "vehicle" ? row?.route || row?.legLabel : "",
+  };
+}
+
+function openQuotableResourceSelector(token = `${state.activeService}:0`) {
+  const data = quoteRowByToken(token);
+  if (!data.row) {
+    alert("当前报价行不存在，无法选择资源。");
+    return;
+  }
+  refreshV14ResourceState();
+  const query = quoteRowResourceQuery(data);
+  let resources = queryQuotableResources(query);
+  if (!resources.length) resources = queryQuotableResources({ category: query.category, city: query.city });
+  if (!resources.length) resources = queryQuotableResources({ category: query.category });
+  const modal = ensureQuotableResourceSelectorModal();
+  modal.querySelector("[data-quotable-body]").innerHTML = `
+    <div class="sync-preview-grid">
+      ${[
+        ["服务项", serviceLabels[data.service] || data.service],
+        ["城市", query.city || "待补城市"],
+        ["筛选品类", query.category],
+        ["关键词", query.keyword || "-"],
+      ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`).join("")}
+    </div>
+    <div class="quotable-resource-list">
+      ${resources.slice(0, 30).map((resource) => renderQuotableResourceOption(resource, token)).join("") || `<div class="empty">没有找到可报价资源。请先在供应商管理里补服务明细，或在产品资源详情里关联供应商。</div>`}
+    </div>`;
+  modal.classList.remove("hidden");
+  modal.querySelectorAll("[data-select-quotable-resource]").forEach((btn) => btn.addEventListener("click", () => applyQuotableResourceToQuoteRow(btn.dataset.selectQuotableResource, btn.dataset.quoteRowToken)));
+  renderIcons();
+}
+
+function renderQuotableResourceOption(resource, token) {
+  const cost = resource.costPrice === "" || resource.costPrice == null ? "待补成本" : money(resource.costPrice);
+  const statusText = ({ valid: "有效", expiring_soon: "即将过期", expired: "已过期", no_validity: "无有效期" })[resource.priceStatus] || "待确认";
+  const risk = resource.riskFlags?.length ? `<span class="danger-text">${escapeHtml(resource.riskFlags.join(" / "))}</span>` : `<span class="ok-text">可选</span>`;
+  return `<div class="resource-option">
+    <div>
+      <strong>${escapeHtml(resource.title || resource.name)}</strong>
+      <span>${escapeHtml(resource.category)} · ${escapeHtml(resource.city || "-")} · ${escapeHtml(resource.supplierName || IMPORTED_PENDING_SUPPLIER)}</span>
+      <small>${escapeHtml(resource.serviceCategory || resource.routeName || resource.language || resource.roomType || resource.ticketType || "")}</small>
+    </div>
+    <div>
+      <strong>${cost}</strong>
+      <span>${escapeHtml(statusText)}${resource.matchScore ? ` · 分数 ${resource.matchScore}` : ""}</span>
+      ${risk}
+    </div>
+    <button class="primary-btn" data-select-quotable-resource="${escapeHtml(resource.id)}" data-quote-row-token="${escapeHtml(token)}">选择</button>
+  </div>`;
+}
+
+function ensureQuotableResourceSelectorModal() {
+  let modal = $("#quotableResourceSelectorModal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "quotableResourceSelectorModal";
+  modal.className = "modal-backdrop hidden";
+  modal.innerHTML = `<div class="modal-card wide-modal"><div class="modal-head"><div><h3>从资源库选择供应商资源</h3><p>只回填产品库或供应商服务明细里的成本，AI 不参与定价。</p></div><button class="icon-btn" data-close-quotable-selector aria-label="关闭"><i data-lucide="x"></i></button></div><div class="modal-body" data-quotable-body></div></div>`;
+  document.body.appendChild(modal);
+  modal.querySelector("[data-close-quotable-selector]").addEventListener("click", () => modal.classList.add("hidden"));
+  return modal;
+}
+
+function applyQuotableResourceToQuoteRow(resourceId, token) {
+  const data = quoteRowByToken(token);
+  const resource = (state.quotableResources || []).find((item) => item.id === resourceId);
+  if (!data.row || !resource) return;
+  if (resource.priceStatus === "expired") {
+    alert("该资源价格已过期，不能直接进入报价。请先更新供应商服务明细有效期。");
+    return;
+  }
+  if (resource.priceStatus === "no_validity") {
+    const ok = window.confirm("该资源没有价格有效期，是否人工确认后用于当前报价？");
+    if (!ok) return;
+  }
+  const snapshot = quotableCore()?.createQuoteLineSnapshot(resource, {
+    productResourceId: resource.productResourceIds?.[0] || "",
+    selectedBy: state.currentRole || "admin",
+  }) || {};
+  writeResourceSnapshotToQuoteTarget(data, resource, snapshot);
+  recordOperationLog("quote_line_resource_selected", {
+    quoteRow: token,
+    supplierId: resource.supplierId,
+    supplierName: resource.supplierName,
+    serviceDetailId: resource.serviceDetailId,
+    resourceId: resource.id,
+    costPriceSnapshot: snapshot.costPriceSnapshot,
+  });
+  saveQuoteVersions();
+  const modal = $("#quotableResourceSelectorModal");
+  if (modal) modal.classList.add("hidden");
+  renderQuoteTable();
+  renderQuoteTabs();
+  renderSummary();
+}
+
+function writeResourceSnapshotToQuoteTarget(data, resource, snapshot) {
+  const cost = valueOrEmpty(snapshot.costPriceSnapshot ?? resource.costPrice);
+  const common = {
+    sourceType: "供应商服务明细",
+    sourceProductId: snapshot.sourceProductId || resource.sourceProductId || "",
+    sourceResourceId: snapshot.sourceResourceId || resource.id || "",
+    sourceName: resource.title || resource.name,
+    supplierId: resource.supplierId || "",
+    supplierName: resource.supplierName || IMPORTED_PENDING_SUPPLIER,
+    serviceDetailId: resource.serviceDetailId || "",
+    serviceDetailName: resource.title || resource.name,
+    costSource: "供应商服务明细",
+    quoteLineSnapshot: snapshot,
+    matchStatus: cost === "" ? "need_price" : (resource.priceStatus === "no_validity" ? "need_confirm" : "matched"),
+    matchReason: cost === "" ? "成本价为空" : (resource.priceStatus === "no_validity" ? "价格无有效期，已人工确认" : "人工选择供应商资源"),
+    missingCost: cost === "",
+    source: `供应商服务明细 / ${resource.supplierName || IMPORTED_PENDING_SUPPLIER} / ${resource.title || resource.name}`,
+  };
+  if (data.service === "vehicle") {
+    Object.assign(data.row, common, {
+      city: resource.city || data.row.city,
+      serviceType: resource.serviceCategory || data.row.serviceType,
+      route: resource.routeName || resource.route || data.row.route,
+      model: resource.model || resource.vehicleModel || data.row.model,
+      productName: resource.title || resource.name,
+      charterCost: cost,
+      unitCost: cost,
+      totalCost: cost,
+      salePrice: cost === "" ? "" : sellMargin(cost),
+      totalSale: cost === "" ? "" : sellMargin(cost),
+    });
+    return;
+  }
+  if (data.service === "guide") {
+    Object.assign(data.row, common, {
+      serviceCost: cost,
+      unitCost: cost,
+      totalCost: cost,
+      salePrice: cost === "" ? "" : sellMargin(cost),
+      totalSale: cost === "" ? "" : sellMargin(cost),
+    });
+    return;
+  }
+  if (data.service === "meal") {
+    Object.assign(data.row, common, {
+      perPersonCost: cost,
+    });
+    return;
+  }
+  if (data.service === "traffic") {
+    Object.assign(data.row, common, {
+      adultCost: cost,
+      childCost: valueOrEmpty(resource.childCost || ""),
+    });
+    return;
+  }
+  if (data.service === "ticket") {
+    const item = data.row.items?.find((candidate) => candidate.missingCost || candidate.adultCost === "") || data.row.items?.[0];
+    if (item) Object.assign(item, common, {
+      name: resource.title || item.name,
+      adultCost: cost,
+      childCost: valueOrEmpty(resource.childCost || item.childCost || ""),
+      unitCost: cost,
+      totalCost: cost === "" ? "" : number(cost) * getDemandSafe().adults + number(resource.childCost || item.childCost) * getDemandSafe().children,
+      salePrice: cost === "" ? "" : sellMargin(cost),
+    });
+    data.row.missingCost = (data.row.items || []).some((candidate) => candidate.missingCost || candidate.adultCost === "");
+    return;
+  }
+  if (data.service === "hotel") {
+    const room = data.row.rooms?.find((candidate) => candidate.missingCost || candidate.unitCost === "") || data.row.rooms?.[0];
+    if (room) Object.assign(room, common, {
+      hotelName: resource.title || room.hotelName,
+      roomType: resource.roomType || room.roomType,
+      unitCost: cost,
+      totalCost: cost === "" ? "" : number(cost) * number(room.rooms || 1),
+      salePrice: cost === "" ? "" : sellMargin(cost),
+    });
+    data.row.missingCost = (data.row.rooms || []).some((candidate) => candidate.missingCost || candidate.unitCost === "");
+    return;
+  }
+  Object.assign(data.row, common, {
+    routeProductUnitCost: cost,
+  });
 }
 
 function openSyncQuoteItemModal(token = `${state.activeService}:0`) {
@@ -55600,5 +56179,13 @@ function writeAcceptanceProbe() {
   if (!node.parentNode) document.body.appendChild(node);
 }
 
-init();
-writeAcceptanceProbe();
+window.YouyixingServices = {
+  queryQuotableResources,
+  refreshV14ResourceState,
+  matchQuotableResources: (params = {}) => quotableCore()?.matchQuotableResources(params, state.quotableResources || []) || { matchStatus: "unmatched", candidates: [] },
+  createQuoteLineSnapshot: (resource, context = {}) => quotableCore()?.createQuoteLineSnapshot(resource, context),
+};
+
+init()
+  .then(writeAcceptanceProbe)
+  .catch((error) => console.warn("Workbench init failed:", error));

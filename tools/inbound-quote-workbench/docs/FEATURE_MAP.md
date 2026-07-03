@@ -344,3 +344,25 @@
 风险说明：当前日志不能完整记录 raw demand、AI raw output、normalized result、fallback reason 和最终主行程结果，排障价值不足。
 
 是否为核心交付功能：否
+
+### F-016
+
+功能编号：F-016
+
+功能名称：V1.4 可报价资源层
+
+功能描述：把供应商服务明细标准化为可报价资源，提供本地查询、确定性匹配、价格状态、产品资源关联、报价行成本快照和客户视图成本脱敏。
+
+涉及页面：产品资源库、供应商管理、报价明细。
+
+涉及组件：`quotable-resource-core.js`、`queryQuotableResources`、`refreshV14ResourceState`、`openProductResourceDetail`、`openQuotableResourceSelector`、`writeResourceSnapshotToQuoteTarget`
+
+涉及接口：浏览器内 `window.YouyixingServices.queryQuotableResources(params)`；当前没有新增 server.js 数据 API。
+
+涉及数据字段：`state.productRequirementItems`、`state.productResources`、`state.resourceSupplierLinks`、`state.quotableResources`、`state.operationLogs`、`quoteLineSnapshot`
+
+当前状态：待确认
+
+风险说明：当前仍是浏览器本地状态，不是真实数据库；自动报价匹配保留旧主流程，本轮新增的是稳定查询出口和人工选择快照。需要用真实产品库和真实供应商明细继续验收。
+
+是否为核心交付功能：是

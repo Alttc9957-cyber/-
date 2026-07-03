@@ -87,3 +87,72 @@
 - 先按 `docs/BUG_LOG.md` 逐条登记复现路径。
 - 优先做产品库导入与报价成本回填的最小闭环验收。
 - 若需要从历史包找回功能，先按 `docs/VERSION_ARCHIVE.md` 解压到临时目录对比，不直接覆盖当前仓库。
+
+## 2026-07-03
+
+日期：2026-07-03
+
+修改目标：修复供应商管理 V1.3 验收风险，并新增 V1.4 可报价资源查询与报价行成本快照能力。
+
+修改原因：客户反馈 API/调用出口缺失，供应商服务明细无法稳定进入报价明细，导致产品资源、供应商成本和报价行之间不可追溯。
+
+关联 bug：
+
+- BUG-20260703-001
+- BUG-20260703-002
+
+关联功能：
+
+- F-005 产品资源匹配与报价成本回填
+- F-009 供应商管理与服务明细
+- F-010 本地数据加载与持久化
+
+涉及文件：
+
+- `quotable-resource-core.js`
+- `app.js`
+- `index.html`
+- `styles.css`
+- `tests/quotable-resource-core.test.js`
+- `docs/acceptance-v1.4.md`
+- `docs/data-flow-v1.4.md`
+- `docs/CHANGELOG.md`
+- `docs/BUG_LOG.md`
+- `docs/FEATURE_MAP.md`
+- `docs/QA_CHECKLIST.md`
+
+具体改动：
+
+- 新增 `QuotableResource` 纯函数 core，支持供应商明细归一化、价格状态、查询、匹配、报价行快照和客户视图成本脱敏。
+- 新增浏览器内查询服务 `window.YouyixingServices.queryQuotableResources`。
+- 新增产品资源和供应商服务明细关联层。
+- 产品资源库新增“供应商资源”入口。
+- 供应商详情新增服务明细关联产品资源数量和报价调用次数。
+- 报价行新增“从资源库选择供应商资源”入口，选中后回填成本、供应商、服务明细和 `quoteLineSnapshot`。
+- 供应商联系人归一化为唯一主联系人。
+- 包车服务明细统一使用包车价成本和包车价参考售价。
+- 停用供应商排除在可报价资源之外。
+- 初始化完成后再写入验收探针。
+
+验证结果：
+
+- `node --check app.js` 通过。
+- `node --check server.js` 通过。
+- `node --check quotable-resource-core.js` 通过。
+- `node --test tests/quotable-resource-core.test.js` 6 项通过。
+- `PORT=8799 node server.js` 启动成功。
+- `curl -I --max-time 3 http://127.0.0.1:8799/` 返回 `HTTP/1.1 200 OK`。
+- `/api/settings` 返回 `hasApiKey=true`，完整 Key 未返回前端。
+- 浏览器烟测打开页面成功，业务控制台未捕获 error。
+
+是否影响旧功能：影响报价行操作区、产品资源库行操作、供应商详情展示；未重写报价主流程，未删除已有功能。
+
+回退方式：
+
+- 回退本次提交：`git revert <本次提交哈希>`
+- 临时禁用 V1.4 查询入口：恢复 `index.html` 中 `quotable-resource-core.js` script 引用和 `app.js` 中新增的 `YouyixingServices`、报价行选择入口。
+
+下一步建议：
+
+- 用真实《产品库汇总.xlsx》重新导入后，手工关联供应商服务明细并验证报价行选择。
+- 继续单独修复客户方案图片和 PDF 下载问题。

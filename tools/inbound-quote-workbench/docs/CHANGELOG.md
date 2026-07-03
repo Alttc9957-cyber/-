@@ -6,6 +6,13 @@
 
 ### Added
 
+- 新增 V1.4 可报价资源 core：`quotable-resource-core.js`。
+- 新增浏览器内查询服务：`window.YouyixingServices.queryQuotableResources(params)`。
+- 新增产品资源与供应商服务明细关联层：`productResources`、`resourceSupplierLinks`、`quotableResources`。
+- 新增报价行“从资源库选择供应商资源”，选择后写入 `quoteLineSnapshot`。
+- 新增产品资源详情与供应商明细反向查看入口。
+- 新增 V1.4 验收文档：`docs/acceptance-v1.4.md`、`docs/data-flow-v1.4.md`。
+- 新增回归测试：`tests/quotable-resource-core.test.js`。
 - 新增开发管理文档体系：
   - `docs/DEV_LOG.md`
   - `docs/BUG_LOG.md`
@@ -17,17 +24,23 @@
 
 ### Changed
 
-- 暂无业务功能变更。
+- 供应商联系人归一化为唯一主联系人。
+- 供应商服务明细统一成本价和参考售价字段。
+- 包车服务明细继续使用“包车价”，不新增“可跨城”字段。
+- 启动探针改为等待初始化完成后再执行，减少页面启动空状态报错风险。
 
 ### Fixed
 
-- 暂无业务 bug 修复。本次只建立管理机制。
+- 停用供应商不再进入可报价资源池。
+- 价格已过期的供应商资源不能直接选入报价。
+- 客户视图报价快照可隐藏内部成本字段。
 
 ### Known Risks
 
 - 产品库导入、产品匹配、供应商成本回填仍需要完整复测。
 - 图片导出和 PDF 下载仍需要复测。
 - 运行日志当前不足以完整复盘 AI 原始输出、归一化结果和回退原因。
+- 当前仍是本地单页工作台，V1.4 查询出口为浏览器 service，不是 server.js 的数据库 API。
 
 ## [v0.1.0-baseline-2026-07-02] - 2026-07-02
 

@@ -122,6 +122,87 @@ Bug 编号：BUG-20260702-002
 
 当前状态：已修复
 
+### BUG-20260703-001
+
+Bug 编号：BUG-20260703-001
+
+发现日期：2026-07-03
+
+发现来源：客户反馈 / 开发过程
+
+问题描述：供应商管理 V1.3 验收时，供应商服务明细虽然能显示在供应商页面，但缺少稳定的可报价资源出口，报价页无法按产品资源和供应商服务明细选择并写入成本快照。
+
+出现位置：供应商管理、产品资源库、报价明细。
+
+复现步骤：
+
+1. 维护一个启用供应商和服务明细。
+2. 进入产品资源库查看对应产品。
+3. 进入报价明细尝试选择该供应商服务明细。
+4. 查看报价行是否保留供应商、服务明细、成本来源和成本快照。
+
+预期结果：供应商服务明细可生成可报价资源，报价行选择后写入成本、供应商和快照字段。
+
+实际结果：历史版本只有旧 `quoteResources` 混合资源，没有独立查询 service 和 `quoteLineSnapshot`。
+
+严重程度：高
+
+影响范围：供应商成本回填、报价可追溯性、V1.4 验收。
+
+可能原因：供应商服务明细直接混入旧报价资源，缺少 `product_resource -> supplier_service_detail -> quotable_resource -> quote_line` 的稳定出口。
+
+修复方案：新增 `quotable-resource-core.js`、`state.quotableResources`、`window.YouyixingServices.queryQuotableResources`，并在报价行新增“从资源库选择供应商资源”。
+
+涉及文件：`quotable-resource-core.js`、`app.js`、`index.html`、`styles.css`、`tests/quotable-resource-core.test.js`
+
+验证步骤：
+
+1. 执行 `node --check app.js`。
+2. 执行 `node --check quotable-resource-core.js`。
+3. 执行 `node --test tests/quotable-resource-core.test.js`。
+4. 启动本地服务并打开页面。
+
+验证结果：语法检查通过，核心测试 6 项通过，本地页面返回 200。
+
+当前状态：已修复
+
+### BUG-20260703-002
+
+Bug 编号：BUG-20260703-002
+
+发现日期：2026-07-03
+
+发现来源：开发过程
+
+问题描述：页面底部直接执行 `init(); writeAcceptanceProbe();`，异步初始化未完成时验收探针可能读取空产品库或空质量报告，导致启动期控制台风险。
+
+出现位置：`app.js` 启动尾部。
+
+复现步骤：
+
+1. 打开本地页面。
+2. 观察初始化期间控制台和验收探针。
+
+预期结果：验收探针在初始化完成后执行。
+
+实际结果：旧写法没有等待 `init()` 完成。
+
+严重程度：中
+
+影响范围：页面启动、验收探针、控制台报错。
+
+可能原因：异步函数未等待。
+
+修复方案：改为 `init().then(writeAcceptanceProbe).catch(...)`。
+
+涉及文件：`app.js`
+
+验证步骤：打开 `http://127.0.0.1:8799/`，检查页面加载和控制台 error。
+
+验证结果：本地浏览器烟测业务控制台无 error。
+
+当前状态：已修复
+
 ### BUG-20260702-003
 
 Bug 编号：BUG-20260702-003
