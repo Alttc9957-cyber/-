@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 import openpyxl
+from openpyxl.utils import get_column_letter
 
 
 INPUT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("/Users/alic/Downloads/产品库汇总.xlsx")
@@ -142,6 +143,40 @@ def raw(labels, row):
     return {label: clean(row[i]) if i < len(row) else "" for i, label in enumerate(labels) if label}
 
 
+def merged_value(ws, row, col):
+    value = ws.cell(row, col).value
+    if clean(value) != "":
+        return clean(value)
+    for cell_range in ws.merged_cells.ranges:
+        if cell_range.min_row <= row <= cell_range.max_row and cell_range.min_col <= col <= cell_range.max_col:
+            return clean(ws.cell(cell_range.min_row, cell_range.min_col).value)
+    return ""
+
+
+def compact_header(value):
+    return re.sub(r"\s+", " ", str(clean(value))).strip()
+
+
+def header_labels(ws, header_rows):
+    labels = []
+    for col in range(1, ws.max_column + 1):
+        parts = []
+        for row in header_rows:
+            value = compact_header(merged_value(ws, row, col))
+            if value and value not in parts:
+                parts.append(value)
+        labels.append(" / ".join(parts) or f"{get_column_letter(col)}列")
+    return labels
+
+
+def raw_fields(ws, row_number, labels, header_rows):
+    row = [clean(ws.cell(row_number, col).value) for col in range(1, ws.max_column + 1)]
+    fields = raw(labels, row)
+    for col, label in enumerate(header_labels(ws, header_rows), start=1):
+        fields[f"{get_column_letter(col)}列 / {label}"] = row[col - 1] if col - 1 < len(row) else ""
+    return fields
+
+
 def item_id(category, sheet, row_number, suffix=""):
     safe_sheet = re.sub(r"\W+", "-", sheet).strip("-")
     return f"SYS-{category}-{safe_sheet}-{row_number}{suffix}"
@@ -192,7 +227,7 @@ def parse_routes(ws, report):
             "source": "Excel系统产品库",
             "sourceSheet": ws.title,
             "sourceRow": idx,
-            "rawFields": raw(labels, row),
+            "rawFields": raw_fields(ws, idx, labels, [1, 2]),
             "importWarnings": [],
         }
         out.append(item)
@@ -244,7 +279,7 @@ def parse_vehicles(ws, report):
                 "source": "Excel系统产品库",
                 "sourceSheet": ws.title,
                 "sourceRow": idx,
-                "rawFields": raw(labels, row),
+                "rawFields": raw_fields(ws, idx, labels, [1, 2, 3, 4, 5, 6]),
                 "importWarnings": [],
             }
             out.append(item)
@@ -294,7 +329,7 @@ def parse_guides(ws, report):
             "source": "Excel系统产品库",
             "sourceSheet": ws.title,
             "sourceRow": idx,
-            "rawFields": raw(labels, row),
+            "rawFields": raw_fields(ws, idx, labels, [1, 2]),
             "importWarnings": [],
         }
         out.append(item)
@@ -302,25 +337,25 @@ def parse_guides(ws, report):
 
 
 def parse_experiences(ws, report):
-    labels = ["城市", "体验名称", "票种", "体验时间", "体验介绍信息", "成人卖价", "儿童卖价", "官方成人价", "官方儿童价", "成人成本", "儿童成本", "备注"]
+    labels = ["城市", "体验名称", "票种", "体验时间", "体验介绍信息", "成人卖价", "儿童卖价", "官方成人价", "官方儿童价", "成人成本", "儿童成本", "空列", "备注"]
     out, city, exp = [], "", ""
     for idx, row in enumerate(list(row_values(ws))[1:], start=2):
         if len(row) > 0 and row[0]:
             city = norm_city(row[0])
         if len(row) > 1 and row[1]:
             exp = clean(row[1])
-        ticket_type = clean(row[2] if len(row) > 2 else "")
-        if not city or not exp or not ticket_type:
+        ticket_type = clean(row[2] if len(row) > 2 else "") or "体验项目"
+        if not city or not exp:
             if any(str(x).strip() for x in row):
                 report["abnormalRows"] += 1
-                report["issues"].append({"sheet": ws.title, "rowNumber": idx, "message": "缺城市、体验名称或票种"})
+                report["issues"].append({"sheet": ws.title, "rowNumber": idx, "message": "缺城市或体验名称"})
             continue
         adult_cost = price(row[9] if len(row) > 9 else "")
         item = {
             "id": item_id("特色体验", ws.title, idx),
             "category": "特色体验",
             "city": city,
-            "name": exp,
+            "name": exp if ticket_type == "体验项目" else f"{exp}{ticket_type}",
             "experienceName": exp,
             "ticketType": ticket_type,
             "duration": clean(row[3] if len(row) > 3 else ""),
@@ -333,13 +368,13 @@ def parse_experiences(ws, report):
             "childCost": price(row[10] if len(row) > 10 else ""),
             "costPrice": adult_cost,
             "salePrice": price(row[5] if len(row) > 5 else ""),
-            "remark": clean(row[11] if len(row) > 11 else ""),
+            "remark": clean(row[12] if len(row) > 12 else ""),
             "supplierName": PENDING_SUPPLIER,
             "status": status_for_cost(adult_cost),
             "source": "Excel系统产品库",
             "sourceSheet": ws.title,
             "sourceRow": idx,
-            "rawFields": raw(labels, row),
+            "rawFields": raw_fields(ws, idx, labels, [1]),
             "importWarnings": [],
         }
         out.append(item)
@@ -349,16 +384,16 @@ def parse_experiences(ws, report):
 def parse_tickets(ws, report):
     labels = ["城市", "景点名称", "类型", "票种", "淡季成人", "淡季儿童", "旺季成人", "旺季儿童", "旅行社成人", "旅行社儿童", "免费政策", "备注", "保票政策", "保票联系人", "保票电话"]
     out, city, scenic = [], "", ""
-    for idx, row in enumerate(list(row_values(ws))[1:], start=2):
+    for idx, row in enumerate(list(row_values(ws))[2:], start=3):
         if len(row) > 0 and row[0]:
             city = norm_city(row[0])
         if len(row) > 1 and row[1]:
             scenic = clean(row[1])
-        ticket_type = clean(row[3] if len(row) > 3 else "")
-        if not city or not scenic or not ticket_type:
+        ticket_type = clean(row[3] if len(row) > 3 else "") or clean(row[2] if len(row) > 2 else "") or "景区门票"
+        if not city or not scenic:
             if any(str(x).strip() for x in row):
                 report["abnormalRows"] += 1
-                report["issues"].append({"sheet": ws.title, "rowNumber": idx, "message": "缺城市、景点名称或票种"})
+                report["issues"].append({"sheet": ws.title, "rowNumber": idx, "message": "缺城市或景点名称"})
             continue
         agency_adult = price(row[8] if len(row) > 8 else "")
         peak_adult = price(row[6] if len(row) > 6 else "")
@@ -393,7 +428,7 @@ def parse_tickets(ws, report):
             "source": "Excel系统产品库",
             "sourceSheet": ws.title,
             "sourceRow": idx,
-            "rawFields": raw(labels, row),
+            "rawFields": raw_fields(ws, idx, labels, [1, 2]),
             "importWarnings": [],
         }
         out.append(item)
@@ -401,7 +436,7 @@ def parse_tickets(ws, report):
 
 
 def parse_meals(ws, report):
-    labels = ["城市", "菜品", "是否清真", "饭店", "人均最低报价", "电话", "区域", "空列", "建议卖价", "人均最低成本", "备注"]
+    labels = ["城市", "菜品", "是否清真", "饭店", "人均最低卖价", "电话", "地段", "空列", "建议卖价", "人均最低成本", "建议卖价2", "加价或备注"]
     out, city, cuisine, halal = [], "", "", ""
     for idx, row in enumerate(list(row_values(ws))[1:], start=2):
         if len(row) > 0 and row[0]:
@@ -429,16 +464,18 @@ def parse_meals(ws, report):
             "phone": clean(row[5] if len(row) > 5 else ""),
             "area": clean(row[6] if len(row) > 6 else ""),
             "suggestedSale": price(row[8] if len(row) > 8 else ""),
+            "suggestedSaleAlt": price(row[10] if len(row) > 10 else ""),
+            "markup": price(row[11] if len(row) > 11 else ""),
             "minCost": cost,
             "costPrice": cost,
             "salePrice": first_present(price(row[8] if len(row) > 8 else ""), price(row[4] if len(row) > 4 else "")),
-            "remark": clean(row[10] if len(row) > 10 else ""),
+            "remark": clean(row[11] if len(row) > 11 else ""),
             "supplierName": PENDING_SUPPLIER,
             "status": status_for_cost(cost),
             "source": "Excel系统产品库",
             "sourceSheet": ws.title,
             "sourceRow": idx,
-            "rawFields": raw(labels, row),
+            "rawFields": raw_fields(ws, idx, labels, [1]),
             "importWarnings": [],
         }
         out.append(item)
@@ -479,7 +516,7 @@ def parse_hotels(ws, report):
             "source": "Excel系统产品库",
             "sourceSheet": ws.title,
             "sourceRow": idx,
-            "rawFields": raw(labels, row),
+            "rawFields": raw_fields(ws, idx, labels, [1]),
             "importWarnings": [],
         }
         out.append(item)
@@ -520,7 +557,7 @@ def main():
             "sourceFile": str(INPUT),
             "generatedAt": datetime.now().isoformat(timespec="seconds"),
             "mode": "system_excel_overwrite",
-            "version": "product-catalog-system-20260701",
+            "version": "product-catalog-system-20260703",
         },
         "productCatalog": catalog,
         "report": report,

@@ -92,6 +92,65 @@
 
 日期：2026-07-03
 
+修改目标：用真实《产品库汇总.xlsx》重建系统产品库，修复模板导入漏行、错列和原始字段丢失问题。
+
+修改原因：产品库是报价成本的来源；旧构建脚本会把特色体验、门票里票种为空但有价格的有效行跳过，并且部分 Sheet 的备注 / 建议价列错位，导致成本或辅助字段进库前已经丢失。
+
+关联 bug：
+
+- BUG-20260702-001
+- BUG-20260703-003
+
+关联功能：
+
+- F-004 产品资源库导入与清洗
+- F-005 产品资源匹配与报价成本回填
+
+涉及文件：
+
+- `app.js`
+- `scripts/build-system-product-catalog.py`
+- `data/products/youyixing-product-catalog.json`
+- `tests/product-catalog-import.test.js`
+- `docs/acceptance-product-catalog-20260703.md`
+- `docs/CHANGELOG.md`
+- `docs/BUG_LOG.md`
+- `docs/DEV_LOG.md`
+
+具体改动：
+
+- `rawFields` 保留标准字段名，同时补充 Excel 列坐标和多行表头组合名。
+- 特色体验中票种为空但有体验名称和价格的行导入为 `ticketType=体验项目`。
+- 门票中票种为空但有景点名称和价格的行不再跳过，优先用类型补票种。
+- 修正系统产品库构建脚本中 `特色体验价` M 列备注、`餐` K/L 列建议价和加价信息的保存。
+- 用 `/Users/alic/Downloads/产品库汇总.xlsx` 重新生成 `youyixing-product-catalog.json`。
+- 新增产品库导入回归测试，锁住重庆 / 北京关键成本点和空成本规则。
+
+验证结果：
+
+- `node --check app.js` 通过。
+- `python3 -m py_compile scripts/build-system-product-catalog.py` 通过。
+- `node --test tests/product-catalog-import.test.js` 4 项通过。
+- `node --test tests/quotable-resource-core.test.js` 6 项通过。
+- 本地 `http://127.0.0.1:8787/` 返回 `HTTP/1.1 200 OK`。
+- 产品库 JSON 返回 `HTTP/1.1 200 OK`，且重庆接送机 7 座成本为 250。
+
+是否影响旧功能：影响产品库模板导入和系统底库数据；不改变报价主流程，不新增业务模块。
+
+回退方式：
+
+- 回退本次提交：`git revert <本次提交哈希>`。
+- 若只回退系统产品库数据，可恢复上一版 `data/products/youyixing-product-catalog.json` 并重新加载页面。
+
+下一步建议：
+
+- 在浏览器清除本地产品库覆盖层后，用重庆和北京客户案例跑完整报价明细。
+- 单独修复客户方案图片和 PDF 下载。
+
+---
+
+日期：2026-07-03
+
 修改目标：修复供应商管理 V1.3 验收风险，并新增 V1.4 可报价资源查询与报价行成本快照能力。
 
 修改原因：客户反馈 API/调用出口缺失，供应商服务明细无法稳定进入报价明细，导致产品资源、供应商成本和报价行之间不可追溯。

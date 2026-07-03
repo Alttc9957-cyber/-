@@ -48149,9 +48149,11 @@ function rowIsEmpty(row = []) {
 }
 
 function fixedRawFields(labels, row) {
-  return labels.reduce((acc, label, index) => {
-    if (!label) return acc;
-    acc[label] = row[index] ?? "";
+  const width = Math.max(labels.length, row.length);
+  return Array.from({ length: width }).reduce((acc, _, index) => {
+    const label = String(labels[index] || `原始列${index + 1}`).trim() || `原始列${index + 1}`;
+    const key = Object.prototype.hasOwnProperty.call(acc, label) ? `${label}_${index + 1}` : label;
+    acc[key] = row[index] ?? "";
     return acc;
   }, {});
 }
@@ -48282,13 +48284,14 @@ function parseExperiencePriceSheet(sheetName, rows, report) {
     if (rowIsEmpty(row)) { templateSkip(report, sheetName, category); return []; }
     if (row[0]) currentCity = normalizeRouteCity(row[0]) || row[0];
     if (row[1]) currentExperience = row[1];
-    if (!currentCity || !currentExperience || !row[2]) { templateIssue(report, sheetName, rowNumber, category, "缺城市、体验名称或票种"); return []; }
+    const ticketType = row[2] || "体验项目";
+    if (!currentCity || !currentExperience) { templateIssue(report, sheetName, rowNumber, category, "缺城市或体验名称"); return []; }
     const rawFields = fixedRawFields(labels, row);
     return [templateRow(sheetName, rowNumber, category, {
       city: currentCity,
-      name: `${currentExperience}${row[2]}`,
+      name: row[2] ? `${currentExperience}${row[2]}` : currentExperience,
       experienceName: currentExperience,
-      ticketType: row[2] || "",
+      ticketType,
       duration: row[3] || "",
       introLink: row[4] || "",
       intro: row[4] || "",
@@ -48316,7 +48319,8 @@ function parseTicketPriceSheet(sheetName, rows, report) {
     if (rowIsEmpty(row)) { templateSkip(report, sheetName, category); return []; }
     if (row[0]) currentCity = normalizeRouteCity(row[0]) || row[0];
     if (row[1]) currentScenic = row[1];
-    if (!currentCity || !currentScenic || !row[3]) { templateIssue(report, sheetName, rowNumber, category, "缺城市、景点名称或票种"); return []; }
+    const ticketType = row[3] || row[2] || "景区门票";
+    if (!currentCity || !currentScenic) { templateIssue(report, sheetName, rowNumber, category, "缺城市或景点名称"); return []; }
     const rawFields = fixedRawFields(labels, row);
     return [templateRow(sheetName, rowNumber, category, {
       city: currentCity,
@@ -48324,7 +48328,7 @@ function parseTicketPriceSheet(sheetName, rows, report) {
       scenicName: currentScenic,
       attractionLevel: row[2] || "",
       type: row[2] || "",
-      ticketType: row[3] || "景区门票",
+      ticketType,
       offAdult: strictPriceNumber(row[4]),
       offChild: strictPriceNumber(row[5]),
       offDiscount: strictPriceNumber(row[5]),
@@ -48370,6 +48374,8 @@ function parseMealPriceSheet(sheetName, rows, report) {
       phone: row[5] || "",
       area: row[6] || "",
       suggestedSale: strictPriceNumber(row[8]),
+      suggestedSaleAlt: strictPriceNumber(row[10]),
+      markup: strictPriceNumber(row[11]),
       minCost: strictPriceNumber(row[9]),
       costPrice: strictPriceNumber(row[9]),
       salePrice: firstPresent(strictPriceNumber(row[8]), strictPriceNumber(row[4])),
