@@ -78,6 +78,49 @@ Bug 编号：BUG-20260703-007
 
 当前状态：已修复
 
+### BUG-20260704-001
+
+Bug 编号：BUG-20260704-001
+
+发现日期：2026-07-04
+
+发现来源：客户反馈 / 开发过程
+
+问题描述：客户测试要求 DeepSeek 全程接入，但 `/api/agent` 和 `/api/agent/chat` 在缺少 API Key 时会静默回退到本地规则，可能让测试人员误以为 DeepSeek 在线，实际生成的是本地草稿。
+
+出现位置：`server.js` 的 `handleAgentRequest()`、`handleAgentChatRequest()`。
+
+复现步骤：
+
+1. 在独立 Node 进程中把 `DEEPSEEK_API_KEY` 置空。
+2. 调用 `POST /api/agent`。
+3. 查看是否仍返回本地模型内容。
+
+预期结果：测试模式下 DeepSeek 未配置应直接报错，不能本地假成功。
+
+实际结果：旧逻辑会返回 `localAgentResponse` 或 `local-agent-engine`。
+
+严重程度：高
+
+影响范围：需求识别、线路草稿、报价建议、客户测试可信度。
+
+可能原因：早期为了离线演示保留了本地 fallback，但客户测试阶段要求真实 DeepSeek 全程在线。
+
+修复方案：新增 `sendMissingAiConfig()`；`/api/agent` 和 `/api/agent/chat` 在缺少 Key 时返回 503、`DEEPSEEK_REQUIRED`，不再静默回退本地规则。
+
+涉及文件：`server.js`
+
+验证步骤：
+
+1. 当前配置下调用 `/api/settings`，确认 `hasApiKey=true`。
+2. 当前配置下调用 `/api/agent`，确认返回 DeepSeek `usage` 和模型名。
+3. 当前配置下调用 `/api/translate/segment`，确认返回 DeepSeek `usage` 和模型名。
+4. 在独立 Node 进程中置空 `DEEPSEEK_API_KEY` 并直接调用 handler，确认 `/api/agent` 返回 503、`DEEPSEEK_REQUIRED`。
+
+验证结果：通过。当前 8787 服务 DeepSeek 在线；无 Key 专项验证返回 503，未再本地假成功。
+
+当前状态：已修复
+
 ### BUG-20260703-005
 
 Bug 编号：BUG-20260703-005

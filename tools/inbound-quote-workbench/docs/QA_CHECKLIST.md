@@ -130,6 +130,11 @@
 
 - [ ] 本地 `/api/settings` 可读取配置。
 - [ ] 保存 DeepSeek 配置不把完整 Key 返回前端。
+- [x] `/api/settings` 当前返回 `hasApiKey=true`，DeepSeek 来源为 `.env`。
+- [x] `/api/settings/ai/test` 当前返回 `ok=true`。
+- [x] `/api/agent` 当前返回 DeepSeek `usage`，不是本地 fallback。
+- [x] `/api/translate/segment` 当前返回 DeepSeek `usage`，不是本地 fallback。
+- [x] 缺少 DeepSeek Key 时 `/api/agent` 返回 503、`DEEPSEEK_REQUIRED`，不允许本地假成功。
 - [ ] `/api/agent` 返回结构异常时前端能 fallback。
 - [ ] `/api/translate` 不可用时页面给出明确提示。
 - [ ] 公网静态页请求 `/api/*` 失败时不阻断基础本地规则。

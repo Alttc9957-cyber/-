@@ -147,7 +147,7 @@ async function handleAgentRequest(req, res) {
     const body = await readJsonBody(req);
     const aiConfig = readAiConfig();
     if (!aiConfig.apiKey) {
-      sendJson(res, 200, localAgentResponse(body));
+      sendMissingAiConfig(res, "DeepSeek Agent");
       return;
     }
 
@@ -200,14 +200,7 @@ async function handleAgentChatRequest(req, res) {
     const body = await readJsonBody(req);
     const aiConfig = readAiConfig();
     if (!aiConfig.apiKey) {
-      sendJson(res, 200, {
-        content: JSON.stringify(localAgentResponse({
-          message: body.messages?.map((item) => item.content).join("\n") || "",
-          context: body.context || {},
-        })),
-        usage: null,
-        model: "local-agent-engine",
-      });
+      sendMissingAiConfig(res, "小易 Agent");
       return;
     }
 
@@ -646,6 +639,15 @@ function publicAiConfig() {
     apiKeyMasked: maskApiKey(config.apiKey),
     source,
   };
+}
+
+function sendMissingAiConfig(res, feature = "DeepSeek") {
+  sendJson(res, 503, {
+    error: `${feature} 未配置 API Key，测试模式不允许降级到本地规则。请在系统设置中配置 DeepSeek 后重试。`,
+    code: "DEEPSEEK_REQUIRED",
+    hasApiKey: false,
+    source: "missing",
+  });
 }
 
 function maskApiKey(apiKey) {

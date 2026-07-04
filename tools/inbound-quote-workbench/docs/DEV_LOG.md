@@ -512,3 +512,58 @@
 - 用真实客户行程跑北京和跨城成都/重庆测试，重点看主行程城市是否被接送机阶段带偏。
 - 继续补餐厅真实成本或在报价规则中把餐厅默认显示为待补成本，不要参与正常 0 成本展示。
 - 用已确认客户方案实点“导出图片 / 下载 PDF”，确认下载文件在公网预览和本地服务都可用。
+
+---
+
+日期：2026-07-04
+
+修改目标：确保客户测试阶段 DeepSeek 全程接入，禁止 Agent 在缺少 Key 时静默降级到本地规则。
+
+修改原因：乐哥反馈测试时 DeepSeek 必须全程接入。现场检查发现 8787 服务未运行导致前端无法读取配置；服务重启后 DeepSeek 配置存在且测试通过。同时发现旧代码在缺少 API Key 时会回退 `localAgentResponse`，这会造成“看起来能跑、其实不是 DeepSeek”的假成功。
+
+关联 bug：
+
+- BUG-20260704-001
+
+关联功能：
+
+- F-008 小易 AI 助手
+- F-007 客户方案生成、多语言与导出
+
+涉及文件：
+
+- `server.js`
+- `docs/DEV_LOG.md`
+- `docs/BUG_LOG.md`
+- `docs/CHANGELOG.md`
+- `docs/QA_CHECKLIST.md`
+
+具体改动：
+
+- 新增 `sendMissingAiConfig()`，统一返回 `DEEPSEEK_REQUIRED`。
+- `/api/agent` 缺少 DeepSeek API Key 时返回 503，不再返回本地 `localAgentResponse`。
+- `/api/agent/chat` 缺少 DeepSeek API Key 时返回 503，不再返回 `local-agent-engine`。
+- 保留纯本地动作入口用于确定性按钮/应用逻辑，不让它冒充模型生成。
+
+验证结果：
+
+- 重新启动 8787 服务，`curl -I --max-time 2 http://127.0.0.1:8787/` 返回 `HTTP/1.1 200 OK`。
+- `/api/settings` 返回 `hasApiKey=true`、来源 `.env`。
+- `/api/settings/ai/test` 返回 `ok=true`。
+- `/api/agent` 返回 DeepSeek `usage` 和模型名。
+- `/api/translate/segment` 返回 DeepSeek `usage` 和模型名。
+- 独立 Node 进程置空 `DEEPSEEK_API_KEY` 后调用 `/api/agent`，返回 503、`DEEPSEEK_REQUIRED`。
+- `node --check server.js` 通过。
+- `node --check app.js` 通过。
+- `node --test tests/*.test.js` 31 项通过。
+
+是否影响旧功能：影响缺少 DeepSeek 配置时的 Agent 行为；测试阶段这是预期行为。不会影响已有 DeepSeek Key 正常调用，也不改变产品库报价成本来源。
+
+回退方式：
+
+- 回退本次提交：`git revert <本次提交哈希>`。
+- 如需恢复离线演示模式，可把 `handleAgentRequest()` 和 `handleAgentChatRequest()` 中的 `sendMissingAiConfig()` 改回本地 fallback。
+
+下一步建议：
+
+- 页面顶部或系统设置处增加更明显的 DeepSeek 在线状态提示，防止客户测试时服务没启动却误以为模型丢失。
