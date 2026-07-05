@@ -1,0 +1,20 @@
+{
+  "project": "youyixing-inbound-travel-workbench",
+  "current_stage": "stage-0-stabilization",
+  "current_module": "",
+  "module_status": "not_started",
+  "last_verified_at": "",
+  "last_package": "",
+  "redlines": [
+    "do_not_edit_env",
+    "do_not_deploy_production",
+    "do_not_run_database_migration_without_approval",
+    "do_not_let_ai_decide_costs"
+  ],
+  "next_candidates": [
+    "A2 product catalog real data repair and cost trust",
+    "A3 one-click product catalog draft loop",
+    "B1 order management minimum loop",
+    "C1 login and permission minimum loop"
+  ]
+}

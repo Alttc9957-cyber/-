@@ -432,3 +432,25 @@
 风险说明：当前只创建事件对象，不写数据库，不做实时看板。后续接 Supabase 前需要先定义事件落库策略。
 
 是否为核心交付功能：否
+
+### F-020
+
+功能编号：F-020
+
+功能名称：AI 协同开发工作流 v1
+
+功能描述：在仓库内建立 AI 协同中控层，用任务文件、Agent 职责、目标模板和脚本支持“任务文件 -> AI 执行 -> 自动测试 -> AI 审核 -> 修复循环 -> 输出报告 -> 推荐下一阶段”的开发流程。
+
+涉及页面：无用户页面，属于开发协同和交付管理能力。
+
+涉及组件：`.ai/agents/`、`.ai/tasks/`、`.ai/reports/`、`.ai/state/`、`goals/_template/`、`scripts/ai/detect-test-scope.mjs`、`scripts/ai/verify-module.mjs`、`scripts/ai/select-next-task.mjs`、`scripts/ai/generate-pr-summary.mjs`
+
+涉及接口：无新增业务接口。
+
+涉及数据字段：`task-template.yml` 中的 `id`、`title`、`stage`、`approved`、`owner_agent`、`allowed_files`、`forbidden_files`、`redlines`、`scope`、`out_of_scope`、`acceptance`、`required_commands`、`risk_level`、`rollback`、`next_candidates`
+
+当前状态：正常
+
+风险说明：该工作流只能约束开发过程，不能替代真实代码审查和客户验收；涉及数据库迁移、生产数据和密钥时仍必须人工确认。
+
+是否为核心交付功能：否

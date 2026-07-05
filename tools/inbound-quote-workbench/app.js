@@ -46749,11 +46749,11 @@ function productQualityForCategory(category) {
   if (row) return { ...row, updated: report.generatedAt || "2026-06-25" };
   const items = productCatalogItems(category);
   return {
-    quoteable: items.filter((item) => firstPresent(item.cost, item.costPrice, item.adultCost, item.adultSale, item.minSale, item.salePrice) !== "").length,
-    missingCost: items.filter((item) => firstPresent(item.cost, item.costPrice, item.adultCost, item.adultSale, item.minSale, item.salePrice) === "").length,
+    quoteable: items.filter((item) => productCostValue(item, category) !== "").length,
+    missingCost: items.filter((item) => productCostValue(item, category) === "").length,
     missingSupplier: items.filter((item) => !item.supplierId && !item.supplierName).length,
     missingCity: items.filter((item) => !item.city || item.city === "待补城市").length,
-    notQuoteable: items.filter((item) => firstPresent(item.cost, item.costPrice, item.adultCost, item.adultSale, item.minSale, item.salePrice) === "").length,
+    notQuoteable: items.filter((item) => productCostValue(item, category) === "").length,
     updated: "2026-06-25",
   };
 }
@@ -46780,7 +46780,7 @@ function productCostValue(item, category) {
   if (category === "特色体验") return firstPresent(item.adultCost, item.costPrice);
   if (category === "餐厅" || category === "餐") return firstPresent(item.costPrice, item.minCost);
   if (category === "大交通") return firstPresent(item.adultCost, item.cost);
-  return firstPresent(item.costPrice, item.cost, item.salePrice);
+  return firstPresent(item.costPrice, item.cost);
 }
 
 function productSaleValue(item, category) {
@@ -46849,32 +46849,23 @@ function renderCatalogExtraFilters(category) {
 function renderProductCategoryTable(category, items) {
   if (category === "景点门票" || category === "门票") return renderTicketProductCategoryTable(category, items);
   const headers = [
-    "资源名称", "品类", "城市", "服务类型", "规格", "成本价", "参考售价", "淡季成本", "旺季成本", "供应商", "状态", "来源", "备注", "操作",
+    "资源名称", "品类", "城市", "服务类型/规格", "成本价", "参考售价", "供应商",
   ];
   const pageSize = state.productPageSize || 100;
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   state.productPage = Math.min(Math.max(1, state.productPage || 1), totalPages);
   const start = (state.productPage - 1) * pageSize;
   const visibleItems = items.slice(start, start + pageSize);
-  const rows = visibleItems.map((item, index) => {
+  const rows = visibleItems.map((item) => {
     const rowCategory = category === "全部" ? (item.__category || "其他") : category;
-    const status = productStatus(item, rowCategory);
-    const token = productEditToken(rowCategory, item, index);
     const row = [
-      `<strong>${escapeHtml(productName(item, rowCategory))}</strong>${productExtraBadges(item, rowCategory)}`,
+      `<strong>${escapeHtml(productName(item, rowCategory))}</strong>`,
       escapeHtml(rowCategory),
-      editableProductCell(token, "city", item.city || item.startCity || item.from || ""),
-      editableProductCell(token, "serviceType", productServiceValue(item, rowCategory)),
-      editableProductCell(token, "spec", productSpecValue(item, rowCategory)),
-      editableProductCell(token, "cost", productCostValue(item, rowCategory), "number"),
-      editableProductCell(token, "sale", productSaleValue(item, rowCategory), "number"),
-      editableProductCell(token, "lowSeasonCost", productSeasonValue(item, "low"), "number"),
-      editableProductCell(token, "highSeasonCost", productSeasonValue(item, "high"), "number"),
-      editableProductCell(token, "supplier", productSupplierName(item)),
-      editableProductStatusCell(token, status),
-      escapeHtml(item.source || item.costSource || "本地"),
-      editableProductCell(token, "notes", item.notes || item.internalNotes || item.remark || ""),
-      productRowActions(rowCategory, item, productCatalogItems(rowCategory).findIndex((candidate) => candidate === item || productDedupeKey(candidate, rowCategory) === productDedupeKey(item, rowCategory))),
+      escapeHtml(item.city || item.startCity || item.from || "-"),
+      escapeHtml(productServiceSpecValue(item, rowCategory) || "-"),
+      productCostDisplay(productCostValue(item, rowCategory), item),
+      productPriceDisplay(productSaleValue(item, rowCategory)),
+      escapeHtml(productSupplierName(item) || IMPORTED_PENDING_SUPPLIER),
     ];
     return row;
   });
@@ -46884,32 +46875,22 @@ function renderProductCategoryTable(category, items) {
 
 function renderTicketProductCategoryTable(category, items) {
   const headers = [
-    "景点名称", "城市", "类型", "票种", "成本价", "参考售价", "淡季成人", "旺季成人", "旅行社成人", "免费政策", "保票政策", "供应商", "状态", "来源", "操作",
+    "景点名称", "城市", "成本价", "参考售价", "供应商", "缺成本提示",
   ];
   const pageSize = state.productPageSize || 100;
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   state.productPage = Math.min(Math.max(1, state.productPage || 1), totalPages);
   const start = (state.productPage - 1) * pageSize;
   const visibleItems = items.slice(start, start + pageSize);
-  const rows = visibleItems.map((item, index) => {
-    const token = productEditToken(category, item, index);
-    const source = [item.source || "产品库", item.sourceSheet, item.sourceRow ? `第${item.sourceRow}行` : ""].filter(Boolean).join(" / ");
+  const rows = visibleItems.map((item) => {
+    const cost = productCostValue(item, category);
     return [
-      `<strong>${escapeHtml(item.scenicName || item.name || "未命名景点")}</strong>${productExtraBadges(item, category)}`,
-      editableProductCell(token, "city", item.city || ""),
-      escapeHtml(item.attractionLevel || item.type || ""),
-      editableProductCell(token, "spec", item.ticketType || "景区门票"),
-      editableProductCell(token, "cost", productCostValue(item, category), "number"),
-      editableProductCell(token, "sale", productSaleValue(item, category), "number"),
-      priceOrPending(item.offAdult),
-      priceOrPending(item.peakAdult),
-      priceOrPending(item.agencyAdult),
-      escapeHtml(item.freePolicy || "-"),
-      escapeHtml(item.guaranteePolicy || "-"),
-      editableProductCell(token, "supplier", productSupplierName(item)),
-      editableProductStatusCell(token, productStatus(item, category)),
-      escapeHtml(source),
-      productRowActions(category, item, productCatalogItems(category).findIndex((candidate) => candidate === item || productDedupeKey(candidate, category) === productDedupeKey(item, category))),
+      `<strong>${escapeHtml(item.scenicName || item.name || "未命名景点")}</strong>`,
+      escapeHtml(item.city || "-"),
+      productCostDisplay(cost, item),
+      productPriceDisplay(productSaleValue(item, category)),
+      escapeHtml(productSupplierName(item) || IMPORTED_PENDING_SUPPLIER),
+      productMissingCostHint(cost, item),
     ];
   });
   const empty = `<tr><td colspan="${headers.length}">当前筛选条件下暂无景点门票数据。</td></tr>`;
@@ -46918,6 +46899,23 @@ function renderTicketProductCategoryTable(category, items) {
 
 function priceOrPending(value) {
   return value === "" || value == null ? "待补" : money(value);
+}
+
+function productCostDisplay(value, item = {}) {
+  if ((value === "" || value == null) && item.isFree === true) return money(0);
+  if (value === "" || value == null) return `<span class="product-price-missing">待补成本</span>`;
+  return `<span class="product-price-value">${money(value)}</span>`;
+}
+
+function productPriceDisplay(value) {
+  if (value === "" || value == null) return `<span class="muted-dash">-</span>`;
+  return `<span class="product-price-value">${money(value)}</span>`;
+}
+
+function productMissingCostHint(value, item = {}) {
+  if ((value === "" || value == null) && item.isFree === true) return `<span class="product-price-free">免费资源</span>`;
+  if (value === "" || value == null) return `<span class="product-price-missing">待补成本</span>`;
+  return `<span class="muted-dash">-</span>`;
 }
 
 function renderProductPager(total, start, count, totalPages) {
@@ -46962,6 +46960,11 @@ function productSpecValue(item, category) {
   if (category === "景点门票" || category === "门票") return item.ticketType || "";
   if (category === "餐厅" || category === "餐") return item.mealStandard || item.area || "";
   return item.spec || "";
+}
+
+function productServiceSpecValue(item, category) {
+  const values = [productServiceValue(item, category), productSpecValue(item, category)].filter(Boolean);
+  return values.filter((value, index) => values.indexOf(value) === index).join(" / ");
 }
 
 function productExtraBadges(item, category) {
@@ -54058,12 +54061,21 @@ function renderVehicleTable() {
 
 function vehicleBreakdownHtml(row = {}) {
   const items = row.quoteLegBreakdown || [];
-  if (!items.length) return "";
-  return `<div class="quote-leg-breakdown">${items.map((item) => `
-    <span class="${item.cost === "" || item.cost == null || item.matchReason ? "warn" : "ok"}" title="${escapeHtml([item.matchReason, item.source].filter(Boolean).join(" / "))}">
+  const issueItems = items.filter((item) => vehicleBreakdownNeedsAttention(item));
+  if (!issueItems.length) return "";
+  return `<div class="quote-leg-breakdown">${issueItems.map((item) => `
+    <span class="${item.matchStatus === "unmatched" ? "danger" : "warn"}" title="${escapeHtml([item.matchReason, item.source].filter(Boolean).join(" / "))}">
       ${escapeHtml(item.label || item.serviceType || "用车")}：${item.cost === "" || item.cost == null ? "待补成本" : money(item.cost)}
     </span>
   `).join("")}</div>`;
+}
+
+function vehicleBreakdownNeedsAttention(item = {}) {
+  const status = item.matchStatus || item.status || "";
+  const reason = String(item.matchReason || item.source || "");
+  if (item.cost === "" || item.cost == null || item.missingCost) return true;
+  if (["need_confirm", "need_price", "unmatched"].includes(status)) return true;
+  return /待确认|待补|缺成本|未匹配|不匹配|车型缺失|城市不匹配/.test(reason);
 }
 
 function renderGuideTable() {
@@ -54188,12 +54200,17 @@ function renderOtherTable() {
 }
 
 function quoteRowActions(service, index) {
-  return `<div class="row-actions quote-row-actions">
-    <button class="primary-btn" data-open-quotable-selector="${service}:${index}">从资源库选择</button>
-    <button class="secondary-btn" data-rematch-quote-row="${service}:${index}">重新匹配</button>
-    <button class="secondary-btn" data-sync-quote-row="${service}:${index}">同步产品库</button>
-    <button class="ghost-btn" data-current-only-row="${service}:${index}">仅当前报价</button>
-    <button class="ghost-btn" data-mark-clean-row="${service}:${index}">待清洗</button>
+  return `<div class="quote-row-action-shell">
+    <button class="primary-btn" data-open-quotable-selector="${service}:${index}">选资源</button>
+    <details class="row-more-actions">
+      <summary>更多</summary>
+      <div class="row-actions quote-row-actions">
+        <button class="secondary-btn" data-rematch-quote-row="${service}:${index}">重新匹配</button>
+        <button class="secondary-btn" data-sync-quote-row="${service}:${index}">同步产品库</button>
+        <button class="ghost-btn" data-current-only-row="${service}:${index}">仅当前报价</button>
+        <button class="ghost-btn" data-mark-clean-row="${service}:${index}">待清洗</button>
+      </div>
+    </details>
   </div>`;
 }
 
@@ -54440,8 +54457,7 @@ function openSyncQuoteItemModal(token = `${state.activeService}:0`) {
       ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`).join("")}
     </div>
     <div class="modal-actions">
-      <button class="primary-btn" data-sync-mode="formal">同步为正式产品</button>
-      <button class="secondary-btn" data-sync-mode="pending">同步为待清洗产品</button>
+      <button class="primary-btn" data-sync-mode="pending">保存为产品库草稿</button>
       <button class="ghost-btn" data-sync-mode="current">仅当前报价使用</button>
       <button class="ghost-btn" data-sync-mode="cancel">取消</button>
     </div>`;
@@ -54499,10 +54515,10 @@ function applyQuoteProductSync(modal, rowData, product, mode) {
     renderQuoteTable();
     return;
   }
-  product.item.status = mode === "pending" ? "待清洗" : (productMissingFields(product, product.category).length ? "待清洗" : "可报价");
+  product.item.status = "待清洗";
   productCatalogItems(product.category).unshift(product.item);
-  rowData.row.syncedProduct = { category: product.category, name: productName(product.item, product.category), mode, syncedAt: new Date().toISOString() };
-  rowData.row.source = mergeSources(rowData.row.source || "", `已同步产品库/${product.item.status}`);
+  rowData.row.syncedProduct = { category: product.category, name: productName(product.item, product.category), mode: "pending", syncedAt: new Date().toISOString() };
+  rowData.row.source = mergeSources(rowData.row.source || "", `已保存产品库草稿/${product.item.status}`);
   refreshQuoteResources();
   saveLocalProductState();
   modal.classList.add("hidden");
@@ -54650,7 +54666,14 @@ function quoteDetailHtml(detail = "") {
 function sourceNote(sourceOrRow, candidates = [], reason = "") {
   const meta = quoteSourceSummary(sourceOrRow, candidates, reason);
   if (!meta?.label) return "";
+  if (!shouldShowInlineSourceNote(meta, sourceOrRow)) return "";
   return `<div class="cost-source cost-source-${escapeHtml(meta.level || "info")}"><span class="quote-source-chip ${escapeHtml(meta.level || "info")}">${escapeHtml(meta.label)}</span>${quoteDetailHtml(meta.detail)}</div>`;
+}
+
+function shouldShowInlineSourceNote(meta = {}, sourceOrRow = {}) {
+  if (meta.status === "unmatched" || meta.status === "need_confirm" || meta.status === "need_price") return true;
+  if (sourceOrRow?.missingCost || sourceOrRow?.pendingClean) return true;
+  return /待确认|待补成本|缺成本|未匹配|不匹配|待清洗/.test([meta.label, meta.detail].filter(Boolean).join(" "));
 }
 
 function compactInfoNote(label, detail, level = "info") {

@@ -1,0 +1,46 @@
+id: A2-example
+title: Product catalog real data repair and cost trust
+stage: stage-0-stabilization
+approved: false
+owner_agent: coder
+allowed_files:
+  - app.js
+  - server.js
+  - scripts/**
+  - data/products/**
+  - tests/**
+  - docs/**
+forbidden_files:
+  - .env
+  - .env.*
+  - runtime-settings.json
+  - db/schema.sql
+  - vendor/**
+redlines:
+  - Do not change DeepSeek configuration.
+  - Do not execute database migrations.
+  - Do not write or expose secrets.
+  - Do not invent product costs with AI.
+  - Do not rewrite the quote flow.
+scope:
+  - Describe the approved module goal here.
+  - List concrete sub-batches that Coder may execute autonomously.
+out_of_scope:
+  - Boss dashboard.
+  - Full order system.
+  - Production deployment.
+acceptance:
+  - Acceptance item 1.
+  - Acceptance item 2.
+required_commands:
+  - node --check app.js
+  - node --check server.js
+  - node --test tests/*.test.js
+risk_level: medium
+rollback:
+  - Revert the task commit with git revert.
+  - If product data is republished incorrectly, publish a corrected batch instead of deleting history.
+next_candidates:
+  - A3 one-click product catalog draft loop
+  - B1 order management minimum loop
+  - C1 login and permission minimum loop

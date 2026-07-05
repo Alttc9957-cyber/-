@@ -1032,6 +1032,7 @@ textarea { min-height: 84px; resize: vertical; line-height: 1.55; }
 }
 .quote-leg-breakdown .ok { color: #027a48; border-color: #abefc6; background: #ecfdf3; }
 .quote-leg-breakdown .warn { color: #b42318; border-color: #fecdca; background: #fef3f2; }
+.quote-leg-breakdown .danger { color: #b42318; border-color: #fecdca; background: #fef3f2; }
 .match-reason {
   display: block;
   color: #b42318;
@@ -1093,7 +1094,35 @@ textarea { min-height: 84px; resize: vertical; line-height: 1.55; }
   background: #fff1f1;
 }
 .money-cell { white-space: nowrap; font-weight: 700; }
-.missing-cost { border-color: #f59e0b; background: #fffbeb; }
+.missing-cost { border-color: #ef4444; background: #fef2f2; }
+.product-price-value { font-weight: 700; white-space: nowrap; }
+.product-price-missing { color: #b42318; font-weight: 700; white-space: nowrap; }
+.product-price-free { color: #34546f; font-weight: 700; white-space: nowrap; }
+.muted-dash { color: var(--muted); }
+.quote-row-action-shell {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.row-more-actions {
+  position: relative;
+}
+.row-more-actions summary {
+  cursor: pointer;
+  list-style: none;
+  border: 1px solid #d8e0ec;
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: #34546f;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.row-more-actions summary::-webkit-details-marker { display: none; }
+.row-more-actions[open] .quote-row-actions {
+  margin-top: 6px;
+}
 .summary-cards {
   display: grid;
   grid-template-columns: repeat(6, minmax(0,1fr));

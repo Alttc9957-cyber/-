@@ -28,6 +28,66 @@
 - 如果改变交付版本，必须同步登记到 `docs/RELEASE_NOTES.md`。
 - 如果影响核心流程，必须按 `docs/QA_CHECKLIST.md` 跑回归。
 
+## 2026-07-05
+
+日期：2026-07-05
+
+修改目标：完成阶段 0 收口与阶段 1 启动准备，只建立状态文档、验收清单、下一步任务包和 SOP。
+
+修改原因：当前项目经历多轮产品库、报价、供应商和 DeepSeek 修复，版本边界和下一步范围容易漂移；在继续写业务代码前，需要先把当前阶段、可测范围、不可测范围、风险和后续任务包固定下来。
+
+关联 bug：
+
+- BUG-20260702-001 产品库导入和报价匹配仍需客户验收。
+- BUG-20260703-005 云端产品库与本地覆盖层需要继续保持清晰边界。
+- BUG-20260704-001 DeepSeek 全程接入需要继续按验收清单检查。
+
+关联功能：
+
+- F-004 产品资源库导入与清洗
+- F-005 产品资源匹配与报价成本回填
+- F-006 报价明细、汇总与缺成本检查
+- F-011 订单管理与成交转订单
+- F-012 AI 模型配置与报价规则设置
+- F-018 Agent Gateway 权限与日志骨架
+
+涉及文件：
+
+- `docs/PROJECT_STATUS.md`
+- `docs/NEXT_ACTIONS.md`
+- `docs/QUOTE_ACCEPTANCE_REPORT.md`
+- `docs/SOP/README.md`
+- `docs/DATABASE_PHASE_1_DRAFT.md`
+- `docs/DEV_LOG.md`
+
+具体改动：
+
+- 新增当前项目阶段状态文档，明确已完成、半成品、未开始、可客户测试和不可客户测试范围。
+- 新增下一步任务包文档，拆出 A 产品库字段匹配 / Excel 汇总表对齐、B 订单管理最小闭环、C 登录与权限管理最小闭环。
+- 新增客户验收报告，按重庆、北京、跨城市等场景定义通过和失败标准。
+- 新增开发 SOP，规定每轮开工前读 `CLAUDE.md`、扫描状态、先出方案、结束更新日志和验证结果。
+- 按最新交付要求补充 SOP：每轮执行完毕必须提供本地端口、端口健康检查结果和排除敏感文件后的压缩包路径。
+- 新增阶段 1 数据库草案，仅记录建议表和字段，不执行迁移。
+
+验证结果：
+
+- 已执行 `git status --short --branch`，确认本轮开始前仅有用户要求放入根目录的 `CLAUDE.md` 未跟踪。
+- 已检查 `docs/` 现有文件，确认本轮新增文档不覆盖已有文档。
+- 已按交付纪律准备本地端口检查和压缩包输出。
+- 本轮为文档收口，没有运行业务测试；下一轮涉及代码时必须按 `docs/QA_CHECKLIST.md` 执行专项验证。
+
+是否影响旧功能：否。本轮没有改 `app.js`、`server.js`、报价逻辑、数据库执行脚本、部署配置或环境变量。
+
+回退方式：
+
+- 删除本轮新增的 `docs/PROJECT_STATUS.md`、`docs/NEXT_ACTIONS.md`、`docs/QUOTE_ACCEPTANCE_REPORT.md`、`docs/SOP/README.md`、`docs/DATABASE_PHASE_1_DRAFT.md`。
+- 从 `docs/DEV_LOG.md` 删除本条 2026-07-05 记录。
+
+下一步建议：
+
+- 下一轮优先执行任务包 A：产品库字段匹配 / Excel 汇总表对齐。
+- 原因是报价交付最依赖产品库成本可信度；产品库字段和成本来源没有完全稳定前，不建议先做订单或权限。
+
 ## 2026-07-02
 
 日期：2026-07-02
@@ -567,3 +627,244 @@
 下一步建议：
 
 - 页面顶部或系统设置处增加更明显的 DeepSeek 在线状态提示，防止客户测试时服务没启动却误以为模型丢失。
+
+---
+
+日期：2026-07-05
+
+修改目标：执行 A1 产品库与报价明细稳定化，先做前端减法、缺成本展示修复和报价行同步安全收口。
+
+修改原因：乐哥反馈产品库和报价明细页面仍显得复杂，普通用户会看到重置产品库、原始字段、供应商资源、AI 清洗、同步产品库等内部操作；报价明细匹配成功后仍有大量绿色来源提示，影响客户测试观感。产品目标应是“直接展示成本、缺成本明确提示、诊断信息折叠保留”。
+
+关联 bug：
+
+- BUG-20260702-001
+- BUG-20260703-008
+
+关联功能：
+
+- F-004 产品资源库与导入
+- F-005 产品资源匹配与报价成本回填
+- F-006 报价明细、汇总与缺成本检查
+
+涉及文件：
+
+- `index.html`
+- `app.js`
+- `styles.css`
+- `tests/a1-ui-simplification.test.js`
+- `docs/DEV_LOG.md`
+
+具体改动：
+
+- 从产品库主操作区隐藏“重置为系统产品库”入口，保留底层 `clearProductCatalog()` 函数，避免普通用户误清本地覆盖层。
+- 产品库普通品类主表改为只显示：资源名称、品类、城市、服务类型/规格、成本价、参考售价、供应商。
+- 景点门票主表改为只显示：景点名称、城市、成本价、参考售价、供应商、缺成本提示。
+- 产品库主表不再默认展示状态、来源、备注、原始字段、供应商资源、编辑、AI 清洗和供应商跳转等内部操作。
+- 成本为空时统一显示“待补成本”，不把空成本当 0；只有明确 `isFree=true` 的资源才允许显示 0。
+- 报价明细匹配成功时不再默认渲染绿色来源提示，未匹配、待确认、缺成本、待清洗仍显示短提示；完整来源保留在诊断面板。
+- 用车分段拆分只显示需要处理的异常项，不再把每个成功分段都渲染成绿色标签。
+- 报价行操作改为“选资源”主按钮 + “更多”折叠操作，减少报价表按钮堆叠。
+- 报价项同步产品库时移除“同步为正式产品”，只允许先“保存为产品库草稿”，状态固定为“待清洗”。
+- 新增 A1 静态回归测试，防止重置入口、正式同步入口和复杂主表字段回弹。
+
+验证结果：
+
+- `node --check app.js` 通过。
+- `node --check server.js` 通过。
+- `node --test tests/*.test.js` 35 项通过。
+
+是否影响旧功能：影响产品库和报价明细的默认展示方式；不改导入解析、不改 DeepSeek、不改数据库、不改报价主流程。被隐藏的产品库行级能力和重置函数仍保留在代码中，后续可按权限或诊断入口重新开放。
+
+回退方式：
+
+- 回退本次提交：`git revert <本次提交哈希>`。
+- 若只回退产品库页面减法，恢复 `index.html` 产品库按钮和 `app.js` 中 `renderProductCategoryTable()` / `renderTicketProductCategoryTable()`。
+- 若只回退报价明细减法，恢复 `sourceNote()`、`vehicleBreakdownHtml()` 和 `quoteRowActions()`。
+
+下一步建议：
+
+- 用真实客户流程浏览器验收产品库与报价明细：重点看门票字段是否清爽、报价行是否只显示价格和短状态、缺成本是否红色明确。
+- 下一轮再处理图片/PDF 导出和跨城市接送机行程识别，不要和本轮产品库展示修复混在一起。
+
+---
+
+日期：2026-07-05
+
+修改目标：搭建 AI 协同开发工作流 v1，让后续模块按照“任务文件 -> AI 执行 -> 自动测试 -> AI 审核 -> 修复循环 -> 输出报告 -> 推荐下一阶段”推进。
+
+修改原因：友易行多轮开发后版本、需求、bug 和交付物容易混在一起；后续不适合每个小问题都让用户确认，需要改为用户审批大模块，AI 在授权边界内自行拆解、执行、测试、审查和打包。
+
+关联 bug：
+
+- 无新增业务 bug。本轮是开发流程和文档基建。
+
+关联功能：
+
+- F-020 AI 协同开发工作流 v1
+
+涉及文件：
+
+- `.ai/agents/planner.md`
+- `.ai/agents/coder.md`
+- `.ai/agents/reviewer.md`
+- `.ai/agents/qa.md`
+- `.ai/agents/release.md`
+- `.ai/tasks/README.md`
+- `.ai/tasks/task-template.yml`
+- `.ai/reports/README.md`
+- `.ai/state/project_state.template.json`
+- `goals/README.md`
+- `goals/_template/GOAL.md`
+- `goals/_template/GOALS.md`
+- `goals/_template/REPORT.md`
+- `goals/_template/ACCEPTANCE.md`
+- `scripts/ai/detect-test-scope.mjs`
+- `scripts/ai/verify-module.mjs`
+- `scripts/ai/select-next-task.mjs`
+- `scripts/ai/generate-pr-summary.mjs`
+- `CLAUDE.md`
+- `docs/SOP/README.md`
+- `docs/NEXT_ACTIONS.md`
+- `docs/DEV_LOG.md`
+
+具体改动：
+
+- 新增 `.ai/agents/`，定义 Planner、Coder、Reviewer、QA、Release 的职责和红线。
+- 新增 `.ai/tasks/task-template.yml`，固定模块任务文件字段：id、title、stage、approved、owner_agent、allowed_files、forbidden_files、redlines、scope、out_of_scope、acceptance、required_commands、risk_level、rollback、next_candidates。
+- 新增 `.ai/reports/` 和 `.ai/state/`，用于后续模块报告和项目状态沉淀。
+- 新增 `goals/_template/`，提供 GOAL、GOALS、REPORT、ACCEPTANCE 四个模块交付模板。
+- 新增 `scripts/ai/detect-test-scope.mjs`，根据 git diff、未跟踪文件和敏感路径判断测试范围、风险和阻断项。
+- 新增 `scripts/ai/verify-module.mjs`，统一执行 `git status --short --branch`、`node --check app.js`、`node --check server.js`、`node --test tests/*.test.js`。
+- 新增 `scripts/ai/select-next-task.mjs`，读取 `docs/NEXT_ACTIONS.md`、`docs/PROJECT_STATUS.md` 和 `.ai/tasks/*.yml`，输出下一模块推荐但不自动执行。
+- 新增 `scripts/ai/generate-pr-summary.mjs`，根据 git diff 生成交付摘要草稿。
+- 更新 `CLAUDE.md`，写入模块自治执行模式和 AI 协同中控层。
+- 更新 `docs/SOP/README.md`，写入 AI 协同工作流 v1 的固定流程。
+- 更新 `docs/NEXT_ACTIONS.md`，说明后续如何按任务集推进。
+
+验证结果：
+
+- `node --check scripts/ai/detect-test-scope.mjs` 通过。
+- `node --check scripts/ai/verify-module.mjs` 通过。
+- `node --check scripts/ai/select-next-task.mjs` 通过。
+- `node --check scripts/ai/generate-pr-summary.mjs` 通过。
+- `node scripts/ai/detect-test-scope.mjs` 通过，能识别当前 diff 中的 `app.js`，输出风险等级 `medium`，推荐 `node --check app.js` 和 `node --test tests/*.test.js`。
+- `node scripts/ai/select-next-task.mjs` 通过，推荐下一模块为 A2 产品库真实数据修复与成本可信化。
+- `node scripts/ai/verify-module.mjs` 通过：`git status --short --branch`、`node --check app.js`、`node --check server.js`、`node --test tests/*.test.js` 均完成，35 项测试通过。
+
+是否影响旧功能：否。本轮不改报价业务逻辑、不改产品库数据、不改订单模块、不改权限模块、不改老板看板、不迁移数据库、不改 `.env`、不改 DeepSeek 配置、不部署 production。
+
+回退方式：
+
+- 删除新增 `.ai/`、`goals/`、`scripts/ai/` 文件。
+- 回退 `CLAUDE.md`、`docs/SOP/README.md`、`docs/NEXT_ACTIONS.md`、`docs/DEV_LOG.md` 中本轮追加段落。
+
+下一步建议：
+
+- 下一轮优先执行 A2：产品库真实数据修复与成本可信化。
+- A2 开工前先由 Planner 创建 `.ai/tasks/A2-product-catalog-cost-trust.yml`，再由 Coder/QA/Reviewer/Release 按流程推进。
+
+---
+
+日期：2026-07-05
+
+修改目标：建立仓库级 AI 协同说明，让 Trae、WorkBuddy、Codex、Claude Code 或其他 AI 进入仓库后，明确项目定位、角色分工、红线、审查、验收和交付格式。
+
+修改原因：上一轮已建立 `.ai/` 协同骨架，但缺少仓库根目录级 `AGENTS.md`。后续多个 AI 进入同一仓库时，需要一个统一入口，避免不同 AI 同时大改 `app.js`、误碰密钥、误改 DeepSeek、误动数据库或跳过测试。
+
+关联 bug：
+
+- 无新增业务 bug。本轮是 AI 协同说明和文档建设。
+
+关联功能：
+
+- F-020 AI 协同开发工作流 v1
+
+涉及文件：
+
+- `AGENTS.md`
+- `.ai/agents/planner.md`
+- `.ai/agents/coder.md`
+- `.ai/agents/reviewer.md`
+- `.ai/agents/qa.md`
+- `.ai/agents/release.md`
+- `docs/SOP/README.md`
+- `docs/NEXT_ACTIONS.md`
+- `docs/DEV_LOG.md`
+
+具体改动：
+
+- 新增 `AGENTS.md`，作为所有 AI 进入仓库后的总说明书，写明项目定位、当前阶段、角色分工、文件红线、`app.js` 风险、分支建议、标准工作流和提交报告格式。
+- 强化 Planner、Coder、Reviewer、QA、Release 五个角色文件，明确各自职责、默认权限、审查/验收/交付输出格式和红线。
+- 更新 `docs/SOP/README.md`，补充多 AI 协同流程、开工前必读文件、Reviewer 审查规则、QA 验收规则、必须询问用户和不需要询问用户的边界。
+- 更新 `docs/NEXT_ACTIONS.md`，补充 Trae / WorkBuddy 接入方式，以及下一轮 A2 任务文件建议。
+
+验证结果：
+
+- `git status --short --branch` 已执行，确认本轮新增 `AGENTS.md` 并更新指定协同文档；工作区仍包含上一轮 A1 未提交代码与文档变更，本轮未回滚或覆盖。
+- `node --check app.js` 通过。
+- `node --check server.js` 通过。
+- `node --test tests/*.test.js` 通过，35 项测试全部通过。
+
+是否影响旧功能：否。本轮只做 AI 协同说明和文档建设，不改报价逻辑、不改产品库数据、不做新功能、不改数据库、不改环境变量、不部署、不重构 `app.js`。
+
+回退方式：
+
+- 删除 `AGENTS.md`。
+- 回退 `.ai/agents/*.md` 到上一版本。
+- 回退 `docs/SOP/README.md`、`docs/NEXT_ACTIONS.md`、`docs/DEV_LOG.md` 中本轮追加内容。
+
+下一步建议：
+
+- 下一轮执行 A2：产品库真实数据修复与成本可信化。
+- 先创建 `.ai/tasks/A2-product-catalog-cost-trust.yml`，再开始代码修改。
+
+---
+
+日期：2026-07-05
+
+修改目标：补充 AI 协同权限边界，明确本项目 Coder 只能是 Codex，只有 Codex 可以直接写代码。
+
+修改原因：乐哥明确要求“这个 coder 就是 Codex，只有你可以写代码”。为避免 Trae、WorkBuddy 或其他 AI 误以为自己可以直接修改业务代码，需要把 Codex-only 写代码规则写入仓库级协同文档。
+
+关联 bug：
+
+- 无新增业务 bug。本轮是 AI 协同权限边界文档更新。
+
+关联功能：
+
+- F-020 AI 协同开发工作流 v1
+
+涉及文件：
+
+- `AGENTS.md`
+- `.ai/agents/coder.md`
+- `docs/SOP/README.md`
+- `docs/NEXT_ACTIONS.md`
+- `docs/DEV_LOG.md`
+
+具体改动：
+
+- `AGENTS.md` 明确 Coder 只能是 Codex，Trae、WorkBuddy、Claude Code 或其他 AI 不允许直接写代码。
+- `.ai/agents/coder.md` 明确只有 Codex 可以直接修改业务文件和应用补丁。
+- `docs/SOP/README.md` 明确 Codex 是唯一 Coder，其他 AI 只能规划、审查、验收或交付建议。
+- `docs/NEXT_ACTIONS.md` 明确下一轮 A2 中 Coder 只能由 Codex 执行。
+
+验证结果：
+
+- `git status --short --branch` 已执行，确认本轮只新增/更新 AI 协同说明相关文档；工作区中 `app.js` 仍为上一轮 A1 遗留修改，本轮未改业务逻辑。
+- 已逐项检查 `.github/workflows`、`.env`、`.env.supabase.local`、`db/schema.sql`、`server.js`、`package.json`、`package-lock.json`、`pnpm-lock.yaml`、`data/products`，均无本轮新增改动。
+- `node --check app.js` 通过。
+- `node --check server.js` 通过。
+- `node --test tests/*.test.js` 通过，35 项测试全部通过。
+- 已用 `rg` 检查 Codex-only 写代码规则写入 `AGENTS.md`、`.ai/agents/coder.md`、`docs/SOP/README.md`、`docs/NEXT_ACTIONS.md` 和 `docs/DEV_LOG.md`。
+
+是否影响旧功能：否。本轮只改协同说明文档，不改报价逻辑、不改产品库数据、不改数据库、不改环境变量、不改 DeepSeek 配置。
+
+回退方式：
+
+- 回退上述文档中的 Codex-only 权限边界段落。
+
+下一步建议：
+
+- 继续保持 Trae / WorkBuddy 只做 Planner、Reviewer、QA 或 Release；实际代码修改只交给 Codex。
