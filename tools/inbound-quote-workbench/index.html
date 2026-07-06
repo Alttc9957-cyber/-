@@ -24,6 +24,7 @@
         <nav class="module-nav">
           <button class="module active" data-module="quote"><i data-lucide="folder-kanban"></i><span>报价项目</span></button>
           <button class="module" data-module="orders"><i data-lucide="clipboard-list"></i><span>订单管理</span></button>
+          <button class="module" data-module="dashboard"><i data-lucide="layout-dashboard"></i><span>老板视图</span></button>
           <button class="module" data-module="products"><i data-lucide="package-search"></i><span>产品资源库</span></button>
           <button class="module" data-module="suppliers"><i data-lucide="handshake"></i><span>供应商管理</span></button>
           <button class="module" data-module="finance"><i data-lucide="chart-no-axes-combined"></i><span>财务统计</span></button>
@@ -38,6 +39,7 @@
             <h2 id="moduleTitle">友易行旅行社报价工作台</h2>
           </div>
           <div class="top-actions">
+            <label class="role-switcher">当前角色<select id="currentRole"><option value="op" selected>OP</option><option value="sales">销售</option><option value="boss">老板</option></select></label>
             <button class="icon-btn" title="通知"><i data-lucide="bell"></i><span class="notify-dot">12</span></button>
             <div class="user-avatar">A</div>
           </div>
@@ -185,10 +187,11 @@
               <input id="clientName" type="hidden" />
               <div class="form-grid four">
                 <label>客户名称<input id="actualCustomerName" placeholder="客户真实姓名 / 公司名" /></label>
+                <label>旅行社名称<input id="travelAgencyName" placeholder="旅行社 / 公司名称" /></label>
                 <label>客户账号<input id="clientAccount" placeholder="WhatsApp / 邮箱 / 用户ID" /></label>
                 <label>用户类型<select id="clientType"><option>直客</option><option>旅行社</option><option>非旅行社机构或公司</option></select></label>
                 <label>用户国家<input id="clientCountry" placeholder="国家 / 地区" /></label>
-                <label>客户来源<select id="source"><option>WhatsApp</option><option>Email</option><option>官网</option><option>Facebook</option><option>OTA</option></select></label>
+                <label>客户来源<select id="source"><option>WeChat</option><option>WhatsApp</option><option>Email</option><option>OTA</option><option>Facebook</option><option>官网</option><option>手动录入</option><option>其他</option></select></label>
                 <label>负责人<select id="owner"><option>定制师 A</option><option>定制师 B</option><option>老板</option></select></label>
                 <label>跟进状态<select id="followStatus"><option>新询盘</option><option>需求确认中</option><option>已发报价</option><option>待跟进</option><option>已成交</option><option>未成交</option></select></label>
                 <label>预算范围<input id="budgetRange" placeholder="¥30,000 - ¥45,000 / 人" /></label>
@@ -229,6 +232,7 @@
                 <div class="form-grid compact">
                   <label>成人数<input id="adults" type="number" min="0" value="0" /></label>
                   <label>儿童数<input id="children" type="number" min="0" value="0" /></label>
+                  <label>儿童年龄<input id="childAges" placeholder="例如：6" /></label>
                 </div>
               </div>
 
@@ -518,7 +522,7 @@
                 <p class="eyebrow">Youyixing AI</p>
                 <h3>小易 · 超级报价助手</h3>
               </div>
-              <span class="status ok" id="agentMode">DeepSeek</span>
+              <span class="status ok" id="agentMode">AI 模型接口</span>
               <button class="icon-btn" id="closeXiaoyi" aria-label="关闭小易"><i data-lucide="x"></i></button>
             </div>
             <div class="xiaoyi-context">
@@ -552,6 +556,35 @@
             </div>
           </aside>
           </div>
+          </div>
+        </section>
+
+        <section class="module-view" id="dashboard">
+          <div class="orders-page">
+            <div class="section-head">
+              <div>
+                <h3>老板基础视图</h3>
+                <p>只汇总阶段 1 需要看的报价、成交、利润和待审核产品，不进入完整 ERP。</p>
+              </div>
+            </div>
+            <div id="bossRoleGuard" class="proposal-guard hidden">当前角色无权查看老板全局数据，请切换为老板角色。</div>
+            <div class="dashboard-stats" id="bossStats"></div>
+            <div class="grid two">
+              <div class="panel">
+                <div class="panel-head">
+                  <h4>报价与订单概览</h4>
+                  <span>按当前本地项目、报价版本和成交订单汇总。</span>
+                </div>
+                <div id="bossDashboardPanel">暂无数据。</div>
+              </div>
+              <div class="panel">
+                <div class="panel-head">
+                  <h4>产品库待审核池</h4>
+                  <span>OP 手动补价会先进池，老板审核后才允许发布占位。</span>
+                </div>
+                <div id="productReviewPool">暂无待审核产品。</div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -683,10 +716,10 @@
               <div class="panel">
                 <div class="panel-head">
                   <h4>AI 模型配置</h4>
-                  <span>老板可以配置自己的 DeepSeek Key；完整 Key 不会返回给前端。</span>
+                  <span>老板可以配置自己的 AI 模型接口；完整 Key 不会返回给前端。</span>
                 </div>
                 <div class="form-grid settings-form">
-                  <label>模型服务商<select id="aiProvider"><option value="deepseek">DeepSeek</option></select></label>
+                  <label>模型服务商<select id="aiProvider"><option value="openai-compatible">OpenAI-compatible</option><option value="deepseek">DeepSeek 模板</option></select></label>
                   <label>API Key<input id="aiApiKey" type="password" placeholder="sk-..." autocomplete="off" /></label>
                   <label>Base URL<input id="aiBaseUrl" value="https://api.deepseek.com" /></label>
                   <label>Model<input id="aiModel" value="deepseek-chat" /></label>
@@ -809,12 +842,13 @@
     <script src="./public/js/domain/quote/index.js?v=20260703-p0p1"></script>
     <script src="./public/js/domain/product/remark-atoms.js?v=20260703-p0p1"></script>
     <script src="./public/js/domain/product/product-normalizer.js?v=20260703-p0p1"></script>
+    <script src="./public/js/domain/phase1/phase1-closed-loop.js?v=20260706-phase1"></script>
     <script src="./public/js/agent/agent-permissions.js?v=20260703-p0p1"></script>
     <script src="./public/js/agent/agent-logger.js?v=20260703-p0p1"></script>
     <script src="./public/js/agent/agent-tool-registry.js?v=20260703-p0p1"></script>
     <script src="./public/js/agent/agent-gateway.js?v=20260703-p0p1"></script>
     <script src="./public/js/domain/events/domain-events.js?v=20260703-p0p1"></script>
     <script src="./public/js/adapters/quote-engine-adapter.js?v=20260703-p0p1"></script>
-    <script src="./app.js?v=20260703-v14-quotable-resource"></script>
+    <script src="./app.js?v=20260706-storage-quota-fix"></script>
   </body>
 </html>

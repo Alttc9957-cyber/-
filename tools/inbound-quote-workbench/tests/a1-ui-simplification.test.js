@@ -18,13 +18,22 @@ test("产品库主表只渲染核心业务列", () => {
   assert.doesNotMatch(tableRenderer, /"状态", "来源", "备注", "操作"/);
 });
 
-test("报价同步只允许先保存为产品库草稿", () => {
-  assert.match(appJs, /保存为产品库草稿/);
+test("报价缺成本同步会写入产品库持久层", () => {
+  assert.match(appJs, /写入产品库并用于后续报价/);
+  assert.match(appJs, /\/api\/product-resources\/upsert-from-quote/);
   assert.doesNotMatch(appJs, /同步为正式产品/);
-  assert.match(appJs, /product\.item\.status = "待清洗"/);
+  assert.match(appJs, /product\.item\.status = "OP补录待复核"/);
 });
 
 test("报价明细来源提示会过滤已匹配成功行", () => {
   assert.match(appJs, /function shouldShowInlineSourceNote/);
   assert.match(appJs, /if \(!shouldShowInlineSourceNote\(meta, sourceOrRow\)\) return ""/);
+});
+
+test("项目状态保存会压缩候选资源避免 localStorage 超额", () => {
+  assert.match(appJs, /function compactProjectSnapshotForStorage/);
+  assert.match(appJs, /const STORAGE_DROP_KEYS = new Set/);
+  assert.match(appJs, /"candidates"/);
+  assert.match(appJs, /setLocalStorageJson\("youyixing_project_state"/);
+  assert.match(appJs, /compactProjectSnapshotsForStorage\(state\.projectSnapshots \|\| \{\}, "minimal"\)/);
 });

@@ -44252,7 +44252,9 @@ const state = {
   resourceSupplierLinks: [],
   quotableResources: [],
   operationLogs: [],
-  currentRole: "admin",
+  phase1AuditLogs: [],
+  productReviewPool: [],
+  currentRole: "op",
   activeProductCategory: "全部",
   activeProductId: "",
   selectedRouteProductId: "",
@@ -44325,6 +44327,7 @@ async function init() {
   loadProjectState();
   loadQuoteVersions();
   loadOrderState();
+  loadPhase1State();
   hydrateImportedProductCatalog();
   refreshV14ResourceState();
   bindEvents();
@@ -44338,6 +44341,14 @@ async function init() {
 function bindEvents() {
   bindDelegatedActions();
   $$(".module").forEach((btn) => btn.addEventListener("click", () => switchModule(btn.dataset.module)));
+  on("#currentRole", "change", (event) => {
+    state.currentRole = event.target.value || "op";
+    savePhase1State();
+    renderRoleVisibility();
+    renderBossDashboard();
+    renderOrders();
+    renderXiaoyi();
+  });
   $$(".stepper a").forEach((a) => a.addEventListener("click", () => {
     $$(".stepper a").forEach((x) => x.classList.remove("active"));
     a.classList.add("active");
@@ -44500,13 +44511,15 @@ function bindEvents() {
   on("#agentSaveQuoteVersion", "click", agentSaveQuoteVersion);
 
   [
-    "clientName", "actualCustomerName", "clientAccount", "clientType", "clientCountry", "source", "owner", "followStatus", "budgetRange", "languageNeed", "hotelPreference", "mealPreference", "aiNotes", "opNotes", "startDate", "serviceDays", "adults", "children",
+    "clientName", "actualCustomerName", "travelAgencyName", "clientAccount", "clientType", "clientCountry", "source", "owner", "followStatus", "budgetRange", "languageNeed", "hotelPreference", "mealPreference", "aiNotes", "opNotes", "startDate", "serviceDays", "adults", "children", "childAges",
     "cities", "svcVehicle", "svcTickets", "svcGuide", "svcHotel", "svcTraffic", "svcMeals", "svcOther",
     "transferNeed", "transferVehicleType", "charterNeed", "charterVehicleType", "guideLang", "hotelLevel",
     "rooms", "hotelBreakfast", "trafficType", "mealBreakfast", "mealLunch", "mealDinner",
     "otherInsurance", "otherHeadset", "otherWater", "otherGift", "opRouteInstruction",
   ].forEach((id) => {
-    $(`#${id}`).addEventListener("input", () => {
+    const node = $(`#${id}`);
+    if (!node) return;
+    node.addEventListener("input", () => {
       updateProjectTitle();
       renderQuoteTabs();
       renderIncludeButtons();
@@ -44562,6 +44575,11 @@ function bindEvents() {
     showWorkbenchHome();
   }));
   $$("#quoteStepper [data-step-target]").forEach((btn) => btn.addEventListener("click", () => showWorkbenchSection(btn.dataset.stepTarget)));
+  document.addEventListener("change", (event) => {
+    if (event.target?.dataset?.orderStatus) {
+      updateOrderStatus(event.target.dataset.orderStatus, event.target.value);
+    }
+  });
 }
 
 function bindDelegatedActions() {
@@ -44668,6 +44686,18 @@ function bindDelegatedActions() {
       markQuoteRowPendingClean(button.dataset.markCleanRow);
       return;
     }
+    if (button.dataset.reviewProduct) {
+      event.preventDefault();
+      event.stopPropagation();
+      updateProductReviewStatus(button.dataset.reviewProduct, "已审核待发布");
+      return;
+    }
+    if (button.dataset.publishReviewProduct) {
+      event.preventDefault();
+      event.stopPropagation();
+      updateProductReviewStatus(button.dataset.publishReviewProduct, "发布占位");
+      return;
+    }
     if (!action) return;
     event.preventDefault();
     event.stopPropagation();
@@ -44688,6 +44718,7 @@ function applyCurrentAgentPending() {
 }
 
 function renderAll() {
+  renderRoleVisibility();
   renderProjectDashboard();
   renderResourceLibrary();
   renderSupplierManagement();
@@ -44711,6 +44742,8 @@ function renderAll() {
   renderTranslationWorkflow();
   renderAiSettings();
   renderQuoteFlowLine();
+  renderBossDashboard();
+  renderProductReviewPool();
   renderIcons();
 }
 
@@ -44735,6 +44768,7 @@ function switchModule(id) {
   $("#moduleTitle").textContent = titles[id] || "工作台";
   if (id === "settings") loadAiSettings();
   if (id === "orders") renderOrders();
+  if (id === "dashboard") renderBossDashboard();
 }
 
 function showProjectDashboard() {
@@ -44757,9 +44791,9 @@ function getTodayDateString() {
 
 function currentFormSnapshot() {
   const fieldIds = [
-    "clientName", "actualCustomerName", "clientAccount", "clientType", "clientCountry", "source", "owner", "followStatus",
+    "clientName", "actualCustomerName", "travelAgencyName", "clientAccount", "clientType", "clientCountry", "source", "owner", "followStatus",
     "budgetRange", "languageNeed", "hotelPreference", "mealPreference", "aiNotes", "opNotes", "rawDemandInput",
-    "opRouteInstruction", "startDate", "serviceDays", "adults", "children", "cities", "specialNeed",
+    "opRouteInstruction", "startDate", "serviceDays", "adults", "children", "childAges", "cities", "specialNeed",
     "transferNeed", "transferVehicleType", "charterNeed", "charterVehicleType", "guideLang", "hotelLevel",
     "rooms", "hotelBreakfast", "trafficType", "outputLang", "grossMargin", "trafficFeeRate", "currency",
   ];
@@ -44792,7 +44826,7 @@ function applyFormSnapshot(snapshot = {}) {
 function saveCurrentProjectSnapshot() {
   const id = state.currentProjectId || $("#projectId")?.textContent;
   if (!id) return;
-  state.projectSnapshots[id] = {
+  state.projectSnapshots[id] = compactProjectSnapshotForStorage({
     savedAt: new Date().toISOString(),
     form: currentFormSnapshot(),
     roomTypes: state.roomTypes,
@@ -44809,7 +44843,7 @@ function saveCurrentProjectSnapshot() {
     proposalMeta: $("#proposalMeta")?.textContent || "",
     proposalAssets: state.proposalAssets,
     order: state.order,
-  };
+  });
   saveProjectState();
   saveQuoteVersions();
 }
@@ -44943,10 +44977,12 @@ function renderWorkbenchOverview() {
   const gross = totals.sell ? Math.round(((totals.sell - totals.cost) / totals.sell) * 10000) / 100 : 0;
   $("#customerOverview").innerHTML = [
     ["客户名称", d.actualCustomerName || d.clientName],
+    ["旅行社", d.travelAgencyName || "-"],
     ["客户来源", $("#source")?.value || "-"],
     ["联系方式", d.account || "-"],
     ["客源市场", d.country || "-"],
     ["同行人数", `${d.people || 0} 人`],
+    ["儿童年龄", d.childAges?.join("、") || "-"],
     ["预算范围", d.budgetRange || "待确认"],
     ["出行日期", d.startDate || "-"],
     ["语言需求", d.languageNeed || d.guideLang || "英语"],
@@ -45536,6 +45572,17 @@ async function fetchOptionalJson(url, fallback) {
   }
 }
 
+async function postJson(url, payload = {}) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || `${url} ${response.status}`);
+  return data;
+}
+
 function mergeLocalTranslationMemory(seed, storageKey) {
   const local = safeJsonParse(localStorage.getItem(storageKey), []);
   const seen = new Set();
@@ -45552,6 +45599,164 @@ function safeJsonParse(value, fallback) {
     return value ? JSON.parse(value) : fallback;
   } catch {
     return fallback;
+  }
+}
+
+const STORAGE_DROP_KEYS = new Set([
+  "raw",
+  "rawFields",
+  "raw_fields",
+  "__rawFields",
+  "candidates",
+  "candidateResources",
+  "matchCandidates",
+  "sourceResource",
+  "matchedResource",
+  "productResource",
+  "resource",
+  "serviceDetails",
+  "originalRegistrationFields",
+  "diagnostics",
+  "quoteDiagnostics",
+  "debug",
+  "imageData",
+  "dataUrl",
+  "base64",
+  "file",
+  "blob",
+]);
+
+function isStorageQuotaError(error) {
+  return error && (
+    error.name === "QuotaExceededError"
+    || error.name === "NS_ERROR_DOM_QUOTA_REACHED"
+    || error.code === 22
+    || error.code === 1014
+    || /quota/i.test(error.message || "")
+  );
+}
+
+function storageStringLimit(key) {
+  if (key === "proposalHtml") return 120000;
+  if (key === "rawDemandInput") return 30000;
+  if (/notes|instruction|content|detail|source|reason/i.test(key || "")) return 6000;
+  return 12000;
+}
+
+function trimStorageString(value, key) {
+  const text = String(value || "");
+  const limit = storageStringLimit(key);
+  return text.length > limit ? `${text.slice(0, limit)}...` : text;
+}
+
+function compactForLocalStorage(value, key = "", depth = 0) {
+  if (value == null) return value;
+  if (typeof value === "string") return trimStorageString(value, key);
+  if (typeof value !== "object") return value;
+  if (depth > 8) return undefined;
+  if (Array.isArray(value)) {
+    if (key === "candidates" || key === "candidateResources" || key === "matchCandidates") return [];
+    return value.map((item) => compactForLocalStorage(item, key, depth + 1)).filter((item) => item !== undefined);
+  }
+  return Object.entries(value).reduce((acc, [childKey, childValue]) => {
+    if (STORAGE_DROP_KEYS.has(childKey)) return acc;
+    const next = compactForLocalStorage(childValue, childKey, depth + 1);
+    if (next !== undefined) acc[childKey] = next;
+    return acc;
+  }, {});
+}
+
+function compactQuoteVersionsForStorage(quoteVersions = [], mode = "normal") {
+  const maxVersions = mode === "minimal" ? 2 : 6;
+  return (Array.isArray(quoteVersions) ? quoteVersions : []).slice(0, maxVersions).map((version) => ({
+    name: trimStorageString(version?.name || "报价", "name"),
+    status: version?.status || "草稿",
+    data: mode === "metadata" ? emptyQuoteData() : compactForLocalStorage(version?.data || emptyQuoteData(), "data"),
+    totals: compactForLocalStorage(version?.totals || null, "totals"),
+    savedAt: version?.savedAt || "",
+  }));
+}
+
+function compactFormSnapshotForStorage(form = {}) {
+  const fields = { ...(form.fields || {}) };
+  ["rawDemandInput", "aiNotes", "opNotes", "opRouteInstruction", "specialNeed"].forEach((key) => {
+    if (fields[key] != null) fields[key] = trimStorageString(fields[key], key);
+  });
+  return {
+    fields: compactForLocalStorage(fields, "fields"),
+    checks: { ...(form.checks || {}) },
+  };
+}
+
+function compactProjectSnapshotForStorage(snapshot = {}, mode = "normal") {
+  return {
+    savedAt: snapshot.savedAt || new Date().toISOString(),
+    form: compactFormSnapshotForStorage(snapshot.form || {}),
+    roomTypes: compactForLocalStorage(snapshot.roomTypes || [], "roomTypes"),
+    itinerary: compactForLocalStorage(snapshot.itinerary || [], "itinerary"),
+    routeConfirmed: Boolean(snapshot.routeConfirmed),
+    routeSource: trimStorageString(snapshot.routeSource || "AI草稿", "routeSource"),
+    routeLastUpdatedAt: snapshot.routeLastUpdatedAt || "",
+    quoteVersions: mode === "minimal" ? [] : compactQuoteVersionsForStorage(snapshot.quoteVersions || [], mode),
+    activeQuote: Number.isInteger(snapshot.activeQuote) ? snapshot.activeQuote : 0,
+    activeService: snapshot.activeService || "vehicle",
+    proposalConfirmed: Boolean(snapshot.proposalConfirmed),
+    proposalHtml: mode === "normal" ? trimStorageString(snapshot.proposalHtml || "", "proposalHtml") : "",
+    proposalTitle: trimStorageString(snapshot.proposalTitle || "", "proposalTitle"),
+    proposalMeta: trimStorageString(snapshot.proposalMeta || "", "proposalMeta"),
+    proposalAssets: [],
+    order: compactForLocalStorage(snapshot.order || null, "order"),
+  };
+}
+
+function compactProjectSnapshotsForStorage(projectSnapshots = {}, mode = "normal") {
+  const entries = Object.entries(projectSnapshots || {});
+  const maxSnapshots = mode === "minimal" ? 1 : 8;
+  const current = state.currentProjectId;
+  const sorted = entries.sort((a, b) => String(b[1]?.savedAt || "").localeCompare(String(a[1]?.savedAt || "")));
+  const chosen = [];
+  if (current && projectSnapshots[current]) chosen.push([current, projectSnapshots[current]]);
+  sorted.forEach((entry) => {
+    if (chosen.length >= maxSnapshots) return;
+    if (entry[0] === current) return;
+    chosen.push(entry);
+  });
+  return chosen.reduce((acc, [id, snapshot]) => {
+    acc[id] = compactProjectSnapshotForStorage(snapshot, mode);
+    return acc;
+  }, {});
+}
+
+function clearVolatileStorageBeforeRetry() {
+  ["youyixing_quote_diagnostics_latest"].forEach((key) => {
+    try {
+      localStorage.removeItem(key);
+    } catch (error) {
+      console.warn("volatile storage cleanup failed", key, error);
+    }
+  });
+}
+
+function setLocalStorageJson(key, payload, fallbackFactory) {
+  try {
+    localStorage.setItem(key, JSON.stringify(payload));
+    return true;
+  } catch (error) {
+    if (!isStorageQuotaError(error)) {
+      console.warn("localStorage save failed", key, error);
+      return false;
+    }
+    clearVolatileStorageBeforeRetry();
+    const fallback = typeof fallbackFactory === "function" ? fallbackFactory(payload) : payload;
+    try {
+      localStorage.removeItem(key);
+      localStorage.setItem(key, JSON.stringify(fallback));
+      console.warn("localStorage quota reached; saved compact fallback", key);
+      return false;
+    } catch (fallbackError) {
+      console.warn("localStorage compact fallback failed", key, fallbackError);
+      return false;
+    }
   }
 }
 
@@ -48079,10 +48284,14 @@ function loadProjectState() {
 }
 
 function saveProjectState() {
-  localStorage.setItem("youyixing_project_state", JSON.stringify({
+  setLocalStorageJson("youyixing_project_state", {
     projects: state.projects,
     currentProjectId: state.currentProjectId,
-    projectSnapshots: state.projectSnapshots || {},
+    projectSnapshots: compactProjectSnapshotsForStorage(state.projectSnapshots || {}, "normal"),
+  }, () => ({
+    projects: state.projects,
+    currentProjectId: state.currentProjectId,
+    projectSnapshots: compactProjectSnapshotsForStorage(state.projectSnapshots || {}, "minimal"),
   }));
 }
 
@@ -48094,10 +48303,14 @@ function loadQuoteVersions() {
 }
 
 function saveQuoteVersions() {
-  localStorage.setItem("youyixing_quote_versions", JSON.stringify({
+  setLocalStorageJson("youyixing_quote_versions", {
     currentProjectId: state.currentProjectId,
     activeQuote: state.activeQuote,
-    quoteVersions: state.quoteVersions,
+    quoteVersions: compactQuoteVersionsForStorage(state.quoteVersions, "normal"),
+  }, () => ({
+    currentProjectId: state.currentProjectId,
+    activeQuote: state.activeQuote,
+    quoteVersions: compactQuoteVersionsForStorage(state.quoteVersions, "minimal"),
   }));
 }
 
@@ -48113,6 +48326,170 @@ function saveOrderState() {
     order: state.order,
     orders: state.orders || [],
   }));
+}
+
+function loadPhase1State() {
+  const saved = safeJsonParse(localStorage.getItem("youyixing_phase1_state"), null);
+  if (!saved) return;
+  if (saved.currentRole) state.currentRole = saved.currentRole;
+  if (Array.isArray(saved.productReviewPool)) state.productReviewPool = saved.productReviewPool;
+  if (Array.isArray(saved.phase1AuditLogs)) state.phase1AuditLogs = saved.phase1AuditLogs;
+}
+
+function savePhase1State() {
+  localStorage.setItem("youyixing_phase1_state", JSON.stringify({
+    currentRole: state.currentRole || "op",
+    productReviewPool: state.productReviewPool || [],
+    phase1AuditLogs: state.phase1AuditLogs || [],
+  }));
+}
+
+function appendPhase1AuditLog(action, payload = {}) {
+  const entry = {
+    id: `P1LOG-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    action,
+    actor: state.currentRole || "op",
+    at: new Date().toISOString(),
+    projectId: state.currentProjectId || "",
+    ...payload,
+  };
+  state.phase1AuditLogs.unshift(entry);
+  state.phase1AuditLogs = state.phase1AuditLogs.slice(0, 300);
+  savePhase1State();
+  return entry;
+}
+
+function renderRoleVisibility() {
+  const select = $("#currentRole");
+  if (select) select.value = state.currentRole || "op";
+  const avatar = $(".user-avatar");
+  if (avatar) avatar.textContent = ({ op: "O", sales: "S", boss: "B", admin: "A" })[state.currentRole] || "O";
+  document.body.dataset.currentRole = state.currentRole || "op";
+}
+
+function renderBossDashboard() {
+  renderProductReviewPool();
+  const guard = $("#bossRoleGuard");
+  const statsNode = $("#bossStats");
+  const panel = $("#bossDashboardPanel");
+  if (!statsNode || !panel) return;
+  const allowed = state.currentRole === "boss" || state.currentRole === "admin";
+  guard?.classList.toggle("hidden", allowed);
+  statsNode.classList.toggle("hidden", !allowed);
+  panel.classList.toggle("hidden", !allowed);
+  $("#productReviewPool")?.classList.toggle("hidden", !allowed);
+  if (!allowed) return;
+  const projects = state.projects || [];
+  const orders = state.orders || [];
+  const quoteAmount = projects.reduce((sum, project) => sum + number(project.amount), 0);
+  const dealAmount = orders.reduce((sum, order) => sum + number(order.amount), 0);
+  const dealCost = orders.reduce((sum, order) => sum + number(order.estimatedCost), 0);
+  const reviewPending = (state.productReviewPool || []).filter((item) => item.auditStatus === "待老板审核").length;
+  const marginRate = dealAmount ? Math.round(((dealAmount - dealCost) / dealAmount) * 10000) / 100 : 0;
+  statsNode.innerHTML = [
+    ["报价项目", `${projects.length} 个`],
+    ["报价金额", money(quoteAmount)],
+    ["成交订单", `${orders.length} 单`],
+    ["成交金额", money(dealAmount)],
+    ["预估毛利率", `${marginRate}%`],
+    ["待审核产品", `${reviewPending} 条`],
+  ].map(([label, value]) => `<div class="stat-tile"><span>${label}</span><strong>${value}</strong></div>`).join("");
+  const statusRows = phase1OrderStatuses().map((status) => {
+    const count = orders.filter((order) => order.status === status).length;
+    const amount = orders.filter((order) => order.status === status).reduce((sum, order) => sum + number(order.amount), 0);
+    return `<tr><td>${escapeHtml(status)}</td><td>${count}</td><td>${money(amount)}</td></tr>`;
+  }).join("");
+  panel.innerHTML = `
+    <div class="dashboard-mini-grid">
+      <div><strong>订单状态</strong><table class="simple-table"><thead><tr><th>状态</th><th>数量</th><th>金额</th></tr></thead><tbody>${statusRows}</tbody></table></div>
+      <div><strong>最近审计</strong><div class="audit-list">${(state.phase1AuditLogs || []).slice(0, 6).map((log) => `<div><span>${escapeHtml(new Date(log.at).toLocaleString("zh-CN", { hour12: false }))}</span><strong>${escapeHtml(log.action)}</strong><em>${escapeHtml(log.orderId || log.productName || log.quoteVersion || "")}</em></div>`).join("") || "<p>暂无审计记录。</p>"}</div></div>
+    </div>
+  `;
+  renderIcons();
+}
+
+function productReviewKey(item = {}) {
+  return [item.projectId, item.serviceType, item.productName, item.city, item.useDate].join("|");
+}
+
+function addProductReviewItemFromRow(service, row = {}, context = {}) {
+  const day = state.itinerary[context.dayIndex ?? row.dayIndex ?? context.index ?? 0] || {};
+  const item = {
+    id: `PR-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    projectId: state.currentProjectId || "",
+    sourceQuoteVersion: activeQuote()?.name || "",
+    sourceCustomer: getDemandSafe().actualCustomerName || getDemandSafe().clientName || "",
+    submitter: $("#owner")?.value || "定制师 A",
+    city: row.city || day.city || "",
+    serviceType: serviceLabels[service] || service,
+    productName: row.productName || row.sourceName || row.name || row.hotelName || row.legLabel || row.serviceDetailName || "手动补价项目",
+    costPrice: firstPresent(row.charterCost, row.serviceCost, row.adultCost, row.unitCost, row.perPersonCost, context.value, ""),
+    suggestedSalePrice: firstPresent(row.salePrice, row.totalSale, ""),
+    unit: row.unit || (service === "ticket" ? "人" : service === "hotel" ? "间夜" : "次"),
+    useDate: day.date || row.date || "",
+    rawRemark: row.source || row.matchReason || "",
+    opNote: context.note || "报价缺成本后由 OP 手动补录，进入阶段 1 待审核池。",
+    auditStatus: "待老板审核",
+    createdAt: new Date().toISOString(),
+    reviewedAt: "",
+    publishedAt: "",
+  };
+  const key = productReviewKey(item);
+  const existing = state.productReviewPool.find((candidate) => productReviewKey(candidate) === key && candidate.auditStatus !== "已拒绝");
+  if (existing) {
+    Object.assign(existing, item, { id: existing.id, createdAt: existing.createdAt });
+  } else {
+    state.productReviewPool.unshift(item);
+  }
+  savePhase1State();
+  appendPhase1AuditLog("product_review_created", { productName: item.productName, serviceType: item.serviceType });
+  renderProductReviewPool();
+  renderBossDashboard();
+  return item;
+}
+
+function updateProductReviewStatus(id, status) {
+  const item = state.productReviewPool.find((candidate) => candidate.id === id);
+  if (!item) return;
+  if (status === "发布占位" && item.auditStatus !== "已审核待发布") {
+    alert("必须先通过老板审核，才能进入发布占位。");
+    return;
+  }
+  item.auditStatus = status;
+  item.reviewedAt = status === "已审核待发布" ? new Date().toISOString() : item.reviewedAt;
+  item.publishedAt = status === "发布占位" ? new Date().toISOString() : item.publishedAt;
+  savePhase1State();
+  appendPhase1AuditLog("product_review_status", { productName: item.productName, status });
+  renderProductReviewPool();
+  renderBossDashboard();
+}
+
+function renderProductReviewPool() {
+  const node = $("#productReviewPool");
+  if (!node) return;
+  const rows = state.productReviewPool || [];
+  if (!rows.length) {
+    node.innerHTML = `<div class="empty">暂无待审核产品。</div>`;
+    return;
+  }
+  node.innerHTML = tableWrap(
+    ["产品/服务", "城市", "服务类型", "成本", "使用日期", "提交人", "状态", "操作"],
+    rows.map((item) => [
+      `<strong>${escapeHtml(item.productName)}</strong><br><span>${escapeHtml(item.sourceCustomer || item.projectId)}</span>`,
+      escapeHtml(item.city || "-"),
+      escapeHtml(item.serviceType || "-"),
+      money(item.costPrice),
+      escapeHtml(item.useDate || "-"),
+      escapeHtml(item.submitter || "-"),
+      escapeHtml(item.auditStatus || "待老板审核"),
+      `<div class="mini-actions">
+        <button class="secondary-btn" data-review-product="${escapeHtml(item.id)}">通过审核</button>
+        <button class="secondary-btn" data-publish-review-product="${escapeHtml(item.id)}">发布占位</button>
+      </div>`,
+    ]),
+    `<tr><td colspan="8">暂无待审核产品。</td></tr>`,
+    "wide-product-table"
+  );
 }
 
 function openAddProductFieldModal() {
@@ -50102,6 +50479,7 @@ function openProject(id) {
     $("#projectId").textContent = project.id;
     $("#clientName").value = project.name;
     if ($("#actualCustomerName")) $("#actualCustomerName").value = project.name.split(/\s+/)[0] || project.name;
+    if ($("#travelAgencyName")) $("#travelAgencyName").value = project.travelAgencyName || "";
     $("#clientAccount").value = project.account || "";
     $("#clientType").value = project.userType || "直客";
     $("#clientCountry").value = project.country || "";
@@ -50113,6 +50491,7 @@ function openProject(id) {
     $("#serviceDays").value = project.days || 1;
     $("#adults").value = project.guests ? Math.max(project.guests - 1, 0) : 0;
     $("#children").value = project.guests ? 1 : 0;
+    if ($("#childAges")) $("#childAges").value = project.childAges || "";
   }
   const restored = restoreProjectSnapshot(id);
   if (!restored && !state.itinerary.length) handleLoadHistory();
@@ -50132,6 +50511,7 @@ function updateCurrentProject(status) {
   }
   project.name = d.clientName;
   project.actualCustomerName = d.actualCustomerName || d.clientName;
+  project.travelAgencyName = d.travelAgencyName || "";
   project.account = d.account;
   project.userType = d.userType;
   project.country = d.country;
@@ -50142,6 +50522,7 @@ function updateCurrentProject(status) {
   project.serviceStart = d.startDate;
   project.days = d.serviceDays;
   project.guests = d.people;
+  project.childAges = d.childAges?.join("、") || "";
   project.amount = Math.round(totals.sell || 0);
   project.cost = Math.round(totals.cost || 0);
   project.grossProfit = Math.round((totals.sell || 0) - (totals.cost || 0));
@@ -50156,11 +50537,13 @@ function resetProject() {
   const nextId = `QP-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${String(state.projects.length + 1).padStart(3, "0")}`;
   state.currentProjectId = nextId;
   $("#projectId").textContent = nextId;
-  ["clientName", "actualCustomerName", "clientAccount", "clientCountry", "budgetRange", "languageNeed", "hotelPreference", "mealPreference", "aiNotes", "opNotes", "startDate", "cities", "specialNeed", "itinerarySource"].forEach((id) => { if ($(`#${id}`)) $(`#${id}`).value = ""; });
+  ["clientName", "actualCustomerName", "travelAgencyName", "clientAccount", "clientCountry", "budgetRange", "languageNeed", "hotelPreference", "mealPreference", "aiNotes", "opNotes", "startDate", "cities", "specialNeed", "itinerarySource", "rawDemandInput", "opRouteInstruction"].forEach((id) => { if ($(`#${id}`)) $(`#${id}`).value = ""; });
   $("#clientType").value = "直客";
   $("#serviceDays").value = 1;
   $("#adults").value = 0;
   $("#children").value = 0;
+  if ($("#childAges")) $("#childAges").value = "";
+  if ($("#travelAgencyName")) $("#travelAgencyName").value = "";
   $("#rooms").value = 0;
   state.roomTypes = [{ type: "双床房", rooms: 0 }];
   $("#followStatus").value = "新询盘";
@@ -50204,6 +50587,7 @@ function loadSample() {
   showProjectDetail();
   $("#clientName").value = "Hichina 北京上海5天";
   $("#actualCustomerName").value = "Hichina";
+  if ($("#travelAgencyName")) $("#travelAgencyName").value = "Hichina Travel";
   $("#clientAccount").value = "+971 50 882 0134";
   $("#clientType").value = "旅行社";
   $("#clientCountry").value = "阿联酋";
@@ -50213,6 +50597,7 @@ function loadSample() {
   $("#serviceDays").value = 5;
   $("#adults").value = 4;
   $("#children").value = 1;
+  if ($("#childAges")) $("#childAges").value = "8";
   $("#cities").value = "北京、上海";
   $("#specialNeed").value = "节奏舒适，无购物安排，含经典景点。";
   $("#budgetRange").value = "¥30,000 - ¥45,000 / 人";
@@ -50252,15 +50637,22 @@ function loadSample() {
 function getDemand() {
   const adults = number($("#adults").value);
   const children = number($("#children").value);
+  const childAges = String($("#childAges")?.value || "")
+    .split(/[,，、\s/]+/)
+    .map((item) => Number(item))
+    .filter((item) => item > 0 && item < 18);
   const cities = splitCities($("#cities").value);
   const actualCustomerName = $("#actualCustomerName")?.value.trim() || "";
-  const projectName = $("#clientName").value.trim() || [actualCustomerName || "未命名客户", cities.join("、"), `${Math.max(number($("#serviceDays").value), 1)}天`].filter(Boolean).join(" ");
+  const travelAgencyName = $("#travelAgencyName")?.value.trim() || "";
+  const projectName = $("#clientName").value.trim() || [actualCustomerName || travelAgencyName || "未命名客户", cities.join("、"), `${Math.max(number($("#serviceDays").value), 1)}天`].filter(Boolean).join(" ");
   return {
     clientName: projectName,
     actualCustomerName,
+    travelAgencyName,
     account: $("#clientAccount").value.trim(),
     userType: $("#clientType").value,
     country: $("#clientCountry").value.trim(),
+    source: $("#source")?.value || "",
     specialNeed: $("#specialNeed").value.trim(),
     budgetRange: $("#budgetRange")?.value.trim() || "",
     languageNeed: $("#languageNeed")?.value.trim() || "",
@@ -50272,6 +50664,7 @@ function getDemand() {
     serviceDays: Math.max(number($("#serviceDays").value), 1),
     adults,
     children,
+    childAges,
     people: adults + children,
     cities,
     services: {
@@ -50875,11 +51268,11 @@ async function applyXiaoyiAction(actionId, messageIndex) {
   if (actionId.startsWith("apply_partial_translation_fix:")) {
     const id = actionId.split(":")[1];
     await fixSingleResidue(id);
-    return addXiaoyiMessage("assistant", "已调用 DeepSeek 应用这一处局部修正，并重新检测。");
+    return addXiaoyiMessage("assistant", "已调用 AI 模型接口应用这一处局部修正，并重新检测。");
   }
   if (actionId === "apply_partial_translation_fix") {
     await fixAllTranslationResidues();
-    return addXiaoyiMessage("assistant", "已调用 DeepSeek 批量修正中文残留，并重新检测。");
+    return addXiaoyiMessage("assistant", "已调用 AI 模型接口批量修正中文残留，并重新检测。");
   }
   if (actionId === "apply_poster_plan") {
     const structured = state.xiaoyi.messages[messageIndex]?.structured;
@@ -51038,16 +51431,20 @@ function createChineseProposalSource() {
     title: `${d.cities.join(" · ") || "中国"} ${d.serviceDays || state.itinerary.length}天定制游`,
     cover: "友易行旅行社",
     highlights: unique(state.itinerary.flatMap((day) => extractAttractions(`${day.overview} ${day.detail}`))).slice(0, 6),
-    itinerary: state.itinerary.map((day, index) => ({
-      day: index + 1,
-      date: day.date,
-      city: day.city,
-      overview: day.overview,
-      detail: day.detail,
-    })),
+    itinerary: state.itinerary.map((day, index) => {
+      const customerDay = customerVisibleDay(day, "zh");
+      return {
+        day: index + 1,
+        date: customerDay.date,
+        city: customerDay.city,
+        overview: customerDay.overview,
+        detail: customerDay.detail,
+      };
+    }),
     hotels: unique((activeQuote().data.hotel || []).flatMap((row) => (row.rooms || []).map((room) => room.hotelName).filter(Boolean))),
     inclusions: costPolicyRows("zh").map((row) => `${row.item}：${row.included}`),
     exclusions: costPolicyRows("zh").map((row) => `${row.item}：${row.excluded}`),
+    options: quoteOptionSummaries(),
     totalPrice: money(totals.sell),
     validity: "报价有效期以最终确认为准",
     notes: "行程以最终确认为准，门票需实名预约，不含国际机票。",
@@ -51055,6 +51452,71 @@ function createChineseProposalSource() {
   };
   state.translation.chineseSource = source;
   return source;
+}
+
+function quoteOptionSummaries() {
+  const selectedDays = requestedQuoteDayIndexes().map((index) => index + 1);
+  return state.quoteVersions
+    .filter((version) => version?.data)
+    .map((version, index) => {
+      const metrics = applyQuoteVersionMetrics(version);
+      const guideIncluded = !/without\s+guide|不含导游/i.test(version.name || "");
+      return {
+        name: version.name || `Option ${index + 1}`,
+        guideIncluded,
+        scope: selectedDays.length ? `Day ${selectedDays.join(" & ")}` : `${getDemandSafe().serviceDays || state.itinerary.length} day(s)`,
+        totalPrice: money(metrics.totalPrice || 0),
+        averagePrice: money(metrics.averagePrice || 0),
+      };
+    });
+}
+
+function optionComparisonHtml(lang = "en") {
+  const options = quoteOptionSummaries();
+  if (options.length <= 1) return "";
+  const labels = lang === "zh"
+    ? { title: "报价", service: "服务", total: "总价", yes: "含导游", no: "不含导游" }
+    : { title: "Quotation", service: "Service", total: "Total Price", yes: "With guide", no: "Without guide" };
+  const rows = options.map((option) => ({
+    service: option.guideIncluded ? labels.yes : labels.no,
+    totalPrice: option.totalPrice,
+  }));
+  return `<div class="proposal-block option-comparison customer-price-options"><h4>${labels.title}</h4><table class="simple-table"><thead><tr><th>${labels.service}</th><th>${labels.total}</th></tr></thead><tbody>
+    ${rows.map((row) => `<tr><td>${escapeHtml(row.service)}</td><td>${escapeHtml(row.totalPrice)}</td></tr>`).join("")}
+  </tbody></table></div>`;
+}
+
+function sanitizeCustomerProposalText(text = "", lang = "zh", city = "") {
+  let value = String(text || "").trim();
+  if (!value) return "";
+  value = value
+    .replace(/[（(]\s*(建议行程|建议安排|推荐行程|推荐安排|可选行程|可选安排|suggested itinerary|suggested arrangement|suggested route|optional itinerary)\s*[）)]/gi, "")
+    .replace(/\bplease\s+suggest\b/gi, "")
+    .replace(/\bArrange\s+full\s+day\s+tour\b/gi, lang === "zh" ? `${city || "当地"}一日游` : `Full-day tour in ${city || "the destination"}`)
+    .replace(/(^|[。；;]\s*)(建议|推荐)(?=游览|安排|前往|体验|参观)/g, "$1")
+    .replace(/\bSuggested\s+(visits?|tour|itinerary|route|arrangement)s?\b:?\s*/gi, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([，。；,.])/g, "$1")
+    .replace(/^[，。；,.\s]+|[，；,\s]+$/g, "")
+    .trim();
+  if (!value) return lang === "zh" ? `${city || "当地"}游览` : `Tour in ${city || "the destination"}`;
+  return value;
+}
+
+function sanitizeCustomerDayFields(day = {}, lang = "zh") {
+  const city = day.city || "";
+  return {
+    ...day,
+    overview: sanitizeCustomerProposalText(day.overview, lang, city),
+    detail: sanitizeCustomerProposalText(day.detail, lang, city),
+  };
+}
+
+function customerVisibleDay(day = {}, lang = "zh") {
+  const localized = lang === "zh"
+    ? { date: day.date, city: day.city, overview: day.overview, detail: day.detail }
+    : localizeDay(day, lang);
+  return sanitizeCustomerDayFields(localized, lang);
 }
 
 function buildChineseProposalSource() {
@@ -51094,10 +51556,35 @@ async function generateEnglishProposalVersion(options = {}) {
       ? `英文版已刷新，检测到 ${state.translation.residues.length} 处中文残留，请编辑后确认。`
       : "英文版已刷新，未检测到中文残留。";
   } catch (error) {
-    $("#translationStatus").textContent = `DeepSeek 翻译失败，请检查 API Key 或稍后重试。${error.message ? `错误：${error.message}` : ""}`;
+    $("#outputLang").value = "en";
+    renderTranslatedProposal(localEnglishProposalFromSource(source));
+    $("#translationStatus").textContent = `AI 模型接口翻译失败，已使用本地英文报价模板兜底。${error.message ? `错误：${error.message}` : ""}`;
   }
   renderEnglishWarning();
   renderTranslationWorkflow();
+}
+
+function localEnglishProposalFromSource(source = {}) {
+  const d = getDemandSafe();
+  return {
+    kicker: "Private Tour Proposal",
+    title: `${d.serviceDays || state.itinerary.length}-Day China Private Tour`,
+    meta: `${d.startDate || "Date TBD"} · ${d.people || 0} guests`,
+    itinerary: state.itinerary.map((day, index) => {
+      const localized = customerVisibleDay(day, "en");
+      return {
+        day: index + 1,
+        date: day.date,
+        city: localized.city,
+        overview: localized.overview,
+        detail: localized.detail,
+      };
+    }),
+    inclusions: source.inclusions?.length ? costPolicyRows("en").map((row) => `${row.item}: ${row.included}`) : costPolicyRows("en").map((row) => `${row.item}: ${row.included}`),
+    exclusions: costPolicyRows("en").map((row) => `${row.item}: ${row.excluded}`),
+    payment: "A deposit is required to secure the booking. The remaining balance should be paid before service starts.",
+    notes: ["Final confirmation is subject to resource availability.", "Hotel and train tickets are excluded when they are not listed in the selected option."],
+  };
 }
 
 function translatedScalar(value, fallback = "") {
@@ -51117,7 +51604,7 @@ function normalizeTranslatedList(value, fallback = []) {
 function renderTranslatedProposal(data = {}) {
   const d = getDemandSafe();
   const totals = calcTotals();
-  const days = Array.isArray(data.itinerary) ? data.itinerary : [];
+  const days = (Array.isArray(data.itinerary) ? data.itinerary : []).map((day) => sanitizeCustomerDayFields(day, "en"));
   $("#proposal").classList.toggle("watermarked", $("#proposalWatermark").checked);
   applyProposalCoverImage();
   const inclusions = normalizeTranslatedList(data.inclusions);
@@ -51139,6 +51626,7 @@ function renderTranslatedProposal(data = {}) {
         </tbody></table></div>
       </div>
       <aside>
+        ${optionComparisonHtml("en")}
         <div class="price-box"><span>Total Price</span><strong>${money(totals.sell)}</strong><span>Adult avg: ${money(totals.adultAvg)}</span>${d.children ? `<span>Child avg: ${money(totals.childAvg)}</span>` : ""}</div>
         <div class="proposal-block"><h4>Payment</h4><p>${escapeHtml(data.payment || "A deposit is required to secure the booking. The remaining balance should be paid before service starts.")}</p></div>
         <div class="proposal-block"><h4>Notes</h4><p>${escapeHtml(notes.join(" "))}</p></div>
@@ -51248,12 +51736,12 @@ function partialFixChineseResidue() {
   const fixes = state.translation.residues.map((item) => ({
     location: item.location,
     before: item.snippet,
-    after: "点击提案区的 AI 局部翻译后由 DeepSeek 生成",
+    after: "点击提案区的 AI 局部翻译后由模型接口生成",
   }));
   setXiaoyiStructuredResult({
-    reply: `我找到 ${fixes.length} 处中文残留。请在客户提案的翻译检查区点击“AI 修正全部残留”或单条“AI 局部翻译”，系统会调用 DeepSeek 逐条修正。`,
+    reply: `我找到 ${fixes.length} 处中文残留。请在客户提案的翻译检查区点击“AI 修正全部残留”或单条“AI 局部翻译”，系统会调用模型接口逐条修正。`,
     intent: "translate_proposal",
-    suggestions: [{ type: "partial_translation_fix", summary: "局部修正中文残留", before: fixes.map((item) => item.before), after: fixes, reason: "只定位含中文的片段，实际修正必须调用 DeepSeek segment API" }],
+    suggestions: [{ type: "partial_translation_fix", summary: "局部修正中文残留", before: fixes.map((item) => item.before), after: fixes, reason: "只定位含中文的片段，实际修正必须调用 AI segment API" }],
     actions: [],
     attachments: [],
     memory_suggestions: [],
@@ -51275,7 +51763,7 @@ async function fixAllTranslationResidues() {
   let failed = 0;
   while (state.translation.residues.length) {
     const item = state.translation.residues[0];
-    $("#translationStatus").textContent = `正在调用 DeepSeek 修正中文残留 ${fixed + failed + 1}/${beforeCount}：${item.location}`;
+    $("#translationStatus").textContent = `正在调用 AI 模型接口修正中文残留 ${fixed + failed + 1}/${beforeCount}：${item.location}`;
     try {
       const translatedText = await translateResidueSegment(item);
       applySingleTranslationFix(item.id, translatedText);
@@ -51288,7 +51776,7 @@ async function fixAllTranslationResidues() {
   }
   const afterCount = state.translation.residues.length;
   $("#translationStatus").textContent = failed
-    ? `DeepSeek 局部翻译失败。已修正 ${fixed} 处中文残留，仍有 ${afterCount} 处需要人工确认。`
+    ? `AI 模型接口局部翻译失败。已修正 ${fixed} 处中文残留，仍有 ${afterCount} 处需要人工确认。`
     : `已修正 ${fixed} 处中文残留，仍有 ${afterCount} 处需要人工确认。`;
   return state.translation.residues;
 }
@@ -51349,11 +51837,12 @@ function localCustomerDemandDraft() {
     $("#hotelPreference")?.value,
     $("#mealPreference")?.value,
   ].filter(Boolean).join("\n");
+  const phase1 = window.YouyixingPhase1?.parsePhase1DemandText(text, { defaultYear: 2026 }) || {};
   const people = parsePeopleFallback(text);
-  const cities = extractCitiesFromText(text);
-  const serviceDays = inferServiceDaysFromText(text) || number($("#serviceDays")?.value) || 1;
-  const hotelLevel = inferHotelLevel(text);
-  const services = {
+  const cities = phase1.cities?.length ? phase1.cities : extractCitiesFromText(text);
+  const serviceDays = phase1.serviceDays || inferServiceDaysFromText(text) || number($("#serviceDays")?.value) || 1;
+  const hotelLevel = phase1.services?.hotel === false ? "不含酒店" : inferHotelLevel(text);
+  const baseServices = {
     vehicle: !/不含用车|no car/i.test(text),
     ticket: !/不含门票|no tickets?/i.test(text),
     guide: /guide|导游|英语|英文|english/i.test(text),
@@ -51362,23 +51851,26 @@ function localCustomerDemandDraft() {
     meal: /餐|meal|halal|清真/i.test(text),
     other: true,
   };
+  const services = { ...baseServices, ...(phase1.services || {}) };
   const vehiclePlan = recommendVehiclePlan({
-    people: people.total || number($("#adults")?.value) + number($("#children")?.value),
+    people: phase1.adults || phase1.children ? number(phase1.adults) + number(phase1.children) : people.total || number($("#adults")?.value) + number($("#children")?.value),
     hasGuide: services.guide,
     luggage: /行李多|大件|many luggage|lots of luggage/i.test(text) ? "多" : "未知",
     preference: /business|商务/i.test(text) ? "商务" : /舒适|comfortable/i.test(text) ? "舒适" : /经济|budget/i.test(text) ? "经济" : "",
   });
   return normalizeCustomerDraft({
-    clientName: $("#clientName")?.value || `${cities.join("、") || "中国"} ${serviceDays}天定制游`,
-    actualCustomerName: $("#actualCustomerName")?.value || "",
+    clientName: $("#clientName")?.value || `${phase1.actualCustomerName || cities.join("、") || "中国"} ${serviceDays}天定制游`,
+    actualCustomerName: phase1.actualCustomerName || $("#actualCustomerName")?.value || "",
+    travelAgencyName: phase1.travelAgencyName || $("#travelAgencyName")?.value || "",
     account: $("#clientAccount")?.value || "",
     userType: $("#clientType")?.value || "直客",
-    country: inferCountry(text) || $("#clientCountry")?.value || "",
-    source: $("#source")?.value || "WhatsApp",
-    startDate: text.match(/\b(20\d{2}-\d{1,2}-\d{1,2})\b/)?.[1] || $("#startDate")?.value || "",
+    country: phase1.clientCountry || inferCountry(text) || $("#clientCountry")?.value || "",
+    source: phase1.source || $("#source")?.value || "WhatsApp",
+    startDate: phase1.startDate || text.match(/\b(20\d{2}-\d{1,2}-\d{1,2})\b/)?.[1] || $("#startDate")?.value || "",
     serviceDays,
-    adults: people.adults,
-    children: people.children,
+    adults: phase1.adults ?? people.adults,
+    children: phase1.children ?? people.children,
+    childAges: phase1.childAges || [],
     cities,
     languageNeed: /english|英语|英文/i.test(text) ? "英语" : ($("#languageNeed")?.value || ""),
     hotelPreference: hotelLevel,
@@ -51386,11 +51878,22 @@ function localCustomerDemandDraft() {
     mealPreference: /halal|清真|muslim|穆斯林/i.test(text) ? "清真餐" : ($("#mealPreference")?.value || ""),
     specialNeed: text,
     guideLang: /arabic|阿拉伯/i.test(text) ? "阿拉伯语" : /spanish|西班牙/i.test(text) ? "西班牙语" : /french|法语/i.test(text) ? "法语" : "英语",
-    rooms: people.total ? Math.ceil(people.total / 2) : number($("#rooms")?.value),
-    roomTypes: people.total ? [{ type: "双床房", rooms: Math.ceil(people.total / 2) }] : state.roomTypes,
+    rooms: services.hotel === false ? 0 : (people.total ? Math.ceil(people.total / 2) : number($("#rooms")?.value)),
+    roomTypes: services.hotel === false ? [] : (people.total ? [{ type: "双床房", rooms: Math.ceil(people.total / 2) }] : state.roomTypes),
     vehicleType: vehiclePlan.vehicleType,
     vehicleReason: vehiclePlan.reason,
-    aiNotes: vehiclePlan.reason,
+    transferNeed: phase1.transferNeed || (services.transfer ? "接送机" : ""),
+    charterNeed: phase1.charterNeed || (services.vehicle ? "需要" : ""),
+    optionGuideDays: phase1.optionGuideDays || [],
+    requiredGuideDays: phase1.requiredGuideDays || [],
+    quoteOptions: phase1.quoteOptions || [],
+    itineraryDays: phase1.itineraryDays || [],
+    phase1Locked: Boolean(phase1.itineraryDays?.length || phase1.optionGuideDays?.length || phase1.actualCustomerName),
+    aiNotes: [
+      vehiclePlan.reason,
+      phase1.optionGuideDays?.length ? `客户要求 A/B 报价覆盖 Day ${phase1.optionGuideDays.join("、")}：含导游 / 不含导游。` : "",
+      phase1.services?.exclusions?.length ? `客户明确不含：${phase1.services.exclusions.join("、")}` : "",
+    ].filter(Boolean).join("\n"),
     services,
     missingFields: [],
   });
@@ -51410,6 +51913,9 @@ function normalizeCustomerDraft(data) {
   if (!number(draft.adults) && !number(draft.children) && people.total) draft.adults = people.total;
   draft.adults = number(draft.adults);
   draft.children = number(draft.children);
+  draft.childAges = Array.isArray(draft.childAges)
+    ? draft.childAges.map((item) => number(item)).filter((item) => item > 0 && item < 18)
+    : String(draft.childAges || "").split(/[,，、\s/]+/).map((item) => number(item)).filter((item) => item > 0 && item < 18);
   draft.cities = Array.isArray(draft.cities) ? draft.cities.filter(Boolean) : splitCities(draft.cities || "");
   if (!draft.cities.length) draft.cities = extractCitiesFromText(`${$("#rawDemandInput")?.value || ""} ${draft.specialNeed || ""}`);
   draft.hotelLevel = normalizeHotelLevelOption(draft.hotelLevel || draft.hotelPreference);
@@ -51431,6 +51937,15 @@ function normalizeCustomerDraft(data) {
   }
   draft.rooms = number(draft.rooms) || (draft.adults + draft.children ? Math.ceil((draft.adults + draft.children) / 2) : 0);
   draft.roomTypes = Array.isArray(draft.roomTypes) && draft.roomTypes.length ? draft.roomTypes : (draft.rooms ? [{ type: "双床房", rooms: draft.rooms }] : []);
+  if (draft.services?.hotel === false || draft.hotelLevel === "不含酒店") {
+    draft.hotelLevel = "不含酒店";
+    draft.rooms = 0;
+    draft.roomTypes = [];
+  }
+  draft.optionGuideDays = Array.isArray(draft.optionGuideDays) ? draft.optionGuideDays.map((item) => number(item)).filter(Boolean) : [];
+  draft.requiredGuideDays = Array.isArray(draft.requiredGuideDays) ? draft.requiredGuideDays.map((item) => number(item)).filter(Boolean) : [];
+  draft.quoteOptions = Array.isArray(draft.quoteOptions) ? draft.quoteOptions : [];
+  draft.itineraryDays = Array.isArray(draft.itineraryDays) ? draft.itineraryDays : [];
   draft.missingFields = [
     !draft.children && "儿童人数如不确定需确认",
     !draft.startDate && "出行日期",
@@ -51606,14 +52121,14 @@ async function fixSingleResidue(id) {
   if (!state.translation.residues.length) checkEnglishChineseResidue();
   const item = residueById(id);
   if (!item) return;
-  $("#translationStatus").textContent = `正在调用 DeepSeek 翻译「${item.location}」的中文残留...`;
+  $("#translationStatus").textContent = `正在调用 AI 模型接口翻译「${item.location}」的中文残留...`;
   try {
     const translatedText = await translateResidueSegment(item);
     applySingleTranslationFix(item.id, translatedText);
     saveTranslationTermsFromResidues([{ ...item, suggested: translatedText }]);
-    $("#translationStatus").textContent = `已在「${item.location}」调用 DeepSeek 局部翻译并重新检测。`;
+    $("#translationStatus").textContent = `已在「${item.location}」调用 AI 模型接口局部翻译并重新检测。`;
   } catch (error) {
-    $("#translationStatus").textContent = `DeepSeek 局部翻译失败，请检查 API Key 或稍后重试。${error.message ? `错误：${error.message}` : ""}`;
+    $("#translationStatus").textContent = `AI 模型接口局部翻译失败，请检查 API Key 或稍后重试。${error.message ? `错误：${error.message}` : ""}`;
   }
 }
 
@@ -51701,7 +52216,7 @@ async function loadAiSettings() {
     state.aiSettings = data.ai;
     renderAiSettings();
   } catch (error) {
-    state.aiSettings = { provider: "deepseek", baseUrl: "https://api.deepseek.com", model: "deepseek-chat", temperature: 0.2, hasApiKey: false, apiKeyMasked: "", source: "missing", error: error.message };
+    state.aiSettings = { provider: "openai-compatible", baseUrl: "https://api.deepseek.com", model: "deepseek-chat", temperature: 0.2, hasApiKey: false, apiKeyMasked: "", source: "missing", error: error.message };
     renderAiSettings();
   }
 }
@@ -51709,7 +52224,7 @@ async function loadAiSettings() {
 function renderAiSettings() {
   const settings = state.aiSettings;
   if (!settings || !$("#aiProvider")) return;
-  $("#aiProvider").value = settings.provider || "deepseek";
+  $("#aiProvider").value = settings.provider || "openai-compatible";
   $("#aiBaseUrl").value = settings.baseUrl || "https://api.deepseek.com";
   $("#aiModel").value = settings.model || "deepseek-chat";
   $("#aiTemperature").value = settings.temperature ?? 0.2;
@@ -51720,13 +52235,13 @@ function renderAiSettings() {
     status.className = `settings-status ${settings.hasApiKey ? "ok" : "warn"}`;
     status.textContent = settings.hasApiKey
       ? `连接状态：已配置 ${settings.apiKeyMasked}（来源：${settings.source}）`
-      : "连接状态：未配置，请填写 DeepSeek API Key";
+      : "连接状态：未配置，请填写 AI 模型接口 API Key";
   }
 }
 
 function aiSettingsPayload() {
   return {
-    provider: $("#aiProvider")?.value || "deepseek",
+    provider: $("#aiProvider")?.value || "openai-compatible",
     apiKey: $("#aiApiKey")?.value.trim() || "",
     baseUrl: $("#aiBaseUrl")?.value.trim() || "https://api.deepseek.com",
     model: $("#aiModel")?.value.trim() || "deepseek-chat",
@@ -51906,6 +52421,8 @@ async function refreshQuoteDraft() {
     buildQuote({ forceRematch: true });
     if (quoteItems.length) applyAgentQuoteItemsToQuote(quoteItems);
     applyPartialGuideDaysToQuote(activeQuote().data);
+    applyQuoteVersionMetrics(activeQuote());
+    ensureGuideQuoteVersionsFromDemand();
     renderQuoteTabs();
     renderQuoteTable();
     renderSummary();
@@ -51940,9 +52457,65 @@ function guideVersionRequested(text = guideVersionText()) {
   return /(含导游|with\s+guide).*(不含导游|without\s+guide)|(不含导游|without\s+guide).*(含导游|with\s+guide)|both\s+rates?.*guide|with\s+guide\s+and\s+without\s+guide/i.test(text);
 }
 
+function phase1DemandParse(text = "") {
+  const source = text || $("#rawDemandInput")?.value || guideVersionText();
+  return window.YouyixingPhase1?.parsePhase1DemandText(source, { defaultYear: 2026 }) || {};
+}
+
+function phase1ItineraryDaysFromDemand() {
+  const parsed = phase1DemandParse($("#rawDemandInput")?.value || "");
+  const days = parsed.itineraryDays || [];
+  if (!days.length) return [];
+  return days.map((day, index) => ({
+    date: day.date || addDays(parsed.startDate || getDemandSafe().startDate || "2026-07-01", index),
+    city: day.city || parsed.cities?.[index] || parsed.cities?.[0] || "",
+    overview: day.title || `Day ${day.day || index + 1}`,
+    detail: day.detail || day.summary || "",
+  }));
+}
+
 function requestedGuideDayIndexes(text = guideVersionText()) {
-  const value = String(text || "");
-  return unique([...value.matchAll(/(?:Day|D)\s*(\d+)/gi)].map((match) => number(match[1]) - 1).filter((index) => index >= 0));
+  const parsed = window.YouyixingPhase1?.parsePhase1DemandText(text, { defaultYear: 2026 }) || {};
+  const days = parsed.optionGuideDays?.length ? parsed.optionGuideDays : parsed.requiredGuideDays || [];
+  if (days.length) return unique(days.map((day) => number(day) - 1).filter((index) => index >= 0));
+  return unique([...String(text || "").matchAll(/(?:含导游|with\s+guide|guide)[^\n]{0,40}(?:Day|D)\s*(\d+)/gi)].map((match) => number(match[1]) - 1).filter((index) => index >= 0));
+}
+
+function requestedQuoteDayIndexes(text = guideVersionText()) {
+  const parsed = window.YouyixingPhase1?.parsePhase1DemandText(text, { defaultYear: 2026 }) || {};
+  if (/just\s+need\s+\d+\s+days?|只要|仅需|仅报价|just\s+\d+\s+days/i.test(text) && parsed.optionGuideDays?.length) {
+    return unique(parsed.optionGuideDays.map((day) => number(day) - 1).filter((index) => index >= 0));
+  }
+  return [];
+}
+
+function zeroQuoteRowForScope(row, reason = "客户未要求当天报价") {
+  if (!row || typeof row !== "object") return;
+  ["charterCost", "driverCost", "unitCost", "quantity", "totalCost", "salePrice", "totalSale", "serviceCost", "ticketCost", "hotelCost", "adultCost", "childCost", "perPersonCost", "insurance", "headset", "water", "gift", "routeProductUnitCost"].forEach((field) => {
+    if (field in row) row[field] = 0;
+  });
+  if (Array.isArray(row.items)) {
+    row.items.forEach((item) => zeroQuoteRowForScope(item, reason));
+  }
+  if (Array.isArray(row.rooms)) {
+    row.rooms.forEach((room) => zeroQuoteRowForScope(room, reason));
+  }
+  row.missingCost = false;
+  row.source = reason;
+  row.sourceType = "未包含";
+  row.phase1OutOfScope = true;
+}
+
+function applyPhase1QuoteScope(quoteData) {
+  const indexes = requestedQuoteDayIndexes();
+  if (!indexes.length || !quoteData) return;
+  ["vehicle", "guide", "ticket", "hotel", "meal", "traffic", "other"].forEach((service) => {
+    (quoteData[service] || []).forEach((row, index) => {
+      const dayIndex = Number.isInteger(row?.dayIndex) ? row.dayIndex : index;
+      if (indexes.includes(dayIndex)) return;
+      zeroQuoteRowForScope(row, "客户仅要求 Day 2/3 报价，非报价日不计入本次报价");
+    });
+  });
 }
 
 function applyPartialGuideDaysToQuote(quoteData) {
@@ -51962,7 +52535,8 @@ function applyPartialGuideDaysToQuote(quoteData) {
 function ensureGuideQuoteVersionsFromDemand() {
   if (!guideVersionRequested() || !activeQuote()?.data) return;
   applyPartialGuideDaysToQuote(activeQuote().data);
-  state.quoteVersions[0].name = "V1：含导游报价";
+  state.quoteVersions[0].name = "方案A：含导游";
+  applyQuoteVersionMetrics(state.quoteVersions[0]);
   const withoutGuide = JSON.parse(JSON.stringify(state.quoteVersions[0].data));
   withoutGuide.guide = (withoutGuide.guide || []).map((row) => ({
     ...row,
@@ -51973,14 +52547,16 @@ function ensureGuideQuoteVersionsFromDemand() {
     source: "客户要求不含导游",
     sourceType: "未包含",
   }));
-  const version = { name: "V2：不含导游报价", status: "草稿", data: withoutGuide };
-  const existing = state.quoteVersions.findIndex((item) => item.name.includes("不含导游"));
+  const version = { name: "方案B：不含导游", status: "草稿", data: withoutGuide };
+  applyQuoteVersionMetrics(version);
+  const existing = state.quoteVersions.findIndex((item) => item.name.includes("不含导游") || item.name.includes("Without Guide"));
   if (existing >= 0) state.quoteVersions[existing] = version;
   else state.quoteVersions.splice(1, 0, version);
   state.activeQuote = 0;
   renderQuoteVersionSelect();
   renderQuoteTabs();
   renderSummary();
+  saveQuoteVersions();
 }
 
 function shortText(text = "", max = 30) {
@@ -52343,6 +52919,7 @@ async function confirmRouteDraft() {
   recordSupplierCallsFromQuote();
   updateCurrentProject("报价中");
   setAgentPending("message", { title: "线路已确认，报价明细已刷新", body: "已写入正式每日行程，并刷新报价明细与报价汇总。" });
+  if ($("#routeEditStatus")) $("#routeEditStatus").textContent = "线路已确认，报价已按当前主行程表刷新。";
   renderRouteStatus();
 }
 
@@ -52682,17 +53259,39 @@ function ensureItineraryCoversDemand(options = {}) {
   return state.itinerary;
 }
 
+function mergeCustomerDraft(fallbackDraft = {}, agentDraft = {}) {
+  const merged = { ...fallbackDraft };
+  const lockedKeys = new Set(["actualCustomerName", "travelAgencyName", "country", "source", "startDate", "serviceDays", "adults", "children", "childAges", "cities", "services", "languageNeed", "guideLang", "hotelLevel", "rooms", "roomTypes", "optionGuideDays", "requiredGuideDays", "quoteOptions", "itineraryDays"]);
+  Object.entries(agentDraft || {}).forEach(([key, value]) => {
+    if (fallbackDraft.phase1Locked && lockedKeys.has(key)) {
+      const existing = fallbackDraft[key];
+      if (Array.isArray(existing) ? existing.length : existing !== "" && existing != null && existing !== 0) return;
+    }
+    if (value == null) return;
+    if (Array.isArray(value)) {
+      if (value.length) merged[key] = value;
+      return;
+    }
+    if (typeof value === "object") {
+      merged[key] = { ...(merged[key] || {}), ...value };
+      return;
+    }
+    if (String(value).trim() !== "") merged[key] = value;
+  });
+  return merged;
+}
+
 async function agentRecognizeDemand() {
   const fallbackDraft = localCustomerDemandDraft();
   const result = await callAgent("recognize_customer", [
     "从 OP 粘贴的客户需求、聊天记录或飞书表单中提取结构化客户资料。",
-    "返回 JSON：{type:'customer', customer:{clientName, actualCustomerName, account, userType, country, source, startDate, serviceDays, adults, children, cities, budgetRange, languageNeed, hotelPreference, mealPreference, specialNeed, aiNotes, guideLang, hotelLevel, rooms, roomTypes, services, vehicleType}, missing:[], questions:[]}",
+    "返回 JSON：{type:'customer', customer:{clientName, actualCustomerName, travelAgencyName, account, userType, country, source, startDate, serviceDays, adults, children, childAges, cities, budgetRange, languageNeed, hotelPreference, mealPreference, specialNeed, aiNotes, guideLang, hotelLevel, rooms, roomTypes, services, vehicleType, optionGuideDays, requiredGuideDays, quoteOptions}, missing:[], questions:[]}",
     "services 包含 vehicle,ticket,guide,hotel,traffic,meal,other 布尔值。",
     "不要编造价格。",
   ].join("\n"));
   const customerResult = normalizeAgentCustomerResult(result);
   const merged = customerResult
-    ? { ...customerResult, customer: normalizeCustomerDraft({ ...fallbackDraft, ...customerResult.customer }) }
+    ? { ...customerResult, customer: normalizeCustomerDraft(mergeCustomerDraft(fallbackDraft, customerResult.customer)) }
     : { type: "customer", customer: fallbackDraft, missing: fallbackDraft.missingFields || [], questions: fallbackDemandQuestions(fallbackDraft) };
   setAgentPending("customer", merged);
 }
@@ -52719,6 +53318,7 @@ function agentApplyCustomer() {
   }
   setValue("clientName", data.clientName);
   setValue("actualCustomerName", data.actualCustomerName);
+  setValue("travelAgencyName", data.travelAgencyName);
   setValue("clientAccount", data.account);
   setSelectValue("clientType", data.userType);
   setValue("clientCountry", data.country);
@@ -52727,6 +53327,7 @@ function agentApplyCustomer() {
   setValue("serviceDays", data.serviceDays);
   setValue("adults", data.adults);
   setValue("children", data.children);
+  setValue("childAges", Array.isArray(data.childAges) ? data.childAges.join("、") : data.childAges);
   if (Array.isArray(data.cities) && data.cities.length) $("#cities").value = data.cities.join("、");
   setValue("budgetRange", data.budgetRange);
   setValue("languageNeed", data.languageNeed);
@@ -52737,6 +53338,8 @@ function agentApplyCustomer() {
   setSelectValue("guideLang", data.guideLang);
   setSelectValue("hotelLevel", data.hotelLevel);
   setValue("rooms", data.rooms);
+  if (data.transferNeed) setSelectValue("transferNeed", data.transferNeed);
+  if (data.charterNeed) setSelectValue("charterNeed", data.charterNeed);
   if (Array.isArray(data.roomTypes) && data.roomTypes.length) {
     state.roomTypes = data.roomTypes.map((room) => ({
       type: room.type || "双床房",
@@ -52949,7 +53552,7 @@ async function callAgent(action, instruction) {
     if (!response.ok) throw new Error(result.error || "Agent request failed");
     return parseAgentJson(result.content);
   } catch (error) {
-    setAgentPending("message", { title: "Agent 调用失败", body: error.message || "请检查 DeepSeek API Key 或本地服务。" });
+    setAgentPending("message", { title: "Agent 调用失败", body: error.message || "请检查 AI 模型接口 API Key 或本地服务。" });
     return null;
   } finally {
     setAgentLoading(false);
@@ -53016,7 +53619,7 @@ function parseAgentJson(content) {
   } catch {
     const match = content.match(/\{[\s\S]*\}/);
     if (match) return JSON.parse(match[0]);
-    throw new Error("DeepSeek 返回的内容不是有效 JSON。");
+    throw new Error("AI 模型接口返回的内容不是有效 JSON。");
   }
 }
 
@@ -53187,13 +53790,9 @@ function applyCustomerProposal(data) {
   $("#proposalKicker").textContent = "Private Tour Proposal";
   $("#proposalTitle").textContent = data.title || `${d.serviceDays}-Day China Private Tour`;
   $("#proposalMeta").textContent = `${d.startDate || "Date TBD"} · ${d.people} guests`;
-  const days = data.itineraryEnglish?.length ? data.itineraryEnglish : state.itinerary.map((day, index) => ({
-    day: index + 1,
-    date: day.date,
-    city: translate(day.city, "en"),
-    overview: day.overview,
-    detail: day.detail,
-  }));
+  const days = data.itineraryEnglish?.length
+    ? data.itineraryEnglish.map((day) => sanitizeCustomerDayFields(day, "en"))
+    : state.itinerary.map((day, index) => ({ day: index + 1, ...customerVisibleDay(day, "en") }));
   $("#proposalContent").innerHTML = `
     <div class="proposal-grid">
       <div>
@@ -53904,6 +54503,8 @@ function buildQuote(options = {}) {
     });
   });
   if (!options.forceRematch) applyManualOverrides(previousData, quote.data);
+  applyPartialGuideDaysToQuote(quote.data);
+  applyQuoteVersionMetrics(quote);
   quote.status = "待检查";
   state.quoteDiagnostics = buildQuoteDiagnosticsSnapshot();
   $("#projectStatus").textContent = "报价明细已同步";
@@ -54457,7 +55058,7 @@ function openSyncQuoteItemModal(token = `${state.activeService}:0`) {
       ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`).join("")}
     </div>
     <div class="modal-actions">
-      <button class="primary-btn" data-sync-mode="pending">保存为产品库草稿</button>
+      <button class="primary-btn" data-sync-mode="publish">写入产品库并用于后续报价</button>
       <button class="ghost-btn" data-sync-mode="current">仅当前报价使用</button>
       <button class="ghost-btn" data-sync-mode="cancel">取消</button>
     </div>`;
@@ -54507,7 +55108,7 @@ function productMissingFields(product, category) {
   ].filter(Boolean);
 }
 
-function applyQuoteProductSync(modal, rowData, product, mode) {
+async function applyQuoteProductSync(modal, rowData, product, mode) {
   if (mode === "cancel") return modal.classList.add("hidden");
   if (mode === "current") {
     rowData.row.currentQuoteOnly = true;
@@ -54515,16 +55116,83 @@ function applyQuoteProductSync(modal, rowData, product, mode) {
     renderQuoteTable();
     return;
   }
-  product.item.status = "待清洗";
-  productCatalogItems(product.category).unshift(product.item);
-  rowData.row.syncedProduct = { category: product.category, name: productName(product.item, product.category), mode: "pending", syncedAt: new Date().toISOString() };
-  rowData.row.source = mergeSources(rowData.row.source || "", `已保存产品库草稿/${product.item.status}`);
-  refreshQuoteResources();
-  saveLocalProductState();
-  modal.classList.add("hidden");
-  renderResourceLibrary();
-  renderQuoteTable();
-  renderSummary();
+  const actionButton = modal.querySelector(`[data-sync-mode="${mode}"]`);
+  const oldLabel = actionButton?.textContent || "";
+  if (actionButton) {
+    actionButton.disabled = true;
+    actionButton.textContent = "写入中...";
+  }
+  try {
+    product.item.status = "OP补录待复核";
+    const result = await postJson("/api/product-resources/upsert-from-quote", {
+      category: product.category,
+      item: product.item,
+      quoteRow: rowData.row,
+      service: rowData.service,
+      index: rowData.index,
+      projectId: state.currentProjectId || "",
+      actor: state.currentRole || "op",
+      note: "报价缺成本补录后写入产品库，供后续报价自动匹配。",
+    });
+    const saved = result.resource || {};
+    upsertProductCatalogItemFromQuoteSync(product.category, product.item, saved);
+    rowData.row.syncedProduct = {
+      category: product.category,
+      name: productName(product.item, product.category),
+      mode: "published",
+      storage: result.storage || "",
+      resourceId: saved.id || "",
+      sourceKey: result.sourceKey || "",
+      syncedAt: new Date().toISOString(),
+    };
+    rowData.row.sourceProductId = saved.id || rowData.row.sourceProductId || "";
+    rowData.row.sourceResourceId = saved.id || rowData.row.sourceResourceId || "";
+    rowData.row.source = mergeSources(rowData.row.source || "", `已写入产品库/${result.storage || "data-layer"}`);
+    rowData.row.sourceType = "报价台补录产品库";
+    rowData.row.matchStatus = "matched";
+    rowData.row.missingCost = false;
+    refreshQuoteResources();
+    saveLocalProductState();
+    saveQuoteVersions();
+    appendPhase1AuditLog("quote_missing_cost_published_to_product_library", {
+      category: product.category,
+      productName: productName(product.item, product.category),
+      storage: result.storage || "",
+      resourceId: saved.id || "",
+    });
+    modal.classList.add("hidden");
+    renderResourceLibrary();
+    renderQuoteTable();
+    renderSummary();
+    setAgentPending("message", {
+      title: "已写入产品库",
+      body: result.message || "报价补录成本已进入产品库，后续报价会自动调用这条资源。",
+    });
+  } catch (error) {
+    alert(`写入产品库失败：${error.message}`);
+  } finally {
+    if (actionButton) {
+      actionButton.disabled = false;
+      actionButton.textContent = oldLabel;
+    }
+  }
+}
+
+function upsertProductCatalogItemFromQuoteSync(category, item, resource = {}) {
+  item.cloudResourceId = resource.id || item.cloudResourceId || "";
+  item.sourceProductId = resource.id || item.sourceProductId || "";
+  item.source = resource.source || "报价台补录";
+  item.sourceKey = resource.sourceKey || resource.source_key || item.sourceKey || "";
+  item.status = resource.status || item.status || "OP补录待复核";
+  item.updatedAt = new Date().toISOString().slice(0, 10);
+  const rows = productCatalogItems(category);
+  const key = productDedupeKey(item, category) || item.sourceKey || productName(item, category);
+  const existingIndex = rows.findIndex((candidate) => {
+    const candidateKey = productDedupeKey(candidate, category) || candidate.sourceKey || productName(candidate, category);
+    return candidateKey && candidateKey === key;
+  });
+  if (existingIndex >= 0) rows[existingIndex] = { ...rows[existingIndex], ...item };
+  else rows.unshift(item);
 }
 
 function rematchQuoteRow(token) {
@@ -54570,18 +55238,18 @@ function fillFirstMissingCost(value) {
   const quote = activeQuote().data;
   const service = state.activeService;
   const rows = quote[service] || [];
-  for (const row of rows) {
-    if (service === "vehicle" && (row.missingCost || row.charterCost === "")) { row.charterCost = value; markManualRow(row); return; }
-    if (service === "guide" && (row.missingCost || row.serviceCost === "")) { row.serviceCost = value; markManualRow(row); return; }
-    if (service === "meal" && (row.missingCost || row.perPersonCost === "")) { row.perPersonCost = value; markManualRow(row); return; }
-    if (service === "traffic" && (row.adultCost === "" || row.missingCost)) { row.adultCost = value; markManualRow(row); return; }
+  for (const [index, row] of rows.entries()) {
+    if (service === "vehicle" && (row.missingCost || row.charterCost === "")) { row.charterCost = value; markManualRow(row); addProductReviewItemFromRow(service, row, { index, value }); return; }
+    if (service === "guide" && (row.missingCost || row.serviceCost === "")) { row.serviceCost = value; markManualRow(row); addProductReviewItemFromRow(service, row, { index, value }); return; }
+    if (service === "meal" && (row.missingCost || row.perPersonCost === "")) { row.perPersonCost = value; markManualRow(row); addProductReviewItemFromRow(service, row, { index, value }); return; }
+    if (service === "traffic" && (row.adultCost === "" || row.missingCost)) { row.adultCost = value; markManualRow(row); addProductReviewItemFromRow(service, row, { index, value }); return; }
     if (service === "ticket") {
       const item = row.items?.find((x) => x.missingCost || x.adultCost === "");
-      if (item) { item.adultCost = value; markManualRow(item); return; }
+      if (item) { item.adultCost = value; markManualRow(item); addProductReviewItemFromRow(service, item, { index, value }); return; }
     }
     if (service === "hotel") {
       const room = row.rooms?.find((x) => x.missingCost || x.unitCost === "");
-      if (room) { room.unitCost = value; markManualRow(room); return; }
+      if (room) { room.unitCost = value; markManualRow(room); addProductReviewItemFromRow(service, room, { index, value }); return; }
     }
   }
 }
@@ -54906,6 +55574,10 @@ function markManualField(row, field, value) {
   if (!row) return;
   row.manualFields = { ...(row.manualFields || {}), [field]: true };
   if (value !== "" && value != null) markManualRow(row);
+  const costFields = ["charterCost", "driverCost", "serviceCost", "ticketCost", "hotelCost", "adultCost", "childCost", "unitCost", "perPersonCost", "adultCost", "childCost", "routeProductUnitCost"];
+  if (costFields.includes(field) && number(value) > 0) {
+    addProductReviewItemFromRow(state.activeService || "other", row, { value });
+  }
   row.lastManualEdit = { field, value, editedAt: new Date().toISOString() };
   renderXiaoyiContext();
 }
@@ -55049,6 +55721,50 @@ function calcTotals() {
   };
 }
 
+function calcTotalsForQuoteData(data = emptyQuoteData()) {
+  const d = getDemand();
+  const services = serviceEnabledList();
+  const cost = services.reduce((sum, service) => sum + serviceCostFromData(data, service), 0);
+  const sell = services.reduce((sum, service) => sum + serviceSellFromData(data, service), 0);
+  const trafficCostTotal = services.includes("traffic") ? serviceCostFromData(data, "traffic") : 0;
+  const trafficSellTotal = services.includes("traffic") ? serviceSellFromData(data, "traffic") : 0;
+  const childRatio = d.children ? 0.65 : 1;
+  const weightedPeople = d.adults + d.children * childRatio;
+  const basePeople = weightedPeople > 0 ? weightedPeople : 1;
+  return {
+    cost,
+    sell,
+    grossProfit: sell - cost,
+    trafficCost: trafficCostTotal,
+    trafficFee: Math.max(trafficSellTotal - trafficCostTotal, 0),
+    adultAvg: d.adults > 0 ? sell / basePeople : 0,
+    childAvg: d.children ? (sell / basePeople) * childRatio : 0,
+  };
+}
+
+function serviceCostFromData(data = emptyQuoteData(), service) {
+  const rows = data[service] || [];
+  const map = { vehicle: vehicleCost, guide: guideCost, ticket: ticketCost, hotel: hotelCost, meal: mealCost, traffic: trafficCost, other: otherCost };
+  return rows.reduce((sum, row) => sum + (map[service] ? map[service](row) : 0), 0);
+}
+
+function serviceSellFromData(data = emptyQuoteData(), service) {
+  const cost = serviceCostFromData(data, service);
+  return service === "traffic" ? sellTraffic(cost) : sellMargin(cost);
+}
+
+function applyQuoteVersionMetrics(version) {
+  if (!version?.data) return version;
+  const totals = calcTotalsForQuoteData(version.data);
+  version.generatedAt = version.generatedAt || new Date().toISOString();
+  version.totalPrice = Math.round(totals.sell || 0);
+  version.totalCost = Math.round(totals.cost || 0);
+  version.averagePrice = Math.round(totals.adultAvg || 0);
+  version.grossProfit = Math.round(totals.grossProfit || 0);
+  version.grossMargin = totals.sell ? Math.round((totals.grossProfit / totals.sell) * 10000) / 100 : 0;
+  return version;
+}
+
 function serviceCost(service) {
   const data = activeQuote().data[service] || [];
   const map = { vehicle: vehicleCost, guide: guideCost, ticket: ticketCost, hotel: hotelCost, meal: mealCost, traffic: trafficCost, other: otherCost };
@@ -55167,7 +55883,7 @@ async function handleBuildProposal() {
   const d = getDemand();
   const totals = calcTotals();
   const cities = unique(state.itinerary.map((day) => day.city)).map((city) => translate(city, lang));
-  const days = state.itinerary.map((day) => localizeDay(day, lang));
+  const days = state.itinerary.map((day) => customerVisibleDay(day, lang));
   const showTotal = $("#priceTotal").checked || (!$("#priceAverage").checked && !$("#priceItemized").checked);
   const showAverage = $("#priceAverage").checked;
   const showItemized = $("#priceItemized").checked;
@@ -55186,6 +55902,7 @@ async function handleBuildProposal() {
         ${costPolicyHtml(lang)}
       </div>
       <aside>
+        ${optionComparisonHtml(lang)}
         <div class="price-box">
           <span>${t.total}</span>
           ${showTotal ? `<strong>${money(totals.sell)}</strong>` : ""}
@@ -55308,7 +56025,7 @@ async function retranslateProposalSection() {
   const target = selectedProposalText();
   if (!target.text) return;
   if (containsChinese(target.text)) {
-    $("#translationStatus").textContent = "正在调用 DeepSeek 重新翻译当前段落...";
+    $("#translationStatus").textContent = "正在调用 AI 模型接口重新翻译当前段落...";
     try {
       const translated = await translateResidueSegment({
         snippet: target.text,
@@ -55317,9 +56034,9 @@ async function retranslateProposalSection() {
         fullParagraph: target.text,
       });
       replaceProposalText(target.text, translated, target.node);
-      $("#translationStatus").textContent = "已调用 DeepSeek 重新翻译当前段落，并重新检测中文残留。";
+      $("#translationStatus").textContent = "已调用 AI 模型接口重新翻译当前段落，并重新检测中文残留。";
     } catch (error) {
-      $("#translationStatus").textContent = `DeepSeek 局部翻译失败，请检查 API Key 或稍后重试。${error.message ? `错误：${error.message}` : ""}`;
+      $("#translationStatus").textContent = `AI 模型接口局部翻译失败，请检查 API Key 或稍后重试。${error.message ? `错误：${error.message}` : ""}`;
     }
     return;
   }
@@ -55910,6 +56627,7 @@ async function handleExportImage() {
   link.download = `travel-proposal-${Date.now()}.png`;
   link.href = canvas.toDataURL("image/png");
   link.click();
+  appendPhase1AuditLog("proposal_exported", { type: "image", quoteVersion: activeQuote()?.name || "" });
 }
 
 async function handleExportPdf() {
@@ -55937,6 +56655,7 @@ async function handleExportPdf() {
     heightLeft -= pageHeight;
   }
   pdf.save(`travel-proposal-${Date.now()}.pdf`);
+  appendPhase1AuditLog("proposal_exported", { type: "pdf", quoteVersion: activeQuote()?.name || "" });
 }
 
 function convertToOrder() {
@@ -55944,21 +56663,30 @@ function convertToOrder() {
   const totals = calcTotals();
   const d = getDemand();
   const quote = activeQuote();
+  applyQuoteVersionMetrics(quote);
   const projectId = state.currentProjectId || $("#projectId").textContent;
   const orderId = String(projectId || `QP-${Date.now()}`).replace("QP", "OD");
   state.order = {
     id: orderId,
     projectId,
     customerName: d.actualCustomerName || d.clientName,
+    travelAgencyName: d.travelAgencyName || "",
     country: d.country,
     startDate: d.startDate,
     days: d.serviceDays,
     people: d.people,
     cities: d.cities.join("、"),
     amount: totals.sell,
+    estimatedCost: totals.cost,
+    estimatedMargin: totals.grossProfit,
+    marginRate: totals.sell ? Math.round((totals.grossProfit / totals.sell) * 10000) / 100 : 0,
     currency: $("#currency")?.value || "CNY",
     quoteVersion: quote?.name || $("#quoteVersion")?.selectedOptions?.[0]?.textContent || "报价 V1",
-    status: "已成交待操作",
+    quoteOptions: quoteOptionSummaries(),
+    status: phase1OrderStatuses()[0],
+    submittedBy: $("#owner")?.value || "定制师 A",
+    opOwner: $("#owner")?.value || "定制师 A",
+    statusUpdatedAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
   };
   state.orders = [state.order, ...state.orders.filter((item) => item.id !== state.order.id)];
@@ -55971,10 +56699,28 @@ function convertToOrder() {
   activeQuote().final = true;
   saveQuoteVersionMeta(true);
   saveOrderState();
+  appendPhase1AuditLog("order_converted", { orderId: state.order.id, quoteVersion: state.order.quoteVersion, amount: Math.round(state.order.amount || 0) });
   saveCurrentProjectSnapshot();
   renderOrders();
+  renderBossDashboard();
   showProjectDashboard();
   alert(`已成交并生成订单 ${state.order.id}，项目已返回报价列表。`);
+}
+
+function phase1OrderStatuses() {
+  return window.YouyixingPhase1?.ORDER_STATUSES || ["待确认", "待安排", "进行中", "已完成"];
+}
+
+function updateOrderStatus(orderId, status) {
+  if (!phase1OrderStatuses().includes(status)) return;
+  const order = (state.orders || []).find((item) => item.id === orderId);
+  if (!order) return;
+  order.status = status;
+  order.statusUpdatedAt = new Date().toISOString();
+  if (state.order?.id === orderId) state.order = order;
+  saveOrderState();
+  appendPhase1AuditLog("order_status_updated", { orderId, status });
+  renderBossDashboard();
 }
 
 function renderOrders() {
@@ -55987,24 +56733,33 @@ function renderOrders() {
     return;
   }
   panel.className = "panel";
+  const canSeeMargin = ["boss", "op", "admin"].includes(state.currentRole);
+  const headers = ["订单编号", "客户名称", "旅行社", "国家", "出行日期", "天数", "人数", "城市", "成交金额", "币种", "关联报价版本", "状态", "创建时间"];
+  if (canSeeMargin) headers.splice(10, 0, "预估成本", "预估毛利");
+  headers.push("操作");
   panel.innerHTML = tableWrap(
-    ["订单编号", "客户名称", "国家", "出行日期", "天数", "人数", "城市", "成交金额", "币种", "关联报价版本", "状态", "创建时间", "操作"],
-    orders.map((order) => [
-      escapeHtml(order.id),
-      escapeHtml(order.customerName),
-      escapeHtml(order.country),
-      escapeHtml(order.startDate),
-      escapeHtml(order.days),
-      escapeHtml(order.people),
-      escapeHtml(order.cities),
-      money(order.amount),
-      escapeHtml(order.currency),
-      escapeHtml(order.quoteVersion),
-      escapeHtml(order.status),
-      escapeHtml(new Date(order.createdAt).toLocaleString("zh-CN", { hour12: false })),
-      `<button class="secondary-btn" data-open-project="${escapeHtml(order.projectId)}">返回报价项目</button>`,
-    ]),
-    `<tr><td colspan="13">暂无成交订单。</td></tr>`,
+    headers,
+    orders.map((order) => {
+      const row = [
+        escapeHtml(order.id),
+        escapeHtml(order.customerName),
+        escapeHtml(order.travelAgencyName || "-"),
+        escapeHtml(order.country),
+        escapeHtml(order.startDate),
+        escapeHtml(order.days),
+        escapeHtml(order.people),
+        escapeHtml(order.cities),
+        money(order.amount),
+        escapeHtml(order.currency),
+        escapeHtml(order.quoteVersion),
+        `<select data-order-status="${escapeHtml(order.id)}">${phase1OrderStatuses().map((status) => `<option ${order.status === status ? "selected" : ""}>${status}</option>`).join("")}</select>`,
+        escapeHtml(new Date(order.createdAt).toLocaleString("zh-CN", { hour12: false })),
+      ];
+      if (canSeeMargin) row.splice(10, 0, money(order.estimatedCost), `${money(order.estimatedMargin)}${order.marginRate != null ? ` / ${order.marginRate}%` : ""}`);
+      row.push(`<button class="secondary-btn" data-open-project="${escapeHtml(order.projectId)}">返回报价项目</button>`);
+      return row;
+    }),
+    `<tr><td colspan="${headers.length}">暂无成交订单。</td></tr>`,
     "wide-product-table"
   );
   $$("[data-open-project]").forEach((btn) => btn.addEventListener("click", () => {
@@ -56039,6 +56794,18 @@ function canExportProposal() {
   if (!state.proposalConfirmed) {
     alert("请先确认客户方案，再下载 PDF 或导出图片。");
     renderProposalGuard();
+    return false;
+  }
+  const text = $("#proposal")?.innerText || "";
+  if ($("#outputLang")?.value === "en" && containsChinese(text)) {
+    alert("英文报价单仍包含中文内容，请先修正或重新生成英文版。");
+    renderEnglishWarning();
+    return false;
+  }
+  const internalTerms = ["成本", "毛利", "供应商", "内部备注", "产品库", "待审核", "缺成本", "estimated cost", "gross margin", "supplier"];
+  const leaked = internalTerms.find((term) => text.toLowerCase().includes(term.toLowerCase()));
+  if (leaked) {
+    alert(`客户方案包含内部字段「${leaked}」，请删除后再导出。`);
     return false;
   }
   return true;

@@ -2581,11 +2581,67 @@ textarea { min-height: 84px; resize: vertical; line-height: 1.55; }
   line-height: 1.4;
 }
 
+.role-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+.role-switcher select {
+  min-height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-weight: 900;
+}
+.dashboard-mini-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, .75fr);
+  gap: 14px;
+  align-items: start;
+}
+.audit-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.audit-list div {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid #e6ebf2;
+  border-radius: 10px;
+  background: #fbfcff;
+}
+.audit-list span,
+.audit-list em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+.option-comparison .simple-table th,
+.option-comparison .simple-table td {
+  white-space: nowrap;
+}
+.mini-actions {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 @media (max-width: 1200px) {
   .app { display: block; }
   .sidebar { width: auto; height: auto; position: relative; }
   .module-nav { grid-template-columns: repeat(3, minmax(0,1fr)); }
-  .demand-panel, .service-config-grid, .grid.two, .summary-grid, .proposal-grid, .project-filters, .resource-filters, .supplier-filters, .linkage-rules, .product-row, .supplier-row, .cost-line, .product-detail-card, .category-fields, .table-filter-bar, .quality-summary-grid, .route-detail-grid, .quality-detail-list, .quote-workspace-shell, .workbench-overview, .trip-overview, .asset-actions, .resource-option { grid-template-columns: 1fr; }
+  .demand-panel, .service-config-grid, .grid.two, .summary-grid, .proposal-grid, .project-filters, .resource-filters, .supplier-filters, .linkage-rules, .product-row, .supplier-row, .cost-line, .product-detail-card, .category-fields, .table-filter-bar, .quality-summary-grid, .route-detail-grid, .quality-detail-list, .quote-workspace-shell, .workbench-overview, .trip-overview, .asset-actions, .resource-option, .dashboard-mini-grid { grid-template-columns: 1fr; }
   .overview-right { position: static; }
   .agent-sidebar { left: 18px; right: 18px; bottom: 104px; width: auto; max-height: calc(100vh - 128px); }
   .product-row-tail, .supplier-row-tail { justify-items: start; }

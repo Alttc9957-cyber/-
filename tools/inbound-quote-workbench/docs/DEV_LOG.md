@@ -28,6 +28,70 @@
 - 如果改变交付版本，必须同步登记到 `docs/RELEASE_NOTES.md`。
 - 如果影响核心流程，必须按 `docs/QA_CHECKLIST.md` 跑回归。
 
+## 2026-07-06
+
+日期：2026-07-06
+
+修改目标：完成 P0 产品定位与阶段路线冻结，固化友易行产品定义、三阶段路线和 Codex 自循环执行机制。
+
+修改原因：当前项目经历多轮产品库、报价、供应商、DeepSeek 和 AI 协同文档建设后，最容易继续陷入“修一个点、坏另一个点”的状态。继续进入业务代码前，需要先明确最终产品是什么、第一阶段怎样算能用、哪些模块先后推进、Codex 后续如何自测和自修。
+
+关联 bug：
+
+- BUG-20260702-001 产品库导入和报价匹配仍需客户验收。
+- BUG-20260703-005 云端产品库与本地覆盖层需要继续保持清晰边界。
+- BUG-20260702-003 图片和 PDF 导出仍需实点验收。
+
+关联功能：
+
+- F-004 产品资源库导入与清洗
+- F-005 产品资源匹配与报价成本回填
+- F-006 报价明细、汇总与缺成本检查
+- F-011 订单管理与成交转订单
+- F-020 AI 协同开发工作流 v1
+
+涉及文件：
+
+- `docs/PRODUCT_POSITIONING.md`
+- `docs/STAGE_PLAN.md`
+- `docs/CODEX_EXECUTION_LOOP.md`
+- `docs/NEXT_ACTIONS.md`
+- `docs/SOP/README.md`
+- `docs/DEV_LOG.md`
+- `goals/P0-product-positioning/GOAL.md`
+- `goals/P0-product-positioning/GOALS.md`
+- `goals/P0-product-positioning/REPORT.md`
+- `goals/P0-product-positioning/ACCEPTANCE.md`
+
+具体改动：
+
+- 新增产品定位文档，明确友易行是入境游旅行社内部经营中控台，不是单一报价页面。
+- 新增三阶段路线文档，固定第一阶段销售报价可信 MVP、第二阶段订单与 OP 执行、第三阶段老板经营看板与智能化。
+- 新增 Codex 自循环执行机制文档，明确 Codex 是唯一 Coder，用户只做阶段级验收。
+- 新增 P0 目标卡、子任务、验收和报告文档。
+- 更新下一步任务文档，明确下一轮优先 A2 产品库真实数据修复与成本可信化。
+- 更新 SOP，要求后续每轮开工前读取产品定位、阶段路线和 Codex 执行机制。
+
+验证结果：
+
+- 待执行 `git status --short --branch`。
+- 待执行 `node --check app.js`。
+- 待执行 `node --check server.js`。
+- 待执行 `node --test tests/*.test.js`。
+
+是否影响旧功能：否。本轮只改文档和目标卡，不修改 `app.js`、`server.js`、报价业务逻辑、数据库、产品真实数据、环境变量或 DeepSeek 配置。
+
+回退方式：
+
+- 删除 `docs/PRODUCT_POSITIONING.md`、`docs/STAGE_PLAN.md`、`docs/CODEX_EXECUTION_LOOP.md`。
+- 删除 `goals/P0-product-positioning/`。
+- 回退 `docs/NEXT_ACTIONS.md`、`docs/SOP/README.md`、`docs/DEV_LOG.md` 中本轮追加内容。
+
+下一步建议：
+
+- 下一轮优先执行 A2：产品库真实数据修复与成本可信化。
+- A2 应先创建 `.ai/tasks/A2-product-catalog-cost-trust.yml`，再按产品库真实 Excel、云端产品库、供应商成本、报价调用四条线做对抗性验收。
+
 ## 2026-07-05
 
 日期：2026-07-05
@@ -868,3 +932,110 @@
 下一步建议：
 
 - 继续保持 Trae / WorkBuddy 只做 Planner、Reviewer、QA 或 Release；实际代码修改只交给 Codex。
+
+---
+
+日期：2026-07-06
+
+修改目标：按第一版上线标准补齐“报价缺成本补录 → 产品库持久记忆 → 后续报价可复用”的数据底座。
+
+修改原因：乐哥明确第一版上线标准是报价系统加产品库调用达到客户测试可用；后续小易助手、老板 OP、供应商字段重设计、新 UI 和权限模板都是后续大模块，不能混进第一版。
+
+关联 bug：
+
+- 缺成本补录只能停在当前报价或浏览器草稿，不能成为后续可复用产品库数据。
+- 云端产品库启用时，本地覆盖层可能被忽略，导致 OP 补齐的数据无法进入后续匹配。
+- AI Provider 文案和配置过度绑定 DeepSeek，不利于客户上线后使用自有接口。
+
+关联功能：
+
+- F-021 第一版产品库自补全数据底座。
+- F-022 AI Provider 脱敏与 OpenAI-compatible 配置。
+- F-023 应用模块清单 `app.manifest.json`。
+
+涉及文件：
+
+- `.env.example`
+- `app.js`
+- `app.manifest.json`
+- `index.html`
+- `server.js`
+- `tests/a1-ui-simplification.test.js`
+- `tests/product-resource-upsert-from-quote.test.js`
+- `goals/phase1-intelligent-quote-closed-loop/GOAL.md`
+- `goals/phase1-intelligent-quote-closed-loop/GOALS.md`
+- `goals/phase1-intelligent-quote-closed-loop/REPORT.md`
+- `goals/phase1-intelligent-quote-closed-loop/ACCEPTANCE.md`
+- `docs/NEXT_ACTIONS.md`
+
+具体改动：
+
+- 新增 `POST /api/product-resources/upsert-from-quote`，把报价台 OP 补录成本归一为产品资源。
+- 产品资源回写优先使用 Supabase `product_resources`，失败或无配置时落到 `data/manual-product-resources.json`。
+- `GET /api/product-resources` 和 `POST /api/product-resources/match` 合并云端资源与本地补录资源。
+- 报价台“缺成本同步”按钮改为写入产品库并用于后续报价，写入成功后更新当前报价行、产品目录缓存和审计日志。
+- AI 配置改为 `AI_PROVIDER` / `AI_API_KEY` / `AI_BASE_URL` / `AI_MODEL` / `AI_TEMPERATURE`，保留 `DEEPSEEK_*` 兼容。
+- 新增 `app.manifest.json`，声明第一版模块边界，并把小易助手、老板 OP、供应商字段重设计、新 UI、权限模板标记为延后。
+- 客户报价单继续隐藏建议字段、成本、毛利、供应商和员工判断字段。
+- 产品资源匹配分数封顶到 100。
+
+验证结果：
+
+- `node --check server.js` 通过。
+- `node --check app.js` 通过。
+- `find public/js -type f -name '*.js' -print0 | xargs -0 -n 1 node --check` 通过。
+- `node --test tests/*.test.js` 通过，39 项全部通过。
+- HTTP 验证确认：报价补录资源可写入、查询、匹配；临时验证资源随后从 Supabase 下架，并确认后续查询不再返回。
+- 已重启 `http://127.0.0.1:8787/`，返回 `HTTP/1.1 200 OK`。
+
+是否影响旧功能：
+
+- 不改变 OP 主路径：仍是确认线路后刷新报价。
+- 不进入阶段 2，不做完整 ERP，不做老板 OP 大模块，不做权限模板。
+- 不执行数据库结构迁移，不删除线上数据，不修改真实 `.env`。
+
+回退方式：
+
+- 回退 `server.js` 中产品资源回写、云端/本地合并查询和匹配部分。
+- 回退 `app.js` 中缺成本同步按钮和 `applyQuoteProductSync` 的服务端写入调用。
+- 删除 `app.manifest.json` 和 `tests/product-resource-upsert-from-quote.test.js`。
+
+下一步建议：
+
+- 乐哥用 Majfuza 真实案例复验：客户需求识别、中文主行程、英语导游、产品库匹配、含导游 / 不含导游总价、缺成本补录后后续匹配。
+- 复验通过后进入部署前检查，不进入小易助手、老板 OP、供应商字段、新 UI 或权限模板。
+
+---
+
+日期：2026-07-06
+
+修改目标：修复刷新报价时报 `youyixing_project_state exceeded the quota` 的浏览器本地存储超额问题。
+
+修改原因：报价行里带有产品库候选资源 `candidates`，候选资源又包含 Excel 原始字段 `rawFields/raw` 和诊断数据。保存项目快照时把这些运行时大对象一起写入 `localStorage`，Chrome 单站点额度被撑爆，导致刷新报价失败。
+
+涉及文件：
+
+- `app.js`
+- `index.html`
+- `tests/a1-ui-simplification.test.js`
+
+具体改动：
+
+- 新增项目快照压缩保存：剔除 `candidates`、`rawFields`、`raw`、诊断、图片 base64、文件对象等运行时大字段。
+- `saveProjectState()` 和 `saveQuoteVersions()` 改为 `setLocalStorageJson()`，遇到 quota 时自动清理临时诊断缓存，并降级保存当前项目最小快照。
+- `saveCurrentProjectSnapshot()` 保存前先生成瘦身快照。
+- `index.html` 更新 `app.js` 缓存版本为 `20260706-storage-quota-fix`。
+- 新增测试，防止后续把候选资源和原始字段重新塞回项目状态。
+
+验证结果：
+
+- `node --check app.js` 通过。
+- `node --check server.js` 通过。
+- `find public/js -type f -name '*.js' -print0 | xargs -0 -n 1 node --check` 通过。
+- `node --test tests/*.test.js` 通过，40 项全部通过。
+- 已重启 `http://127.0.0.1:8787/`，返回 `HTTP/1.1 200 OK`。
+- 首页已加载 `app.js?v=20260706-storage-quota-fix`。
+
+边界：
+
+- 本轮只修本地存储超额，不改报价计算、不改产品库匹配、不改客户报价单字段。

@@ -7,6 +7,7 @@ const host = "127.0.0.1";
 const port = Number(process.env.PORT || 8787);
 const runtimeSettingsPath = path.join(root, "runtime-settings.json");
 const operationLogPath = path.join(root, "data", "agent-operation-log.json");
+const manualProductResourcesPath = process.env.MANUAL_PRODUCT_RESOURCES_PATH || path.join(root, "data", "manual-product-resources.json");
 loadLocalEnv(path.join(root, ".env"));
 loadLocalEnv(path.join(root, ".env.supabase.local"));
 
@@ -87,6 +88,11 @@ async function requestHandler(req, res) {
     return;
   }
 
+  if (req.method === "POST" && route === "/api/product-resources/upsert-from-quote") {
+    await handleUpsertProductResourceFromQuote(req, res);
+    return;
+  }
+
   let urlPath = decodeURIComponent(req.url.split("?")[0]);
   if (urlPath === "/") urlPath = "/index.html";
 
@@ -125,6 +131,7 @@ function isBlockedStaticPath(filePath) {
   return [
     "runtime-settings.json",
     path.join("data", "agent-operation-log.json"),
+    path.join("data", "manual-product-resources.json"),
   ].includes(relative);
 }
 
@@ -147,7 +154,7 @@ async function handleAgentRequest(req, res) {
     const body = await readJsonBody(req);
     const aiConfig = readAiConfig();
     if (!aiConfig.apiKey) {
-      sendMissingAiConfig(res, "DeepSeek Agent");
+      sendMissingAiConfig(res, "AI Agent");
       return;
     }
 
@@ -180,7 +187,7 @@ async function handleAgentRequest(req, res) {
 
     const result = await response.json();
     if (!response.ok) {
-      sendJson(res, response.status, { error: result.error?.message || "DeepSeek request failed", raw: result });
+      sendJson(res, response.status, { error: result.error?.message || "AI provider request failed", raw: result });
       return;
     }
 
@@ -244,7 +251,7 @@ async function handleAgentChatRequest(req, res) {
 
     const result = await response.json();
     if (!response.ok) {
-      sendJson(res, response.status, { error: result.error?.message || "DeepSeek request failed", raw: result });
+      sendJson(res, response.status, { error: result.error?.message || "AI provider request failed", raw: result });
       return;
     }
 
@@ -299,7 +306,7 @@ async function handleTranslateRequest(req, res) {
     const body = await readJsonBody(req);
     const aiConfig = readAiConfig();
     if (!aiConfig.apiKey) {
-      sendJson(res, 503, { error: "未配置真实翻译 API Key。请先在系统设置里配置 DeepSeek / OpenAI 兼容接口。" });
+      sendJson(res, 503, { error: "未配置真实翻译 API Key。请先在系统设置里配置 AI 模型接口。" });
       return;
     }
     const source = body.source || {};
@@ -350,7 +357,7 @@ async function handleTranslateSegmentRequest(req, res) {
     const body = await readJsonBody(req);
     const aiConfig = readAiConfig();
     if (!aiConfig.apiKey) {
-      sendJson(res, 503, { error: "未配置真实翻译 API Key。请先在系统设置里配置 DeepSeek / OpenAI 兼容接口。" });
+      sendJson(res, 503, { error: "未配置真实翻译 API Key。请先在系统设置里配置 AI 模型接口。" });
       return;
     }
     const text = String(body.text || "").trim();
@@ -588,7 +595,7 @@ function appendOperationLog(entry) {
 
 function defaultAiSettings() {
   return {
-    provider: "deepseek",
+    provider: "openai-compatible",
     baseUrl: "https://api.deepseek.com",
     model: "deepseek-chat",
     temperature: 0.2,
@@ -612,11 +619,11 @@ function writeRuntimeSettings(settings) {
 function readAiConfig() {
   const saved = readRuntimeSettings().ai || {};
   const fallback = {
-    apiKey: process.env.DEEPSEEK_API_KEY || "",
-    baseUrl: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
-    model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
-    temperature: Number(process.env.DEEPSEEK_TEMPERATURE || 0.2),
-    provider: "deepseek",
+    apiKey: process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY || "",
+    baseUrl: process.env.AI_BASE_URL || process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
+    model: process.env.AI_MODEL || process.env.DEEPSEEK_MODEL || "deepseek-chat",
+    temperature: Number(process.env.AI_TEMPERATURE || process.env.DEEPSEEK_TEMPERATURE || 0.2),
+    provider: process.env.AI_PROVIDER || "openai-compatible",
   };
   return {
     ...defaultAiSettings(),
@@ -629,7 +636,7 @@ function readAiConfig() {
 function publicAiConfig() {
   const runtime = readRuntimeSettings().ai || {};
   const config = readAiConfig();
-  const source = runtime.apiKey ? "runtime-settings" : (process.env.DEEPSEEK_API_KEY ? ".env" : "missing");
+  const source = runtime.apiKey ? "runtime-settings" : ((process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY) ? ".env" : "missing");
   return {
     provider: config.provider,
     baseUrl: config.baseUrl,
@@ -641,10 +648,10 @@ function publicAiConfig() {
   };
 }
 
-function sendMissingAiConfig(res, feature = "DeepSeek") {
+function sendMissingAiConfig(res, feature = "AI 模型接口") {
   sendJson(res, 503, {
-    error: `${feature} 未配置 API Key，测试模式不允许降级到本地规则。请在系统设置中配置 DeepSeek 后重试。`,
-    code: "DEEPSEEK_REQUIRED",
+    error: `${feature} 未配置 API Key，测试模式不允许降级到本地规则。请在系统设置中配置 AI 模型接口后重试。`,
+    code: "AI_PROVIDER_REQUIRED",
     hasApiKey: false,
     source: "missing",
   });
@@ -658,7 +665,7 @@ function maskApiKey(apiKey) {
 
 function sanitizeAiInput(input = {}) {
   return {
-    provider: "deepseek",
+    provider: String(input.provider || "openai-compatible").trim() || "openai-compatible",
     apiKey: String(input.apiKey || "").trim(),
     baseUrl: String(input.baseUrl || "https://api.deepseek.com").trim().replace(/\/$/, ""),
     model: String(input.model || "deepseek-chat").trim(),
@@ -676,24 +683,45 @@ function readSupabaseConfig() {
   return { url, serviceKey };
 }
 
-async function supabaseRest(pathname, params = {}) {
+function hasSupabaseConfig() {
+  const { url, serviceKey } = readSupabaseConfig();
+  return Boolean(url && serviceKey);
+}
+
+async function supabaseFetch(pathname, options = {}) {
   const { url, serviceKey } = readSupabaseConfig();
   if (!url || !serviceKey) throw new Error("Supabase 未配置");
+  const method = options.method || "GET";
+  const params = options.params || {};
   const query = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value !== "" && value != null) query.set(key, value);
   });
+  const headers = {
+    apikey: serviceKey,
+    Authorization: `Bearer ${serviceKey}`,
+    Prefer: options.prefer || (method === "GET" ? "count=exact" : "return=representation"),
+  };
+  if (options.body !== undefined) headers["Content-Type"] = "application/json";
   const response = await fetch(`${url}/rest/v1/${pathname}${query.size ? `?${query}` : ""}`, {
+    method,
     headers: {
-      apikey: serviceKey,
-      Authorization: `Bearer ${serviceKey}`,
-      Prefer: "count=exact",
+      ...headers,
     },
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
   if (!response.ok) throw new Error(data?.message || data?.error || `Supabase ${response.status}`);
   return { data, count: response.headers.get("content-range") || "" };
+}
+
+async function supabaseRest(pathname, params = {}) {
+  return supabaseFetch(pathname, { params });
+}
+
+function productResourceSelectFields() {
+  return "id,source_key,category,city,name,service_type,route,model,spec,supplier_name,cost_price,sale_price,low_season_cost,high_season_cost,adult_cost,child_cost,pricing_unit,status,source,source_sheet,source_row,raw_fields,extra_fields,quality_flags,published_version";
 }
 
 async function handleLatestProductImportReport(req, res) {
@@ -712,8 +740,20 @@ async function handleLatestProductImportReport(req, res) {
 async function handleProductResources(req, res) {
   try {
     const url = new URL(req.url, `http://${host}:${port}`);
+    const localResources = filterManualProductResources(readManualProductResources(), {
+      category: url.searchParams.get("category") || "",
+      city: url.searchParams.get("city") || "",
+      serviceType: url.searchParams.get("serviceType") || url.searchParams.get("service_type") || "",
+      model: url.searchParams.get("model") || "",
+      status: url.searchParams.get("status") || "",
+      q: url.searchParams.get("q") || "",
+    });
+    if (!hasSupabaseConfig()) {
+      sendJson(res, 200, { resources: localResources.map(normalizeProductResourceApiFields), count: `${localResources.length}`, storage: "local-json" });
+      return;
+    }
     const params = {
-      select: "id,category,city,name,service_type,route,model,spec,supplier_name,cost_price,sale_price,low_season_cost,high_season_cost,adult_cost,child_cost,pricing_unit,status,source,source_sheet,source_row,raw_fields,extra_fields,quality_flags,published_version",
+      select: productResourceSelectFields(),
       is_published: "eq.true",
       order: "category.asc,city.asc,name.asc",
       limit: String(Math.min(Number(url.searchParams.get("limit") || 100), 5000)),
@@ -733,8 +773,14 @@ async function handleProductResources(req, res) {
     const q = normalizeApiSearchText(url.searchParams.get("q") || "");
     if (q) params.or = `(name.ilike.*${q}*,route.ilike.*${q}*,spec.ilike.*${q}*)`;
     const result = await supabaseRest("product_resources", params);
-    sendJson(res, 200, { resources: (result.data || []).map(normalizeProductResourceApiFields), count: result.count });
+    const resources = [...(result.data || []), ...localResources];
+    sendJson(res, 200, { resources: resources.map(normalizeProductResourceApiFields), count: result.count || `${resources.length}`, storage: "supabase+local-json" });
   } catch (error) {
+    const localResources = filterManualProductResources(readManualProductResources(), {});
+    if (localResources.length) {
+      sendJson(res, 200, { resources: localResources.map(normalizeProductResourceApiFields), count: `${localResources.length}`, storage: "local-json", warning: error.message || "云端产品库读取失败，已使用本地持久补录库" });
+      return;
+    }
     sendJson(res, 500, { error: error.message || "查询产品资源失败" });
   }
 }
@@ -744,21 +790,30 @@ async function handleProductResourceMatch(req, res) {
     const body = await readJsonBody(req);
     const category = body.category || body.sourceCategory || "";
     const city = body.city || "";
-    const params = {
-      select: "id,category,city,name,service_type,route,model,spec,supplier_name,cost_price,sale_price,low_season_cost,high_season_cost,adult_cost,child_cost,pricing_unit,status,source,source_sheet,source_row,raw_fields,extra_fields,quality_flags,published_version",
-      is_published: "eq.true",
-      limit: "300",
-    };
-    if (category) params.category = `eq.${category}`;
-    if (city) params.city = `eq.${city}`;
-    const result = await supabaseRest("product_resources", params);
-    const candidates = (result.data || []).map((resource) => ({
+    let resources = filterManualProductResources(readManualProductResources(), {
+      category,
+      city,
+      serviceType: body.serviceType || "",
+      model: body.model || "",
+    });
+    if (hasSupabaseConfig()) {
+      const params = {
+        select: productResourceSelectFields(),
+        is_published: "eq.true",
+        limit: "300",
+      };
+      if (category) params.category = `eq.${category}`;
+      if (city) params.city = `eq.${city}`;
+      const result = await supabaseRest("product_resources", params);
+      resources = [...(result.data || []), ...resources];
+    }
+    const candidates = resources.map((resource) => ({
       ...resource,
       score: productResourceMatchScore(resource, body),
     })).filter((resource) => resource.score > 0).sort((a, b) => b.score - a.score);
     const best = candidates[0] || null;
     const diagnostics = {
-      cityCandidateCount: (result.data || []).filter((resource) => !city || resource.city === city).length,
+      cityCandidateCount: resources.filter((resource) => !city || resource.city === city).length,
       typeCandidateCount: candidates.filter((resource) => !body.serviceType || resource.service_type === body.serviceType).length,
       modelCandidateCount: candidates.filter((resource) => !body.model || resource.model === body.model).length,
       finalCandidateCount: candidates.length,
@@ -777,6 +832,236 @@ async function handleProductResourceMatch(req, res) {
   }
 }
 
+async function handleUpsertProductResourceFromQuote(req, res) {
+  try {
+    const body = await readJsonBody(req);
+    const resource = normalizeQuoteProductResourcePayload(body);
+    if (!resource.category || !resource.name) {
+      sendJson(res, 400, { error: "产品资源缺少品类或名称，不能写入产品库" });
+      return;
+    }
+    if (resource.cost_price == null) {
+      sendJson(res, 400, { error: "补录成本为空，不能写入可报价产品库" });
+      return;
+    }
+    const warnings = [];
+    let storage = "local-json";
+    let saved = null;
+    if (hasSupabaseConfig()) {
+      try {
+        saved = await upsertSupabaseProductResource(resource);
+        storage = "supabase";
+      } catch (error) {
+        warnings.push(`Supabase 写入失败，已落本地持久库：${error.message || error}`);
+      }
+    }
+    if (!saved) saved = upsertManualProductResource(resource);
+    sendJson(res, 200, {
+      ok: true,
+      storage,
+      resource: normalizeProductResourceApiFields(saved),
+      sourceKey: resource.source_key,
+      warnings,
+      message: storage === "supabase" ? "已写入云端产品库，可被后续报价匹配" : "已写入服务端本地持久产品库，可被后续报价匹配",
+    });
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "报价补录资源写入产品库失败" });
+  }
+}
+
+function readManualProductResources() {
+  try {
+    if (!fs.existsSync(manualProductResourcesPath)) return [];
+    const payload = JSON.parse(fs.readFileSync(manualProductResourcesPath, "utf8"));
+    return Array.isArray(payload.resources) ? payload.resources : Array.isArray(payload) ? payload : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeManualProductResources(resources = []) {
+  fs.mkdirSync(path.dirname(manualProductResourcesPath), { recursive: true });
+  fs.writeFileSync(manualProductResourcesPath, JSON.stringify({
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    resources,
+  }, null, 2));
+}
+
+function filterManualProductResources(resources = [], filters = {}) {
+  const q = compactApiMatchText(filters.q || "");
+  return (Array.isArray(resources) ? resources : []).filter((resource) => {
+    if (resource.is_published === false) return false;
+    if (filters.category && resource.category !== filters.category) return false;
+    if (filters.city && resource.city !== filters.city) return false;
+    if (filters.serviceType && resource.service_type !== filters.serviceType) return false;
+    if (filters.model && resource.model !== filters.model) return false;
+    if (filters.status && resource.status !== filters.status) return false;
+    if (q) {
+      const body = compactApiMatchText([resource.name, resource.route, resource.spec, resource.service_type, resource.model].filter(Boolean).join(" "));
+      if (!body.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function upsertManualProductResource(resource = {}) {
+  const rows = readManualProductResources();
+  const now = new Date().toISOString();
+  const index = rows.findIndex((item) => item.source_key === resource.source_key || (resource.id && item.id === resource.id));
+  const existing = index >= 0 ? rows[index] : {};
+  const next = {
+    ...existing,
+    ...resource,
+    id: existing.id || resource.id || `manual-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    created_at: existing.created_at || now,
+    updated_at: now,
+  };
+  if (index >= 0) rows[index] = next;
+  else rows.unshift(next);
+  writeManualProductResources(rows.slice(0, 2000));
+  return next;
+}
+
+async function upsertSupabaseProductResource(resource = {}) {
+  const lookup = await supabaseRest("product_resources", {
+    select: "id,source_key,created_at",
+    source_key: `eq.${resource.source_key}`,
+    limit: "1",
+  });
+  const existing = lookup.data?.[0] || null;
+  const payload = { ...resource };
+  delete payload.id;
+  if (existing?.id) {
+    const result = await supabaseFetch("product_resources", {
+      method: "PATCH",
+      params: { id: `eq.${existing.id}` },
+      body: payload,
+      prefer: "return=representation",
+    });
+    return result.data?.[0] || { ...resource, id: existing.id };
+  }
+  const result = await supabaseFetch("product_resources", {
+    method: "POST",
+    body: payload,
+    prefer: "return=representation",
+  });
+  return result.data?.[0] || resource;
+}
+
+function firstPresent(...values) {
+  return values.find((value) => value !== "" && value !== undefined && value !== null) ?? "";
+}
+
+function numberOrNull(value) {
+  if (value === "" || value === undefined || value === null) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const match = String(value).replace(/[¥￥,\s]/g, "").match(/-?\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const numeric = Number(match[0]);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function quoteProductName(category, item = {}, quoteRow = {}) {
+  if (category === "用车") return firstPresent(item.name, item.productName, quoteRow.productName, item.route, quoteRow.legLabel, `${item.city || quoteRow.city || ""}${item.serviceType || quoteRow.serviceType || "用车"}${item.model || quoteRow.model || ""}`);
+  if (category === "导游") return firstPresent(item.name, quoteRow.sourceName, `${item.city || quoteRow.city || ""}${item.language || "英语"}导游`);
+  if (category === "景点门票" || category === "门票") return firstPresent(item.scenicName, item.name, quoteRow.name, quoteRow.sourceName, "报价台门票");
+  if (category === "酒店") return firstPresent(item.hotelName, item.name, quoteRow.hotelName, quoteRow.sourceName, `${item.city || quoteRow.city || ""}参考酒店`);
+  if (category === "餐厅" || category === "餐") return firstPresent(item.restaurant, item.name, quoteRow.sourceName, `${item.city || quoteRow.city || ""}餐食`);
+  if (category === "大交通") return firstPresent(item.name_cn, item.name, quoteRow.info, "大交通");
+  return firstPresent(item.name, item.sourceName, quoteRow.sourceName, "报价台其他项目");
+}
+
+function quoteProductServiceType(category, item = {}, quoteRow = {}) {
+  if (category === "用车") return firstPresent(item.serviceType, item.vehicleType, quoteRow.serviceType, "包车");
+  if (category === "导游") return firstPresent(item.guideType, quoteRow.serviceType, "地陪");
+  if (category === "景点门票" || category === "门票") return firstPresent(item.ticketType, "景区门票");
+  if (category === "酒店") return firstPresent(item.roomType, quoteRow.roomType, "房型");
+  if (category === "餐厅" || category === "餐") return firstPresent(item.cuisine, quoteRow.meals, "餐食");
+  if (category === "大交通") return firstPresent(item.type, quoteRow.type, "大交通");
+  return firstPresent(item.serviceType, quoteRow.serviceType, category);
+}
+
+function stableSourceKey(parts = []) {
+  return parts
+    .map((part) => String(part || "").trim().toLowerCase().replace(/\s+/g, ""))
+    .filter(Boolean)
+    .join("|")
+    .slice(0, 220);
+}
+
+function normalizeQuoteProductResourcePayload(body = {}) {
+  const item = body.item || body.product?.item || {};
+  const quoteRow = body.quoteRow || body.row || {};
+  const category = body.category || body.product?.category || item.category || quoteRow.category || "其他";
+  const name = quoteProductName(category, item, quoteRow);
+  const serviceType = quoteProductServiceType(category, item, quoteRow);
+  const city = firstPresent(item.city, quoteRow.city, body.city);
+  const route = firstPresent(item.route, item.routeName, quoteRow.route, quoteRow.legLabel, quoteRow.info);
+  const model = firstPresent(item.model, item.vehicleModel, quoteRow.model);
+  const spec = firstPresent(item.spec, item.roomType, item.ticketType, quoteRow.roomType, quoteRow.ticketType);
+  const costPrice = numberOrNull(firstPresent(
+    item.costPrice,
+    item.manualCost,
+    item.agencyAdult,
+    item.adultCost,
+    item.fullDayCost,
+    item.agreementCost,
+    item.perPersonCost,
+    quoteRow.unitCost,
+    quoteRow.charterCost,
+    quoteRow.serviceCost,
+    quoteRow.adultCost,
+    quoteRow.unitCost,
+    quoteRow.perPersonCost,
+    quoteRow.routeProductUnitCost,
+  ));
+  const salePrice = numberOrNull(firstPresent(item.salePrice, item.referencePrice, item.minSale, quoteRow.salePrice));
+  const adultCost = numberOrNull(firstPresent(item.adultCost, item.agencyAdult, quoteRow.adultCost, costPrice));
+  const childCost = numberOrNull(firstPresent(item.childCost, item.agencyDiscount, quoteRow.childCost));
+  const sourceKey = body.sourceKey || stableSourceKey(["quote-manual", category, city, name, serviceType, route, model, spec]);
+  const now = new Date().toISOString();
+  return {
+    source_key: sourceKey,
+    category,
+    city,
+    name,
+    service_type: serviceType,
+    route,
+    model,
+    spec,
+    supplier_name: firstPresent(item.supplierName, quoteRow.supplierName, "待绑定供应商"),
+    cost_price: costPrice,
+    sale_price: salePrice,
+    low_season_cost: numberOrNull(firstPresent(item.lowSeasonCost, quoteRow.lowSeasonCost)),
+    high_season_cost: numberOrNull(firstPresent(item.highSeasonCost, quoteRow.highSeasonCost)),
+    adult_cost: adultCost,
+    child_cost: childCost,
+    pricing_unit: firstPresent(item.pricingUnit, quoteRow.pricingUnit, category === "酒店" ? "间夜" : category === "餐厅" || category === "餐" ? "人" : "次"),
+    status: body.status || (costPrice == null ? "待补成本" : "OP补录待复核"),
+    source: "报价台补录",
+    source_sheet: "quote-workbench",
+    source_row: null,
+    raw_fields: {
+      quoteItem: item,
+      quoteRow,
+    },
+    extra_fields: {
+      createdFrom: "quote_missing_cost",
+      actor: body.actor || "",
+      projectId: body.projectId || "",
+      quoteService: body.service || "",
+      quoteRowIndex: body.index ?? "",
+      reviewStatus: "op_submitted",
+      note: body.note || "",
+    },
+    quality_flags: [],
+    published_version: "quote-manual-v1",
+    is_published: true,
+    updated_at: now,
+  };
+}
+
 function normalizeApiSearchText(value) {
   return String(value || "").trim().replace(/[(),]/g, " ").replace(/\s+/g, " ");
 }
@@ -792,7 +1077,7 @@ function productResourceMatchScore(resource = {}, query = {}) {
   if (routeMatch.hasRoute && routeMatch.matched) score += routeMatch.score;
   if (routeMatch.hasRoute && !routeMatch.matched) score = Math.min(score, 79);
   if (!routeMatch.hasRoute && score > 0) score += 5;
-  return score;
+  return Math.min(score, 100);
 }
 
 function compactApiMatchText(value) {
@@ -842,6 +1127,7 @@ function productResourceMatchReason(status, resource, query) {
 function normalizeProductResourceApiFields(resource = {}) {
   return {
     ...resource,
+    sourceKey: resource.source_key ?? resource.sourceKey ?? "",
     serviceType: resource.service_type ?? resource.serviceType ?? "",
     supplierName: resource.supplier_name ?? resource.supplierName ?? "",
     costPrice: resource.cost_price ?? resource.costPrice ?? null,
@@ -883,7 +1169,7 @@ async function handleSaveAiSettings(req, res) {
     }
     const next = sanitizeAiInput(body);
     if (!next.apiKey && current.ai?.apiKey) next.apiKey = current.ai.apiKey;
-    if (!next.apiKey && !process.env.DEEPSEEK_API_KEY) {
+    if (!next.apiKey && !process.env.AI_API_KEY && !process.env.DEEPSEEK_API_KEY) {
       sendJson(res, 400, { error: "请填写 API Key" });
       return;
     }
@@ -975,5 +1261,9 @@ if (!process.env.VERCEL) {
 requestHandler.productResourceMatchScore = productResourceMatchScore;
 requestHandler.productResourceRouteMatch = productResourceRouteMatch;
 requestHandler.productResourceMatchReason = productResourceMatchReason;
+requestHandler.normalizeQuoteProductResourcePayload = normalizeQuoteProductResourcePayload;
+requestHandler.upsertManualProductResource = upsertManualProductResource;
+requestHandler.readManualProductResources = readManualProductResources;
+requestHandler.filterManualProductResources = filterManualProductResources;
 
 module.exports = requestHandler;
