@@ -1,6 +1,7 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const quotableCore = require("./quotable-resource-core.js");
 
 const root = __dirname;
 const host = "127.0.0.1";
@@ -9,6 +10,7 @@ const runtimeSettingsPath = path.join(root, "runtime-settings.json");
 const operationLogPath = path.join(root, "data", "agent-operation-log.json");
 const manualProductResourcesPath = process.env.MANUAL_PRODUCT_RESOURCES_PATH || path.join(root, "data", "manual-product-resources.json");
 const productReviewItemsPath = process.env.PRODUCT_REVIEW_ITEMS_PATH || path.join(root, "data", "product-resource-review-items.json");
+const supplierStatePath = process.env.SUPPLIER_STATE_PATH || path.join(root, "data", "supplier-state.json");
 const quoteStatePath = process.env.QUOTE_STATE_PATH || path.join(root, "data", "quote-state.json");
 const orderStatePath = process.env.ORDER_STATE_PATH || path.join(root, "data", "order-state.json");
 const businessAuditLogPath = process.env.BUSINESS_AUDIT_LOG_PATH || path.join(root, "data", "business-audit-events.json");
@@ -31,6 +33,7 @@ const rolePolicies = {
   opWrite: ["op", "boss", "admin"],
   bossWrite: ["boss", "admin"],
   adminWrite: ["admin"],
+  settingsWrite: ["op", "boss", "admin"],
 };
 
 const types = {
@@ -57,13 +60,13 @@ async function requestHandler(req, res) {
   }
 
   if (req.method === "POST" && route === "/api/settings/ai") {
-    if (!requireApiRole(req, res, rolePolicies.adminWrite, "settings:write")) return;
+    if (!requireApiRole(req, res, rolePolicies.settingsWrite, "settings:write")) return;
     await handleSaveAiSettings(req, res);
     return;
   }
 
   if (req.method === "POST" && route === "/api/settings/ai/test") {
-    if (!requireApiRole(req, res, rolePolicies.adminWrite, "settings:test")) return;
+    if (!requireApiRole(req, res, rolePolicies.settingsWrite, "settings:test")) return;
     await handleTestAiSettings(req, res);
     return;
   }
@@ -146,6 +149,24 @@ async function requestHandler(req, res) {
     return;
   }
 
+  if (req.method === "GET" && route === "/api/suppliers") {
+    if (!requireApiRole(req, res, rolePolicies.anyUser, "supplier:read")) return;
+    await handleSuppliers(req, res);
+    return;
+  }
+
+  if (req.method === "POST" && route === "/api/suppliers/state") {
+    if (!requireApiRole(req, res, rolePolicies.opWrite, "supplier:write")) return;
+    await handleSaveSupplierState(req, res);
+    return;
+  }
+
+  if (req.method === "POST" && route === "/api/suppliers/clear-placeholders") {
+    if (!requireApiRole(req, res, rolePolicies.opWrite, "supplier:clear-placeholders")) return;
+    await handleClearSupplierPlaceholders(req, res);
+    return;
+  }
+
   if (req.method === "GET" && route === "/api/quote-versions") {
     if (!requireApiRole(req, res, rolePolicies.anyUser, "quote-version:read")) return;
     await handleQuoteVersions(req, res);
@@ -216,6 +237,7 @@ function isBlockedStaticPath(filePath) {
     path.join("data", "agent-operation-log.json"),
     path.join("data", "manual-product-resources.json"),
     path.join("data", "product-resource-review-items.json"),
+    path.join("data", "supplier-state.json"),
     path.join("data", "quote-state.json"),
     path.join("data", "order-state.json"),
     path.join("data", "business-audit-events.json"),
@@ -255,7 +277,7 @@ function publicPermissionsForRole(role) {
     canUseAgent: rolePolicies.anyUser.includes(role),
     canSubmitProductReview: rolePolicies.opWrite.includes(role),
     canApproveProductReview: rolePolicies.bossWrite.includes(role),
-    canWriteAiSettings: rolePolicies.adminWrite.includes(role),
+    canWriteAiSettings: rolePolicies.settingsWrite.includes(role),
     canWriteQuote: rolePolicies.quoteWrite.includes(role),
     canReadOrders: rolePolicies.opWrite.includes(role),
   };
@@ -1487,6 +1509,387 @@ function normalizeProductImportBatchApiFields(batch = {}) {
   };
 }
 
+function supplierSchemaDefinition() {
+  return {
+    version: "supplier-prd-v1.3-foundation",
+    categories: quotableCore.SUPPLIER_CATEGORIES,
+    mainFields: [
+      "category",
+      "sourceType",
+      "name",
+      "city",
+      "serviceScope",
+      "status",
+      "historicalServiceCount",
+      "cancelRule",
+      "ratingTags",
+      "remark",
+    ],
+    childTables: [
+      "contacts",
+      "settlement",
+      "attachments",
+      "operationLogs",
+      "quoteCallRecords",
+    ],
+    serviceDetailTables: {
+      酒店: "hotel_room_prices",
+      包车: "vehicle_route_quotes",
+      导游: "guide_service_prices",
+      门票: "ticket_prices",
+      大交通: "major_transport_agent_rules",
+      餐: "meal_menus",
+      特色体验: "experience_projects",
+      其他: "other_service_items",
+    },
+    quoteRules: [
+      "only_enabled_suppliers",
+      "quote_reads_service_details",
+      "cost_hidden_from_customer",
+      "charter_route_required",
+      "major_transport_no_realtime_inventory",
+    ],
+  };
+}
+
+function defaultSupplierSource(category) {
+  return {
+    酒店: "酒店直签",
+    包车: "车队",
+    导游: "个人",
+    门票: "代理商",
+    大交通: "大交通代理商",
+    餐: "餐厅",
+    特色体验: "项目方",
+    其他: "其他",
+  }[category] || "其他";
+}
+
+function supplierIsoDate(value) {
+  if (!value) return "";
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+}
+
+function normalizeSupplierServiceDetail(detail = {}, category = "其他") {
+  const normalized = quotableCore.normalizeServiceDetail(detail, category);
+  const id = detail.id || detail.serviceDetailId || makeLocalId("SD");
+  const common = {
+    ...normalized,
+    id,
+    serviceDetailId: id,
+    category,
+    name: detail.name || normalized.name || "",
+    costPrice: quotableCore.priceNumber(firstPresent(normalized.costPrice, detail.costPrice, detail.cost)),
+    referencePrice: quotableCore.priceNumber(firstPresent(normalized.referencePrice, detail.referencePrice, detail.salePrice)),
+    salePrice: quotableCore.priceNumber(firstPresent(normalized.salePrice, normalized.referencePrice, detail.salePrice)),
+    validTo: supplierIsoDate(firstPresent(detail.validTo, detail.priceValidUntil, detail.priceValidTo)) || "",
+    priceValidUntil: supplierIsoDate(firstPresent(detail.priceValidUntil, detail.validTo, detail.priceValidTo)) || "",
+    cancelRule: detail.cancelRule || detail.cancelPolicy || "",
+    remark: detail.remark || detail.note || "",
+  };
+  if (category === "包车") {
+    common.serviceCategory = quotableCore.normalizeVehicleType(detail.serviceCategory || detail.routeName || detail.name || "包车");
+    common.routeName = detail.routeName || detail.route || detail.name || "";
+    common.fromCity = detail.fromCity || detail.departureCity || detail.city || "";
+    common.toArea = detail.toArea || detail.arrivalArea || detail.arrivalCity || "";
+    common.vehicleModel = quotableCore.normalizeVehicleModel(detail.vehicleModel || detail.model || "");
+    common.seats = numberOrNull(firstPresent(detail.seats, detail.seatCount));
+    common.suggestedPassengers = numberOrNull(firstPresent(detail.suggestedPassengers, detail.recommendedPassengerCount));
+    common.luggageCapacity = detail.luggageCapacity || "";
+    common.packageCostPrice = quotableCore.priceNumber(firstPresent(detail.packageCostPrice, common.costPrice));
+    common.packageSalePrice = quotableCore.priceNumber(firstPresent(detail.packageSalePrice, common.referencePrice));
+    common.costPrice = quotableCore.priceNumber(firstPresent(common.packageCostPrice, common.costPrice));
+    common.referencePrice = quotableCore.priceNumber(firstPresent(common.packageSalePrice, common.referencePrice));
+    common.salePrice = common.referencePrice;
+    delete common.crossCityAllowed;
+    delete common.canCrossCity;
+  }
+  if (category === "大交通") {
+    common.trafficType = detail.trafficType || "火车票+机票";
+    common.agentScope = detail.agentScope || detail.serviceScope || "";
+    common.foreignDocumentSupport = detail.foreignDocumentSupport || detail.supportForeignDocuments || "待确认";
+    common.serviceFeeRule = detail.serviceFeeRule || "";
+    common.refundRule = detail.refundRule || detail.refundChangeRule || "";
+    delete common.trainNumber;
+    delete common.flightNumber;
+    delete common.inventory;
+    delete common.stock;
+  }
+  if (category === "导游") {
+    common.languages = quotableCore.normalizeLanguage(detail.languages || detail.language || "英语");
+    common.originalRegistrationFields = detail.originalRegistrationFields || detail.rawFields || detail.raw || {};
+  }
+  return common;
+}
+
+function normalizeSupplierRecord(raw = {}) {
+  const category = quotableCore.normalizeCategory(raw.category || raw.supplierCategory || raw.type || "其他");
+  const city = raw.city || raw.locationCity || (Array.isArray(raw.cities) ? raw.cities[0] : "") || "";
+  const now = new Date().toISOString();
+  const serviceDetails = (Array.isArray(raw.serviceDetails) ? raw.serviceDetails : [raw.serviceDetail || {}])
+    .filter(Boolean)
+    .map((detail) => normalizeSupplierServiceDetail(detail, category));
+  return {
+    id: raw.id || raw.supplierId || makeLocalId("SUP"),
+    category,
+    sourceType: raw.sourceType || raw.source || defaultSupplierSource(category),
+    name: raw.name || raw.supplierName || raw.hotelName || raw.guideName || "未命名供应商",
+    city,
+    cities: Array.from(new Set([city, ...(Array.isArray(raw.cities) ? raw.cities : [])].filter(Boolean))),
+    serviceScope: raw.serviceScope || raw.scope || city || "",
+    status: quotableCore.normalizeSupplierStatus(raw.status || raw.cooperationStatus || "启用"),
+    cancelRule: raw.cancelRule || raw.cancelPolicy || "",
+    remark: raw.remark || raw.note || raw.notes || "",
+    contacts: quotableCore.normalizeContacts(raw.contacts || raw.contactPersons || [{
+      name: raw.contactName || raw.contact || "",
+      role: raw.contactRole || "销售",
+      phone: raw.phone || raw.mobile || raw.contactPhone || "",
+      wechat: raw.wechat || "",
+      whatsapp: raw.whatsapp || "",
+      email: raw.email || "",
+      primary: true,
+    }]),
+    settlement: raw.settlement || raw.settlementInfo || "",
+    attachments: Array.isArray(raw.attachments) ? raw.attachments : [],
+    qualification: raw.qualification || raw.license || raw.licenseStatus || "",
+    ratingTags: raw.ratingTags || raw.tags || "",
+    rating: raw.rating || "",
+    historicalServiceCount: numberOrNull(raw.historicalServiceCount || raw.serviceCount) || 0,
+    serviceDetails: serviceDetails.length ? serviceDetails : [normalizeSupplierServiceDetail({}, category)],
+    isPlaceholder: Boolean(raw.isPlaceholder),
+    placeholderBatch: raw.placeholderBatch || "",
+    createdAt: raw.createdAt || now,
+    updatedAt: raw.updatedAt || now,
+  };
+}
+
+function defaultPlaceholderSuppliers() {
+  return [
+    normalizeSupplierRecord({
+      id: "SUP-DEMO-CHARTER-BJ-001",
+      category: "包车",
+      sourceType: "车队",
+      name: "北京安途车队（占位）",
+      city: "北京",
+      serviceScope: "北京市区、慕田峪长城、首都机场、大兴机场",
+      status: "启用",
+      cancelRule: "出发前 24 小时外可取消，24 小时内按车队确认为准。",
+      ratingTags: "占位案例, 北京, 包车",
+      contacts: [{ name: "王调度", role: "调度", phone: "13800000000", wechat: "demo-charter", primary: true }],
+      serviceDetails: [{
+        id: "SD-DEMO-CHARTER-BJ-001",
+        serviceCategory: "市内包车",
+        routeName: "北京市区 8 小时包车",
+        fromCity: "北京",
+        toArea: "北京市区",
+        vehicleModel: "7座车",
+        seats: 7,
+        suggestedPassengers: 4,
+        luggageCapacity: "4 件 24 寸行李",
+        packageCostPrice: 900,
+        packageSalePrice: 1250,
+        validTo: "2026-12-31",
+        remark: "PRD 占位服务明细，真实车队资料导入后可清理。",
+      }],
+      isPlaceholder: true,
+      placeholderBatch: "supplier-prd-v1.3-demo",
+    }),
+    normalizeSupplierRecord({
+      id: "SUP-DEMO-TRAFFIC-CN-001",
+      category: "大交通",
+      sourceType: "大交通代理商",
+      name: "环宇票务代理（占位）",
+      city: "全国",
+      serviceScope: "全国火车票、国内机票、外籍证件出票协助",
+      status: "启用",
+      cancelRule: "退改签按承运方规则执行，服务费按实际出票规则确认。",
+      ratingTags: "占位案例, 大交通, 外籍证件",
+      contacts: [{ name: "李票务", role: "票务", phone: "13900000000", wechat: "demo-ticketing", primary: true }],
+      serviceDetails: [{
+        id: "SD-DEMO-TRAFFIC-CN-001",
+        trafficType: "火车票+机票",
+        agentScope: "全国火车票、国内机票",
+        foreignDocumentSupport: "支持护照等外籍证件",
+        serviceFeeRule: "按张收取服务费，成本 ¥20 / 参考售价 ¥35；不维护实时票价和余票。",
+        refundRule: "退改签按 12306 / 航司 / OTA 规则执行。",
+        costPrice: 20,
+        salePrice: 35,
+        validTo: "2026-12-31",
+        remark: "只维护渠道和服务费规则，不维护车次、航班、库存。",
+      }],
+      isPlaceholder: true,
+      placeholderBatch: "supplier-prd-v1.3-demo",
+    }),
+  ];
+}
+
+function readSupplierState() {
+  const exists = fs.existsSync(supplierStatePath);
+  const fallback = { version: 1, demoSeeded: false, suppliers: [], supplierCallRecords: [] };
+  const store = readJsonFile(supplierStatePath, fallback);
+  const suppliers = Array.isArray(store.suppliers) ? store.suppliers.map(normalizeSupplierRecord) : [];
+  const supplierCallRecords = Array.isArray(store.supplierCallRecords) ? store.supplierCallRecords : [];
+  if (!exists || (!store.demoSeeded && !suppliers.length)) {
+    const seeded = {
+      version: 1,
+      demoSeeded: true,
+      seededAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      suppliers: defaultPlaceholderSuppliers(),
+      supplierCallRecords,
+    };
+    writeSupplierState(seeded);
+    return seeded;
+  }
+  return {
+    version: 1,
+    demoSeeded: Boolean(store.demoSeeded),
+    seededAt: store.seededAt || "",
+    updatedAt: store.updatedAt || "",
+    suppliers,
+    supplierCallRecords,
+  };
+}
+
+function writeSupplierState(store = {}) {
+  const suppliers = Array.isArray(store.suppliers) ? store.suppliers.map(normalizeSupplierRecord) : [];
+  const supplierCallRecords = Array.isArray(store.supplierCallRecords) ? store.supplierCallRecords : [];
+  writeJsonFile(supplierStatePath, {
+    version: 1,
+    demoSeeded: Boolean(store.demoSeeded),
+    seededAt: store.seededAt || "",
+    updatedAt: new Date().toISOString(),
+    suppliers,
+    supplierCallRecords: supplierCallRecords.slice(0, 1000),
+  });
+}
+
+function filterSuppliers(suppliers = [], filters = {}) {
+  const q = compactApiMatchText(filters.q || "");
+  return suppliers.filter((supplier) => {
+    if (filters.category && supplier.category !== filters.category) return false;
+    if (filters.status && supplier.status !== filters.status) return false;
+    if (q) {
+      const primary = (supplier.contacts || []).find((contact) => contact.primary) || supplier.contacts?.[0] || {};
+      const body = compactApiMatchText([
+        supplier.name,
+        supplier.category,
+        supplier.sourceType,
+        supplier.city,
+        supplier.serviceScope,
+        primary.name,
+        primary.phone,
+        primary.wechat,
+        primary.whatsapp,
+      ].filter(Boolean).join(" "));
+      if (!body.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function supplierCounts(suppliers = [], supplierCallRecords = []) {
+  const serviceDetails = suppliers.flatMap((supplier) => supplier.serviceDetails || []);
+  const today = new Date().toISOString().slice(0, 10);
+  const expiringUntil = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+  return {
+    suppliers: suppliers.length,
+    activeSuppliers: suppliers.filter((supplier) => supplier.status === "启用").length,
+    serviceDetails: serviceDetails.length,
+    placeholders: suppliers.filter((supplier) => supplier.isPlaceholder).length,
+    expiredPrices: serviceDetails.filter((detail) => detail.validTo && detail.validTo < today).length,
+    expiringPrices: serviceDetails.filter((detail) => detail.validTo && detail.validTo >= today && detail.validTo <= expiringUntil).length,
+    quoteCallRecords: supplierCallRecords.length,
+  };
+}
+
+async function handleSuppliers(req, res) {
+  try {
+    const url = new URL(req.url, `http://${host}:${port}`);
+    const state = readSupplierState();
+    const suppliers = filterSuppliers(state.suppliers, {
+      category: url.searchParams.get("category") || "",
+      status: url.searchParams.get("status") || "",
+      q: url.searchParams.get("q") || "",
+    });
+    sendJson(res, 200, {
+      suppliers,
+      supplierCallRecords: state.supplierCallRecords,
+      schema: supplierSchemaDefinition(),
+      counts: supplierCounts(state.suppliers, state.supplierCallRecords),
+      storage: "local-json",
+      demoSeeded: state.demoSeeded,
+      updatedAt: state.updatedAt,
+    });
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "读取供应商失败" });
+  }
+}
+
+async function handleSaveSupplierState(req, res) {
+  try {
+    const body = await readJsonBody(req);
+    const current = readSupplierState();
+    let suppliers = current.suppliers;
+    if (Array.isArray(body.suppliers)) {
+      suppliers = body.suppliers.map(normalizeSupplierRecord);
+    } else if (body.supplier) {
+      const next = normalizeSupplierRecord(body.supplier);
+      const index = suppliers.findIndex((item) => item.id === next.id || (item.name === next.name && item.category === next.category));
+      if (index >= 0) suppliers[index] = { ...suppliers[index], ...next, updatedAt: new Date().toISOString() };
+      else suppliers.unshift(next);
+    }
+    const supplierCallRecords = Array.isArray(body.supplierCallRecords) ? body.supplierCallRecords : current.supplierCallRecords;
+    const nextState = {
+      ...current,
+      demoSeeded: true,
+      suppliers,
+      supplierCallRecords,
+    };
+    writeSupplierState(nextState);
+    appendBusinessAuditEvent("supplier_state_saved", {
+      supplierCount: suppliers.length,
+      serviceDetailCount: suppliers.reduce((sum, supplier) => sum + (supplier.serviceDetails?.length || 0), 0),
+    }, getRequestActor(req));
+    sendJson(res, 200, {
+      ok: true,
+      storage: "local-json",
+      suppliers,
+      supplierCallRecords: supplierCallRecords.slice(0, 1000),
+      counts: supplierCounts(suppliers, supplierCallRecords),
+      message: "供应商数据已写入服务端事实来源。",
+    });
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "保存供应商失败" });
+  }
+}
+
+async function handleClearSupplierPlaceholders(req, res) {
+  try {
+    const current = readSupplierState();
+    const suppliers = current.suppliers.filter((supplier) => !supplier.isPlaceholder);
+    writeSupplierState({
+      ...current,
+      demoSeeded: true,
+      suppliers,
+    });
+    appendBusinessAuditEvent("supplier_placeholders_cleared", {
+      removed: current.suppliers.length - suppliers.length,
+    }, getRequestActor(req));
+    sendJson(res, 200, {
+      ok: true,
+      storage: "local-json",
+      suppliers,
+      supplierCallRecords: current.supplierCallRecords,
+      counts: supplierCounts(suppliers, current.supplierCallRecords),
+      message: "占位供应商已清理，后续不会自动重新生成。",
+    });
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "清理占位供应商失败" });
+  }
+}
+
 async function handleSaveAiSettings(req, res) {
   try {
     const body = await readJsonBody(req);
@@ -1689,6 +2092,12 @@ requestHandler.upsertProductResourceReview = upsertProductResourceReview;
 requestHandler.readProductResourceReviews = readProductResourceReviews;
 requestHandler.updateProductResourceReview = updateProductResourceReview;
 requestHandler.findProductResourceReview = findProductResourceReview;
+requestHandler.normalizeSupplierRecord = normalizeSupplierRecord;
+requestHandler.normalizeSupplierServiceDetail = normalizeSupplierServiceDetail;
+requestHandler.defaultPlaceholderSuppliers = defaultPlaceholderSuppliers;
+requestHandler.supplierSchemaDefinition = supplierSchemaDefinition;
+requestHandler.readSupplierState = readSupplierState;
+requestHandler.filterSuppliers = filterSuppliers;
 requestHandler.getRequestActor = getRequestActor;
 requestHandler.requireApiRole = requireApiRole;
 

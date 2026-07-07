@@ -19,6 +19,7 @@ const serviceLabels = {
 
 const productCategories = ["全部", "景点门票", "酒店", "用车", "导游", "餐厅", "特色体验", "大交通", "其他", "线路产品"];
 const supplierCategories = ["全部", "酒店", "包车", "导游", "门票", "大交通", "餐", "特色体验", "其他"];
+let supplierStateSyncTimer = null;
 const productStatusOptions = ["可报价", "缺成本", "缺供应商", "待清洗", "停用"];
 const productFieldTypes = ["文本", "数字", "金额", "日期", "单选", "多选", "布尔值", "备注"];
 const cityCoordinates = {
@@ -44247,6 +44248,7 @@ const state = {
   routeEditor: { tab: "draft", selectedDay: 0, buffer: [], pasteText: "", preview: [], selectedHistoryIndex: 0 },
   supplierImport: { rows: [], preview: [] },
   supplierCallRecords: [],
+  supplierStateSource: "local-cache",
   productRequirementItems: [],
   productResources: [],
   resourceSupplierLinks: [],
@@ -44323,6 +44325,7 @@ async function init() {
   await loadSystemProductCatalog();
   loadLocalProductState();
   loadLocalSupplierState();
+  await loadSupplierStateFromServer();
   loadLocalV14ResourceState();
   loadProjectState();
   loadQuoteVersions();
@@ -45559,12 +45562,18 @@ async function loadRuntimeData() {
 }
 
 function apiAuthHeaders(extra = {}) {
+  const role = state.currentRole || "op";
   return {
-    "X-Youyixing-Role": state.currentRole || "op",
-    "X-Youyixing-User": $("#owner")?.value || state.currentRole || "op",
+    "X-Youyixing-Role": safeHeaderValue(role, "op"),
+    "X-Youyixing-User": safeHeaderValue($("#owner")?.value || role, role),
     "X-Youyixing-Tenant": "youyixing-default",
     ...extra,
   };
+}
+
+function safeHeaderValue(value, fallback = "op") {
+  const raw = String(value || fallback || "op").trim() || fallback;
+  return encodeURIComponent(raw).slice(0, 120) || fallback;
 }
 
 async function fetchJson(url) {
@@ -47762,6 +47771,7 @@ function renderSupplierManagement() {
     ["服务明细", `${serviceCount} 条`],
     ["价格已过期", `${expired} 条`],
     ["即将过期", `${expiring} 条`],
+    ["占位案例", `${visibleSuppliers.filter((supplier) => supplier.isPlaceholder).length} 条`],
     ["报价调用记录", `${state.supplierCallRecords.length} 条`],
   ].map(([label, value]) => `<div class="stat-tile"><span>${label}</span><strong>${value}</strong></div>`).join("");
 
@@ -47792,7 +47802,7 @@ function renderSupplierManagement() {
             <td>${minCost === "" ? "缺成本" : money(minCost)}</td>
             <td>${supplierValidityText(details)}</td>
             <td>${number(supplier.historicalServiceCount)}</td>
-            <td>${escapeHtml(supplier.ratingTags || "-")}</td>
+            <td>${escapeHtml([supplier.ratingTags, supplier.isPlaceholder ? "占位" : ""].filter(Boolean).join(" / ") || "-")}</td>
             <td>${escapeHtml(supplier.updatedAt || "-")}</td>
             <td class="row-actions">
               <button class="link-btn" data-view-supplier="${supplier.id}">查看</button>
@@ -48250,13 +48260,52 @@ function loadLocalSupplierState() {
     ? saved.suppliers.filter((supplier) => supplier.name !== "上海真实酒店供应商测试").map(normalizeSupplier)
     : [];
   state.supplierCallRecords = Array.isArray(saved.supplierCallRecords) ? saved.supplierCallRecords : [];
+  state.supplierStateSource = saved.source || "local-cache";
 }
 
-function saveLocalSupplierState() {
+function persistLocalSupplierCache(source = state.supplierStateSource || "local-cache") {
   localStorage.setItem("youyixing_supplier_state", JSON.stringify({
     suppliers: state.suppliers,
     supplierCallRecords: state.supplierCallRecords,
+    source,
+    cachedAt: new Date().toISOString(),
   }));
+}
+
+async function loadSupplierStateFromServer() {
+  try {
+    const data = await fetchJson("/api/suppliers");
+    state.suppliers = Array.isArray(data.suppliers) ? data.suppliers.map(normalizeSupplier) : [];
+    state.supplierCallRecords = Array.isArray(data.supplierCallRecords) ? data.supplierCallRecords : [];
+    state.supplierStateSource = data.storage || "server";
+    persistLocalSupplierCache(state.supplierStateSource);
+  } catch (error) {
+    state.supplierStateSource = "local-cache";
+    console.warn("Supplier server state load failed:", error.message || error);
+  }
+}
+
+function saveLocalSupplierState(options = {}) {
+  persistLocalSupplierCache(options.source || state.supplierStateSource || "local-cache");
+  if (options.sync === false) return;
+  syncSupplierStateToServer();
+}
+
+function syncSupplierStateToServer() {
+  clearTimeout(supplierStateSyncTimer);
+  supplierStateSyncTimer = setTimeout(() => {
+    postJson("/api/suppliers/state", {
+      suppliers: state.suppliers,
+      supplierCallRecords: state.supplierCallRecords,
+    }).then((data) => {
+      state.supplierStateSource = data.storage || "local-json";
+      if (Array.isArray(data.suppliers)) state.suppliers = data.suppliers.map(normalizeSupplier);
+      if (Array.isArray(data.supplierCallRecords)) state.supplierCallRecords = data.supplierCallRecords;
+      persistLocalSupplierCache(state.supplierStateSource);
+    }).catch((error) => {
+      console.warn("Supplier server state sync failed:", error.message || error);
+    });
+  }, 250);
 }
 
 function quotableCore() {
