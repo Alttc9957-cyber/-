@@ -264,7 +264,11 @@ button svg { width: 17px; height: 17px; }
   min-width: 980px;
   table-layout: auto;
 }
-.product-data-table.wide-product-table { min-width: 1420px; }
+.product-data-table.wide-product-table {
+  width: 100%;
+  min-width: 980px;
+  table-layout: fixed;
+}
 .product-data-table th {
   white-space: nowrap;
   vertical-align: middle;
@@ -272,6 +276,40 @@ button svg { width: 17px; height: 17px; }
 .product-data-table td {
   vertical-align: top;
   line-height: 1.45;
+}
+.product-data-table th:nth-child(5),
+.product-data-table th:nth-child(6),
+.product-data-table td:nth-child(5),
+.product-data-table td:nth-child(6) {
+  width: 112px;
+}
+.product-data-table th:nth-child(7),
+.product-data-table td:nth-child(7) {
+  width: 120px;
+}
+.ticket-spec-details summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  cursor: pointer;
+}
+.ticket-detail-hint {
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 700;
+}
+.mini-spec-table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.mini-spec-table th,
+.mini-spec-table td {
+  padding: 6px 8px;
+  border-top: 1px solid var(--line);
+  text-align: left;
 }
 .product-inline-input {
   width: 100%;
@@ -1440,7 +1478,11 @@ textarea { min-height: 84px; resize: vertical; line-height: 1.55; }
 }
 .supplier-detail-sections { display: grid; gap: 16px; }
 .supplier-detail-sections h5 { margin: 0 0 8px; font-size: 14px; }
-.wide-supplier-table { min-width: 1480px; }
+.wide-supplier-table {
+  width: 100%;
+  min-width: 980px;
+  table-layout: fixed;
+}
 .active-row { background: #f7fbff; }
 .supplier-modal-body { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .quality-modal-body,

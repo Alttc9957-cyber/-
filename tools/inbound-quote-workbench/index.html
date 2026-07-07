@@ -475,7 +475,7 @@
                 <span>价格展示</span>
                 <label><input id="priceTotal" type="checkbox" checked /> 总价</label>
                 <label><input id="priceAverage" type="checkbox" checked /> 人均价</label>
-                <label><input id="priceItemized" type="checkbox" /> 各项目分项报价</label>
+                <label><input id="priceItemized" type="checkbox" checked /> 各项目分项报价</label>
               </div>
               <div class="option-box">
                 <span>方案标识</span>
@@ -671,10 +671,9 @@
                 <input id="supplierImportFile" type="file" accept=".csv,.json,.xls,.xlsx,text/csv,application/json" hidden />
                 <button class="secondary-btn" id="importSuppliers"><i data-lucide="upload"></i><span>一键导入供应商</span></button>
                 <button class="secondary-btn" id="exportSuppliers"><i data-lucide="download"></i><span>导出供应商</span></button>
-                <button class="secondary-btn" id="clearSupplierPlaceholders"><i data-lucide="eraser"></i><span>清理占位</span></button>
               </div>
             </div>
-            <div class="dashboard-stats" id="supplierStats"></div>
+            <div class="dashboard-stats hidden" id="supplierStats"></div>
             <div class="panel">
               <div class="panel-head">
                 <h4>供应商品类</h4>
@@ -850,6 +849,8 @@
     <script src="./public/js/agent/agent-gateway.js?v=20260703-p0p1"></script>
     <script src="./public/js/domain/events/domain-events.js?v=20260703-p0p1"></script>
     <script src="./public/js/adapters/quote-engine-adapter.js?v=20260703-p0p1"></script>
-    <script src="./app.js?v=20260707-supplier-review-foundation"></script>
+    <script src="./public/js/shared/app-config.js?v=20260707-b0-modules"></script>
+    <script src="./public/js/entities/itinerary/attraction-matching.js?v=20260707-b0-modules"></script>
+    <script src="./app.js?v=20260707-b0-modules"></script>
   </body>
 </html>

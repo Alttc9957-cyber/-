@@ -5,179 +5,24 @@ const on = (selector, event, handler) => {
   if (node) node.addEventListener(event, handler);
 };
 
-const serviceOrder = ["vehicle", "ticket", "experience", "guide", "hotel", "meal", "traffic", "other"];
-const serviceLabels = {
-  vehicle: "用车",
-  ticket: "景点门票",
-  experience: "特色体验",
-  guide: "导游",
-  hotel: "酒店",
-  meal: "餐",
-  traffic: "大交通",
-  other: "其他",
-};
-
-const productCategories = ["全部", "景点门票", "酒店", "用车", "导游", "餐厅", "特色体验", "大交通", "其他", "线路产品"];
-const supplierCategories = ["全部", "酒店", "包车", "导游", "门票", "大交通", "餐", "特色体验", "其他"];
+const appConfig = globalThis.YouyixingAppConfig || {};
+const {
+  serviceOrder = ["vehicle", "ticket", "experience", "guide", "hotel", "meal", "traffic", "other"],
+  serviceLabels = {},
+  productCategories = ["全部", "景点门票", "酒店", "用车", "导游", "餐厅", "特色体验", "大交通", "其他", "线路产品"],
+  supplierCategories = ["全部", "酒店", "包车", "导游", "门票", "大交通", "餐", "特色体验", "其他"],
+  productStatusOptions = ["可报价", "缺成本", "缺供应商", "待清洗", "停用"],
+  productFieldTypes = ["文本", "数字", "金额", "日期", "单选", "多选", "布尔值", "备注"],
+  cityCoordinates = {},
+  extraRouteCities = [],
+  routeCityAliases = {},
+  categoryToType = {},
+  typeToCategory = {},
+  supplierCategoryMeta = {},
+  feishuProductImportSummary = { sourceFile: "产品库汇总.xlsx", importedAt: "2026-06-21", counts: {}, resourceCounts: {} },
+  dailyRates = { CNY: { label: "人民币", rate: 1, symbol: "¥" } },
+} = appConfig;
 let supplierStateSyncTimer = null;
-const productStatusOptions = ["可报价", "缺成本", "缺供应商", "待清洗", "停用"];
-const productFieldTypes = ["文本", "数字", "金额", "日期", "单选", "多选", "布尔值", "备注"];
-const cityCoordinates = {
-  北京: [39.9042, 116.4074],
-  上海: [31.2304, 121.4737],
-  西安: [34.3416, 108.9398],
-  广州: [23.1291, 113.2644],
-  深圳: [22.5431, 114.0579],
-  杭州: [30.2741, 120.1551],
-  苏州: [31.2989, 120.5853],
-  成都: [30.5728, 104.0668],
-  重庆: [29.563, 106.5516],
-  桂林: [25.2736, 110.2900],
-  张家界: [29.1171, 110.4792],
-  昆明: [25.0389, 102.7183],
-  丽江: [26.8721, 100.2296],
-  大理: [25.6065, 100.2676],
-};
-const extraRouteCities = [
-  "南京", "洛阳", "青岛", "厦门", "武汉", "长沙", "天津", "郑州", "开封", "济南",
-  "曲阜", "泰安", "哈尔滨", "长春", "沈阳", "大连", "丹东", "延吉", "漠河",
-  "太原", "大同", "平遥", "呼和浩特", "包头", "银川", "西宁", "兰州", "敦煌",
-  "张掖", "嘉峪关", "酒泉", "乌鲁木齐", "吐鲁番", "喀什", "伊犁", "库车",
-  "宁波", "绍兴", "无锡", "扬州", "镇江", "合肥", "黄山", "福州", "泉州",
-  "南昌", "九江", "宜昌", "台州", "温州", "珠海", "佛山", "东莞", "三亚",
-  "海口", "南宁", "北海", "贵阳", "遵义", "安顺", "荔波", "乐山", "峨眉山",
-  "阳朔", "贵州", "云南", "西双版纳", "景洪", "腾冲", "保山", "普洱", "香格里拉",
-];
-const routeCityAliases = {
-  beijing: "北京",
-  shanghai: "上海",
-  xian: "西安",
-  "xi'an": "西安",
-  "xi an": "西安",
-  chengdu: "成都",
-  chongqing: "重庆",
-  guangzhou: "广州",
-  shenzhen: "深圳",
-  hangzhou: "杭州",
-  suzhou: "苏州",
-  guilin: "桂林",
-  zhangjiajie: "张家界",
-  kunming: "昆明",
-  lijiang: "丽江",
-  dali: "大理",
-  nanjing: "南京",
-  luoyang: "洛阳",
-  qingdao: "青岛",
-  xiamen: "厦门",
-  wuhan: "武汉",
-  changsha: "长沙",
-  tianjin: "天津",
-  zhengzhou: "郑州",
-  kaifeng: "开封",
-  jinan: "济南",
-  qufu: "曲阜",
-  taian: "泰安",
-  harbin: "哈尔滨",
-  datong: "大同",
-  pingyao: "平遥",
-  huangshan: "黄山",
-  leshan: "乐山",
-  yichang: "宜昌",
-  qinghai: "青海",
-  dunhuang: "敦煌",
-  urumqi: "乌鲁木齐",
-  kashgar: "喀什",
-  xishuangbanna: "西双版纳",
-  guizhou: "贵州",
-  yunnan: "云南",
-  yangshuo: "阳朔",
-  shangrila: "香格里拉",
-  "shangri-la": "香格里拉",
-};
-const categoryToType = {
-  用车: "vehicle",
-  包车: "vehicle",
-  景点门票: "ticket",
-  门票: "ticket",
-  特色体验: "experience",
-  导游: "guide",
-  酒店: "hotel",
-  餐: "meal",
-  大交通: "traffic",
-  其他: "other",
-};
-const typeToCategory = {
-  vehicle: "用车",
-  ticket: "景点门票",
-  experience: "特色体验",
-  guide: "导游",
-  hotel: "酒店",
-  meal: "餐",
-  traffic: "大交通",
-  other: "其他",
-};
-const supplierCategoryMeta = {
-  用车: {
-    fields: ["城市", "供应商类型", "供应商名字", "车型", "报价", "营业执照", "交通许可证", "银行支付信息"],
-    costHeaders: ["车辆/服务", "服务城市", "单位", "基础成本", "司机餐住", "有效期"],
-  },
-  景点门票: {
-    fields: ["景区范围", "票种", "预约方式", "退改规则"],
-    costHeaders: ["景点/票种", "城市", "成人成本", "儿童成本", "有效期", "状态"],
-  },
-  特色体验: {
-    fields: ["体验类型", "体验时间", "图片/链接", "预约规则"],
-    costHeaders: ["体验名称", "城市", "票种", "成人成本", "儿童成本", "状态"],
-  },
-  导游: {
-    fields: ["语种", "服务城市", "导游资质", "是否含餐"],
-    costHeaders: ["导游服务", "城市", "语种", "服务费", "有效期", "状态"],
-  },
-  酒店: {
-    fields: ["酒店星级", "房型", "早餐", "取消政策"],
-    costHeaders: ["酒店/档位", "城市", "房型", "单房成本", "有效期", "状态"],
-  },
-  餐: {
-    fields: ["餐标", "菜系", "特殊餐", "团队接待"],
-    costHeaders: ["餐食", "城市", "单位", "成人成本", "儿童成本", "状态"],
-  },
-  大交通: {
-    fields: ["票务渠道", "出票服务费", "退改规则", "覆盖线路"],
-    costHeaders: ["交通类型", "城市/线路", "单位", "成本", "有效期", "状态"],
-  },
-  其他: {
-    fields: ["服务内容", "适用场景", "计价方式", "备注"],
-    costHeaders: ["服务内容", "城市", "单位", "成本", "有效期", "状态"],
-  },
-};
-
-const feishuProductImportSummary = {
-  "sourceFile": "产品库汇总.xlsx",
-  "importedAt": "2026-06-21",
-  "counts": {
-    "routes": 24,
-    "vehicles": 920,
-    "experiences": 69,
-    "tickets": 113,
-    "guides": 48,
-    "hotels": 153,
-    "meals": 151
-  },
-  "resourceCounts": {
-    "vehicle": 920,
-    "guide": 48,
-    "experience": 61,
-    "ticket": 111,
-    "hotel": 148
-  }
-};
-
-const dailyRates = {
-  CNY: { label: "人民币", rate: 1, symbol: "¥" },
-  USD: { label: "美元", rate: 7.2, symbol: "$" },
-  EUR: { label: "欧元", rate: 7.8, symbol: "€" },
-  AED: { label: "迪拉姆", rate: 1.96, symbol: "AED " },
-};
 
 const resources = {
   vehicle: {
@@ -228,28 +73,11 @@ const resources = {
   other: { 保险: 10, 耳麦: 5, 水: 5, 伴手礼: 35 },
 };
 
-const englishAttractionAliases = [
-  ["Forbidden City", "故宫博物院"],
-  ["Palace Museum", "故宫博物院"],
-  ["Tiananmen Square", "天安门广场"],
-  ["Summer Palace", "颐和园"],
-  ["Temple of Heaven", "天坛"],
-  ["Terracotta Warriors", "兵马俑"],
-  ["Badaling Great Wall", "八达岭长城"],
-  ["Mutianyu Great Wall", "慕田峪长城"],
-  ["Great Wall", "长城"],
-  ["Yu Garden", "豫园"],
-  ["The Bund", "外滩"],
-  ["Nanjing Road", "南京路"],
-  ["Oriental Pearl Tower", "东方明珠"],
-];
-
-const attractionAliases = {
-  故宫: ["故宫博物院", "紫禁城", "Forbidden City", "Palace Museum"],
-  天安门: ["天安门广场", "Tiananmen Square"],
-  长城: ["八达岭长城", "慕田峪长城", "Great Wall"],
-  景山: ["景山公园"],
-};
+const attractionMatching = globalThis.YouyixingAttractionMatching || {};
+const {
+  attractionAliases = {},
+  nonTicketAttractions = ["天安门广场", "外滩", "南京路", "胡同"],
+} = attractionMatching;
 
 const xiaoyiStages = [
   "demand_empty",
@@ -47183,9 +47011,28 @@ function ticketGroupCountBadge(entry) {
 }
 
 function renderTicketGroupSpecs(entry) {
-  const specs = [...new Set((entry.items || []).map((item) => productSpecValue(item, entry.category) || productServiceValue(item, entry.category) || "景区门票").filter(Boolean))];
+  const items = entry.items || [];
+  const specs = [...new Set(items.map((item) => productSpecValue(item, entry.category) || productServiceValue(item, entry.category) || "景区门票").filter(Boolean))];
   if (!specs.length) return "-";
-  return specs.slice(0, 4).map((spec) => `<span class="small-badge">${escapeHtml(spec)}</span>`).join("") + (specs.length > 4 ? `<span class="small-badge">+${specs.length - 4}</span>` : "");
+  const summary = specs.slice(0, 3).map((spec) => `<span class="small-badge">${escapeHtml(spec)}</span>`).join("")
+    + (specs.length > 3 ? `<span class="small-badge">+${specs.length - 3}</span>` : "");
+  if (items.length <= 1) return summary;
+  const rows = items.map((item) => {
+    const spec = productSpecValue(item, entry.category) || productServiceValue(item, entry.category) || "景区门票";
+    return `<tr>
+      <td>${escapeHtml(spec)}</td>
+      <td>${productCostDisplay(productCostValue(item, entry.category), item)}</td>
+      <td>${productPriceDisplay(productSaleValue(item, entry.category))}</td>
+      <td>${escapeHtml(productSupplierName(item) || IMPORTED_PENDING_SUPPLIER)}</td>
+    </tr>`;
+  }).join("");
+  return `<details class="ticket-spec-details">
+    <summary>${summary}<span class="ticket-detail-hint">展开价格明细</span></summary>
+    <table class="mini-spec-table">
+      <thead><tr><th>票种/规格</th><th>成本</th><th>参考售价</th><th>供应商</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </details>`;
 }
 
 function productPriceRangeDisplay(values = [], items = [], emptyHtml = `<span class="product-price-missing">待补成本</span>`) {
@@ -47765,19 +47612,8 @@ function renderSupplierManagement() {
   const suppliers = filteredSuppliers();
   const category = state.activeSupplierCategory;
   const visibleSuppliers = category === "全部" ? state.suppliers : state.suppliers.filter((supplier) => supplier.category === category);
-  const serviceCount = visibleSuppliers.reduce((sum, supplier) => sum + (supplier.serviceDetails?.length || 0), 0);
-  const active = visibleSuppliers.filter((supplier) => supplier.status === "启用");
-  const expired = visibleSuppliers.reduce((sum, supplier) => sum + (supplier.serviceDetails || []).filter((detail) => daysUntil(detail.validTo) < 0).length, 0);
-  const expiring = visibleSuppliers.reduce((sum, supplier) => sum + (supplier.serviceDetails || []).filter((detail) => daysUntil(detail.validTo) >= 0 && daysUntil(detail.validTo) <= 30).length, 0);
-  $("#supplierStats").innerHTML = [
-    ["供应商总数", `${visibleSuppliers.length} 家`],
-    ["启用供应商", `${active.length} 家`],
-    ["服务明细", `${serviceCount} 条`],
-    ["价格已过期", `${expired} 条`],
-    ["即将过期", `${expiring} 条`],
-    ["占位案例", `${visibleSuppliers.filter((supplier) => supplier.isPlaceholder).length} 条`],
-    ["报价调用记录", `${state.supplierCallRecords.length} 条`],
-  ].map(([label, value]) => `<div class="stat-tile"><span>${label}</span><strong>${value}</strong></div>`).join("");
+  $("#supplierStats").classList.add("hidden");
+  $("#supplierStats").innerHTML = "";
 
   if (!suppliers.some((supplier) => supplier.id === state.activeSupplierId)) {
     state.activeSupplierId = suppliers[0]?.id || "";
@@ -47788,7 +47624,7 @@ function renderSupplierManagement() {
   $("#supplierTable").innerHTML = `
     <div class="supplier-table-wrap">
       <table class="project-table supplier-table wide-supplier-table">
-        <thead><tr>${["供应商名称","供应商品类","来源类型","所在城市","可服务范围","主要联系人","联系方式","合作状态","服务明细数量","最低成本价","价格有效期","历史服务次数","评分 / 标签","更新时间","操作"].map((header) => `<th>${header}</th>`).join("")}</tr></thead>
+        <thead><tr>${["供应商名称","品类","来源","城市 / 范围","主要联系人","状态","服务明细","操作"].map((header) => `<th>${header}</th>`).join("")}</tr></thead>
         <tbody>${suppliers.map((supplier) => {
           const primary = supplier.contacts.find((item) => item.primary) || supplier.contacts[0] || {};
           const details = supplier.serviceDetails || [];
@@ -47797,25 +47633,17 @@ function renderSupplierManagement() {
             <td><strong>${escapeHtml(supplier.name)}</strong><span>${escapeHtml(supplier.id)}</span></td>
             <td>${escapeHtml(supplier.category)}</td>
             <td>${escapeHtml(supplier.sourceType)}</td>
-            <td>${escapeHtml(supplier.city || "-")}</td>
-            <td>${escapeHtml(supplier.serviceScope || supplier.cities.join("、") || "-")}</td>
+            <td><strong>${escapeHtml(supplier.city || "-")}</strong><span>${escapeHtml(supplier.serviceScope || supplier.cities.join("、") || "-")}</span></td>
             <td>${escapeHtml(primary.name || "待补")}<span>${escapeHtml(primary.role || "")}</span></td>
-            <td>${escapeHtml(primary.phone || primary.wechat || primary.whatsapp || "-")}</td>
             <td><span class="resource-status ${supplier.status === "启用" ? "ok" : "warn"}">${escapeHtml(supplier.status)}</span></td>
-            <td>${details.length}</td>
-            <td>${minCost === "" ? "缺成本" : money(minCost)}</td>
-            <td>${supplierValidityText(details)}</td>
-            <td>${number(supplier.historicalServiceCount)}</td>
-            <td>${escapeHtml([supplier.ratingTags, supplier.isPlaceholder ? "占位" : ""].filter(Boolean).join(" / ") || "-")}</td>
-            <td>${escapeHtml(supplier.updatedAt || "-")}</td>
+            <td>${details.length} 条<span>${minCost === "" ? "缺成本" : `最低 ${money(minCost)}`} · ${escapeHtml(supplierValidityText(details))}</span></td>
             <td class="row-actions">
-              <button class="link-btn" data-view-supplier="${supplier.id}">查看</button>
+              <button class="link-btn" data-view-supplier="${supplier.id}">详细</button>
               <button class="link-btn" data-edit-supplier="${supplier.id}">编辑</button>
               <button class="link-btn" data-toggle-supplier="${supplier.id}">${supplier.status === "启用" ? "停用" : "启用"}</button>
-              <button class="link-btn" data-export-supplier="${supplier.id}">导出</button>
             </td>
           </tr>`;
-        }).join("") || `<tr><td colspan="15">当前品类下暂无供应商。</td></tr>`}</tbody>
+        }).join("") || `<tr><td colspan="8">当前品类下暂无供应商。</td></tr>`}</tbody>
       </table>
     </div>
   `;
@@ -48630,6 +48458,10 @@ function renderRoleVisibility() {
   const avatar = $(".user-avatar");
   if (avatar) avatar.textContent = ({ op: "O", sales: "S", boss: "B", admin: "A" })[state.currentRole] || "O";
   document.body.dataset.currentRole = state.currentRole || "op";
+}
+
+function canPreviewWithMissingCosts() {
+  return ["boss", "admin"].includes(state.currentRole || "");
 }
 
 function renderBossDashboard() {
@@ -51752,8 +51584,10 @@ function renderProposalGuard() {
     return;
   }
   if (missingCosts.length) {
-    guard.className = "proposal-guard danger";
-    guard.textContent = `当前仍有 ${missingCosts.length} 项成本缺失。可以内部预览，但不能确认客户方案、导出或成交转订单。`;
+    guard.className = canPreviewWithMissingCosts() ? "proposal-guard warn" : "proposal-guard danger";
+    guard.textContent = canPreviewWithMissingCosts()
+      ? `当前仍有 ${missingCosts.length} 项成本缺失。老板/管理员可测试确认和导出预览，但不能成交转订单。`
+      : `当前仍有 ${missingCosts.length} 项成本缺失。可以内部预览，但不能确认客户方案、导出或成交转订单。`;
     return;
   }
   if (state.proposalConfirmed) {
@@ -51772,17 +51606,18 @@ function confirmProposal() {
     return;
   }
   const missingCosts = blockingMissingCostDetails();
-  if (missingCosts.length) {
+  if (missingCosts.length && !canPreviewWithMissingCosts()) {
     alert(`当前仍有 ${missingCosts.length} 项成本缺失，不能确认客户方案。\n\n${missingCosts.slice(0, 5).join("\n")}`);
     renderProposalGuard();
     return;
   }
+  if (missingCosts.length && !window.confirm(`当前仍有 ${missingCosts.length} 项成本缺失。将以测试预览方式确认，不能成交转订单。\n\n是否继续？`)) return;
   if ($("#outputLang")?.value === "en" && containsChinese(content)) {
     const ok = window.confirm("英文方案仍包含中文内容，是否确认风险并锁定版本？");
     if (!ok) return;
   }
   state.proposalConfirmed = true;
-  activeQuote().status = "已确认客户方案";
+  activeQuote().status = missingCosts.length ? "测试预览已确认" : "已确认客户方案";
   recordSupplierCallsFromQuote();
   saveQuoteVersionMeta(true);
   renderProposalGuard();
@@ -53183,6 +53018,7 @@ function hasLocalTourContent(day = {}) {
 }
 
 function isTransferOnlyDayText(text = "") {
+  if (typeof attractionMatching.isTransferOnlyDayText === "function") return attractionMatching.isTransferOnlyDayText(text);
   const value = String(text || "");
   if (!/抵达|到达|接机|送机|机场|入住|酒店/.test(value)) return false;
   return !/故宫|长城|兵马俑|古城墙|外滩|豫园|森林公园|天门山|洪崖洞|熊猫|博物馆|景区|游览|参观|一日游|市内|市区|武隆/.test(value);
@@ -54612,12 +54448,13 @@ function standardAttractionNames() {
 }
 
 function standardizeHighConfidenceAttractions() {
+  const standardizeText = attractionMatching.standardizeAttractionText || standardizeEnglishAttractions;
   const aliases = [
     { pattern: /故官|故宫博物馆|紫禁城/g, standard: "故宫博物院" },
   ];
   state.itinerary.forEach((day) => {
-    day.overview = standardizeEnglishAttractions(day.overview);
-    day.detail = standardizeEnglishAttractions(day.detail);
+    day.overview = standardizeText(day.overview);
+    day.detail = standardizeText(day.detail);
     aliases.forEach(({ pattern, standard }) => {
       day.overview = String(day.overview || "").replace(pattern, standard);
       day.detail = String(day.detail || "").replace(pattern, standard);
@@ -54628,11 +54465,13 @@ function standardizeHighConfidenceAttractions() {
 function standardAttractionWarnings() {
   const names = standardAttractionNames();
   const messages = [];
-  const knownWords = new Set([...names, "天安门广场", "景山", "胡同", "外滩", "南京路", "豫园"]);
+  const knownWords = new Set([...names, ...nonTicketAttractions, "景山", "景山公园", "胡同", "豫园"]);
   state.itinerary.forEach((day, index) => {
     const text = `${day.overview || ""} ${day.detail || ""}`;
     if (/故官|故宫博物馆|紫禁城/.test(text)) messages.push(`Day ${index + 1}：已建议标准化为“故宫博物院”`);
-    const candidates = extractAttractions(text).filter((name) => !knownWords.has(name) && !names.includes(name));
+    const candidates = extractAttractions(text)
+      .map((name) => attractionMatching.standardAttractionForName?.(name) || name)
+      .filter((name) => !knownWords.has(name) && !names.some((standard) => sameTicketName(standard, name)));
     candidates.slice(0, 3).forEach((name) => messages.push(`Day ${index + 1}：景点「${name}」未匹配标准名，请人工确认`));
   });
   return messages;
@@ -56300,22 +56139,22 @@ async function handleBuildProposal() {
   $("#proposalContent").innerHTML = `
     <div class="proposal-grid">
       <div>
-        <div class="proposal-block">
-          <h4>${t.itinerary}</h4>
-          ${days.map((day, index) => `<div class="proposal-day"><strong>${t.day} ${index + 1}</strong><div><b>${day.date} · ${day.city} · ${day.overview}</b><p>${day.detail}</p></div></div>`).join("")}
-        </div>
-        ${costPolicyHtml(lang)}
-      </div>
-      <aside>
-        ${optionComparisonHtml(lang)}
-        <div class="price-box">
-          <span>${t.total}</span>
-          ${showTotal ? `<strong>${money(totals.sell)}</strong>` : ""}
-          ${showAverage ? `<span>${t.adultAvg}: ${money(totals.adultAvg)}</span>` : ""}
-          ${showAverage && d.children ? `<span>${t.childAvg}: ${money(totals.childAvg)}</span>` : ""}
-        </div>
-        ${showItemized ? itemizedPriceHtml(lang) : ""}
-        <div class="proposal-block"><h4>${t.notesTitle}</h4><p>${t.notes}</p></div>
+	        <div class="proposal-block">
+	          <h4>${t.itinerary}</h4>
+	          ${days.map((day, index) => `<div class="proposal-day"><strong>${t.day} ${index + 1}</strong><div><b>${day.date} · ${day.city} · ${day.overview}</b><p>${day.detail}</p></div></div>`).join("")}
+	        </div>
+	        ${costPolicyHtml(lang)}
+	        ${showItemized ? itemizedPriceHtml(lang) : ""}
+	      </div>
+	      <aside>
+	        ${optionComparisonHtml(lang)}
+	        <div class="price-box">
+	          <span>${t.total}</span>
+	          ${showTotal ? `<strong>${money(totals.sell)}</strong>` : ""}
+	          ${showAverage ? `<span>${t.adultAvg}: ${money(totals.adultAvg)}</span>` : ""}
+	          ${showAverage && d.children ? `<span>${t.childAvg}: ${money(totals.childAvg)}</span>` : ""}
+	        </div>
+	        <div class="proposal-block"><h4>${t.notesTitle}</h4><p>${t.notes}</p></div>
         ${contactHtml(lang)}
       </aside>
     </div>
@@ -56736,7 +56575,9 @@ function extractAttractions(text) {
 }
 
 function standardizeEnglishAttractions(text) {
+  if (typeof attractionMatching.standardizeEnglishAttractions === "function") return attractionMatching.standardizeEnglishAttractions(text);
   let result = String(text || "");
+  const englishAttractionAliases = attractionMatching.englishAttractionAliases || [];
   englishAttractionAliases
     .sort((a, b) => b[0].length - a[0].length)
     .forEach(([alias, standard]) => {
@@ -57208,7 +57049,7 @@ function canExportProposal() {
     return false;
   }
   const missingCosts = blockingMissingCostDetails();
-  if (missingCosts.length) {
+  if (missingCosts.length && !canPreviewWithMissingCosts()) {
     alert(`当前仍有 ${missingCosts.length} 项成本缺失，不能导出正式客户方案。\n\n${missingCosts.slice(0, 5).join("\n")}`);
     renderProposalGuard();
     return false;
@@ -57370,10 +57211,12 @@ function firstFilled(...values) {
 }
 
 function normalizeTicketText(value) {
+  if (typeof attractionMatching.normalizeTicketText === "function") return attractionMatching.normalizeTicketText(value);
   return String(value || "").replace(/\s+/g, "").replace(/[（）()《》“”"']/g, "");
 }
 
 function ticketAliases(name) {
+  if (typeof attractionMatching.ticketAliases === "function") return attractionMatching.ticketAliases(name);
   const normalized = normalizeTicketText(name);
   const hits = [];
   Object.entries(attractionAliases).forEach(([canonical, aliases]) => {
@@ -57386,6 +57229,7 @@ function ticketAliases(name) {
 }
 
 function sameTicketName(a, b) {
+  if (typeof attractionMatching.sameTicketName === "function") return attractionMatching.sameTicketName(a, b);
   const leftGroup = unique([a, ...ticketAliases(a)].map(normalizeTicketText));
   const rightGroup = unique([b, ...ticketAliases(b)].map(normalizeTicketText));
   return leftGroup.some((left) => rightGroup.some((right) => left === right || left.includes(right) || right.includes(left)));
@@ -57419,15 +57263,20 @@ function shortTicketName(name) {
 }
 
 function detectTickets(text, city) {
+  if (isTransferOnlyDayText(text)) return [];
   const normalizedText = normalizeTicketText(text);
   const cityNames = new Set(["北京", "上海", "杭州", "西安", "广州", "深圳", "成都", "重庆", "苏州", "桂林", "张家界", "昆明", "丽江", "大理", city].filter(Boolean).map(normalizeTicketText));
   const candidates = ticketCandidates(city).sort((a, b) => b.alias.length - a.alias.length);
   const hits = candidates
     .filter((candidate) => normalizedText.includes(normalizeTicketText(candidate.alias)))
     .filter((candidate) => !cityNames.has(normalizeTicketText(candidate.name)) && !cityNames.has(normalizeTicketText(candidate.alias)))
+    .filter((candidate) => !attractionMatching.isFreeLandmark?.(candidate.name))
     .sort((a, b) => normalizedText.indexOf(normalizeTicketText(a.alias)) - normalizedText.indexOf(normalizeTicketText(b.alias)))
-    .map((candidate) => candidate.name);
-  const inferred = inferTicketNamesFromText(text, city).filter((name) => !hits.some((hit) => sameTicketName(hit, name)));
+    .map((candidate) => attractionMatching.standardAttractionForName?.(candidate.name) || candidate.name);
+  const inferred = inferTicketNamesFromText(text, city)
+    .map((name) => attractionMatching.standardAttractionForName?.(name) || name)
+    .filter((name) => !attractionMatching.isFreeLandmark?.(name))
+    .filter((name) => !hits.some((hit) => sameTicketName(hit, name)));
   return dedupeTicketNames([...hits, ...inferred]);
 }
 

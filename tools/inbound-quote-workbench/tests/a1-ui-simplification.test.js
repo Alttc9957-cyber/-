@@ -24,10 +24,21 @@ test("景点门票主表按景点聚合票种，避免同景点多规格铺满�
   assert.match(appJs, /function renderTicketGroupSpecs/);
   assert.match(appJs, /function productPriceRangeDisplay/);
   assert.match(appJs, /\$\{count\}个票种/);
+  assert.match(appJs, /展开价格明细/);
+  assert.match(appJs, /mini-spec-table/);
   const ticketRenderer = appJs.slice(appJs.indexOf("function renderTicketProductCategoryTable"), appJs.indexOf("function priceOrPending"));
   assert.match(ticketRenderer, /"票种\/规格"/);
   assert.match(ticketRenderer, /productCatalogDisplayRows\(category, items\)/);
   assert.doesNotMatch(ticketRenderer, /const visibleItems = items\.slice/);
+});
+
+test("供应商主界面不暴露开发态占位清理按钮，列表改为轻量核心列", () => {
+  assert.doesNotMatch(indexHtml, /id="clearSupplierPlaceholders"/);
+  assert.match(appJs, /async function clearSupplierPlaceholders/);
+  const supplierRenderer = appJs.slice(appJs.indexOf("function renderSupplierManagement"), appJs.indexOf("function filteredSuppliers"));
+  assert.match(supplierRenderer, /"供应商名称","品类","来源","城市 \/ 范围","主要联系人","状态","服务明细","操作"/);
+  assert.doesNotMatch(supplierRenderer, /"历史服务次数"/);
+  assert.doesNotMatch(supplierRenderer, /"评分 \/ 标签"/);
 });
 
 test("报价缺成本同步会写入产品库持久层", () => {
