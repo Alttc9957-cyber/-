@@ -44331,6 +44331,9 @@ async function init() {
   loadQuoteVersions();
   loadOrderState();
   loadPhase1State();
+  await loadServerQuoteVersions();
+  await loadServerOrders();
+  await loadServerProductReviews();
   hydrateImportedProductCatalog();
   refreshV14ResourceState();
   bindEvents();
@@ -44692,13 +44695,13 @@ function bindDelegatedActions() {
     if (button.dataset.reviewProduct) {
       event.preventDefault();
       event.stopPropagation();
-      updateProductReviewStatus(button.dataset.reviewProduct, "已审核待发布");
+      decideProductReview(button.dataset.reviewProduct, "approve");
       return;
     }
-    if (button.dataset.publishReviewProduct) {
+    if (button.dataset.rejectReviewProduct) {
       event.preventDefault();
       event.stopPropagation();
-      updateProductReviewStatus(button.dataset.publishReviewProduct, "发布占位");
+      decideProductReview(button.dataset.rejectReviewProduct, "reject");
       return;
     }
     if (!action) return;
@@ -48454,6 +48457,28 @@ function loadQuoteVersions() {
   if (Number.isInteger(saved.activeQuote)) state.activeQuote = saved.activeQuote;
 }
 
+async function loadServerQuoteVersions(projectId = state.currentProjectId) {
+  if (!projectId) return false;
+  try {
+    const data = await fetchJson(`/api/quote-versions?projectId=${encodeURIComponent(projectId)}`);
+    const serverState = data.state || null;
+    if (!serverState?.quoteVersions?.length) return false;
+    state.quoteVersions = serverState.quoteVersions;
+    state.activeQuote = Number.isInteger(serverState.activeQuote) ? serverState.activeQuote : 0;
+    setLocalStorageJson("youyixing_quote_versions", {
+      currentProjectId: projectId,
+      activeQuote: state.activeQuote,
+      quoteVersions: compactQuoteVersionsForStorage(state.quoteVersions, "normal"),
+      source: data.storage || "server",
+      loadedAt: new Date().toISOString(),
+    });
+    return true;
+  } catch (error) {
+    console.warn("Quote version server readback failed:", error.message || error);
+    return false;
+  }
+}
+
 function saveQuoteVersions() {
   const payload = {
     currentProjectId: state.currentProjectId,
@@ -48475,6 +48500,31 @@ function loadOrderState() {
   state.order = saved.order || state.orders[0] || null;
 }
 
+async function loadServerOrders(projectId = "") {
+  try {
+    const suffix = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+    const data = await fetchJson(`/api/orders${suffix}`);
+    if (!Array.isArray(data.orders)) return false;
+    if (projectId) {
+      const incomingIds = new Set(data.orders.map((order) => order.id));
+      state.orders = [...data.orders, ...(state.orders || []).filter((order) => !incomingIds.has(order.id) && order.projectId !== projectId)];
+    } else {
+      state.orders = data.orders;
+    }
+    state.order = state.orders[0] || state.order || null;
+    localStorage.setItem("youyixing_order_state", JSON.stringify({
+      order: state.order,
+      orders: state.orders || [],
+      source: data.storage || "server",
+      loadedAt: new Date().toISOString(),
+    }));
+    return true;
+  } catch (error) {
+    console.warn("Order server readback failed:", error.message || error);
+    return false;
+  }
+}
+
 function saveOrderState() {
   const payload = {
     order: state.order,
@@ -48490,6 +48540,19 @@ function loadPhase1State() {
   if (saved.currentRole) state.currentRole = saved.currentRole;
   if (Array.isArray(saved.productReviewPool)) state.productReviewPool = saved.productReviewPool;
   if (Array.isArray(saved.phase1AuditLogs)) state.phase1AuditLogs = saved.phase1AuditLogs;
+}
+
+async function loadServerProductReviews() {
+  try {
+    const data = await fetchJson("/api/product-resource-reviews");
+    if (!Array.isArray(data.items)) return false;
+    state.productReviewPool = mergeProductReviewRows(state.productReviewPool || [], data.items.map(normalizeProductReviewForUi));
+    savePhase1State();
+    return true;
+  } catch (error) {
+    console.warn("Product review server readback failed:", error.message || error);
+    return false;
+  }
 }
 
 function savePhase1State() {
@@ -48563,7 +48626,7 @@ function renderBossDashboard() {
   const quoteAmount = projects.reduce((sum, project) => sum + number(project.amount), 0);
   const dealAmount = orders.reduce((sum, order) => sum + number(order.amount), 0);
   const dealCost = orders.reduce((sum, order) => sum + number(order.estimatedCost), 0);
-  const reviewPending = (state.productReviewPool || []).filter((item) => item.auditStatus === "待老板审核").length;
+  const reviewPending = (state.productReviewPool || []).filter((item) => productReviewStatusLabel(item) === "待老板审核").length;
   const marginRate = dealAmount ? Math.round(((dealAmount - dealCost) / dealAmount) * 10000) / 100 : 0;
   statsNode.innerHTML = [
     ["报价项目", `${projects.length} 个`],
@@ -48588,7 +48651,51 @@ function renderBossDashboard() {
 }
 
 function productReviewKey(item = {}) {
-  return [item.projectId, item.serviceType, item.productName, item.city, item.useDate].join("|");
+  return item.sourceKey || [item.projectId, item.serviceType, item.productName || item.name, item.city, item.useDate].join("|");
+}
+
+function productReviewStatusLabel(item = {}) {
+  const status = item.auditStatus || item.status || "";
+  if (status === "pending_review") return "待老板审核";
+  if (status === "approved") return "已发布正式产品库";
+  if (status === "rejected") return "已拒绝";
+  return status || "待老板审核";
+}
+
+function normalizeProductReviewForUi(item = {}) {
+  const resource = item.resource || {};
+  return {
+    ...item,
+    id: item.id || item.reviewId || resource.id || `review-${Date.now()}`,
+    sourceKey: item.sourceKey || item.source_key || resource.source_key || resource.sourceKey || "",
+    projectId: item.projectId || resource.extra_fields?.projectId || "",
+    sourceCustomer: item.sourceCustomer || item.customerName || "",
+    productName: item.productName || item.name || resource.name || "待审核产品",
+    city: item.city || resource.city || "",
+    serviceType: item.serviceType || resource.service_type || resource.serviceType || item.category || resource.category || "",
+    costPrice: firstPresent(item.costPrice, resource.cost_price, resource.costPrice, ""),
+    suggestedSalePrice: firstPresent(item.suggestedSalePrice, resource.sale_price, resource.salePrice, ""),
+    supplierName: item.supplierName || resource.supplier_name || resource.supplierName || IMPORTED_PENDING_SUPPLIER,
+    submitter: item.submitter || item.submittedBy || item.submittedRole || "-",
+    auditStatus: productReviewStatusLabel(item),
+    useDate: item.useDate || resource.extra_fields?.useDate || "",
+    createdAt: item.createdAt || item.submittedAt || "",
+    reviewedAt: item.reviewedAt || "",
+    publishedAt: item.publishedAt || item.reviewedAt || "",
+  };
+}
+
+function mergeProductReviewRows(localRows = [], incomingRows = []) {
+  const rows = [];
+  const seen = new Set();
+  [...incomingRows, ...localRows].forEach((row) => {
+    const normalized = normalizeProductReviewForUi(row);
+    const key = normalized.id || normalized.sourceKey || productReviewKey(normalized);
+    if (seen.has(key)) return;
+    seen.add(key);
+    rows.push(normalized);
+  });
+  return rows;
 }
 
 function addProductReviewItemFromRow(service, row = {}, context = {}) {
@@ -48643,10 +48750,50 @@ function updateProductReviewStatus(id, status) {
   renderBossDashboard();
 }
 
+async function decideProductReview(id, action = "approve") {
+  const item = (state.productReviewPool || []).find((candidate) => candidate.id === id);
+  if (!item) return;
+  if (!item.sourceKey && !/^review[-_]/i.test(String(item.id || ""))) {
+    alert("这条审核项还没有进入服务端审核区。请先从报价缺成本补录入口提交审核，再由老板通过或驳回。");
+    return;
+  }
+  const label = action === "reject" ? "驳回" : "通过";
+  const ok = window.confirm(`确认${label}「${item.productName || item.name}」？`);
+  if (!ok) return;
+  try {
+    const result = await postJson("/api/product-resource-reviews/approve", {
+      action,
+      reviewId: item.id,
+      sourceKey: item.sourceKey || "",
+      note: action === "reject" ? "老板驳回" : "老板审核通过",
+    });
+    const next = normalizeProductReviewForUi(result.reviewItem || item);
+    state.productReviewPool = mergeProductReviewRows([next], (state.productReviewPool || []).filter((row) => row.id !== item.id));
+    savePhase1State();
+    appendPhase1AuditLog(action === "reject" ? "product_review_rejected" : "product_review_approved", {
+      reviewId: next.id,
+      productName: next.productName,
+      storage: result.storage || "",
+    });
+    if (action !== "reject") {
+      await loadCloudProductCatalog();
+      hydrateImportedProductCatalog();
+      refreshQuoteResources();
+      renderResourceLibrary();
+      renderQuoteTable();
+    }
+    renderProductReviewPool();
+    renderBossDashboard();
+    alert(result.message || `已${label}。`);
+  } catch (error) {
+    alert(`审核失败：${error.message}`);
+  }
+}
+
 function renderProductReviewPool() {
   const node = $("#productReviewPool");
   if (!node) return;
-  const rows = state.productReviewPool || [];
+  const rows = (state.productReviewPool || []).map(normalizeProductReviewForUi);
   if (!rows.length) {
     node.innerHTML = `<div class="empty">暂无待审核产品。</div>`;
     return;
@@ -48660,10 +48807,10 @@ function renderProductReviewPool() {
       money(item.costPrice),
       escapeHtml(item.useDate || "-"),
       escapeHtml(item.submitter || "-"),
-      escapeHtml(item.auditStatus || "待老板审核"),
+      escapeHtml(productReviewStatusLabel(item)),
       `<div class="mini-actions">
-        <button class="secondary-btn" data-review-product="${escapeHtml(item.id)}">通过审核</button>
-        <button class="secondary-btn" data-publish-review-product="${escapeHtml(item.id)}">发布占位</button>
+        <button class="secondary-btn" data-review-product="${escapeHtml(item.id)}" ${productReviewStatusLabel(item) !== "待老板审核" ? "disabled" : ""}>通过</button>
+        <button class="secondary-btn" data-reject-review-product="${escapeHtml(item.id)}" ${productReviewStatusLabel(item) !== "待老板审核" ? "disabled" : ""}>驳回</button>
       </div>`,
     ]),
     `<tr><td colspan="8">暂无待审核产品。</td></tr>`,
@@ -50677,6 +50824,18 @@ function openProject(id) {
   showProjectDetail();
   renderAll();
   updateProjectTitle();
+  loadServerQuoteVersions(id).then((loaded) => {
+    if (!loaded) return;
+    renderQuoteVersionSelect();
+    renderQuoteTable();
+    renderSummary();
+    renderArchive();
+  });
+  loadServerOrders(id).then((loaded) => {
+    if (!loaded) return;
+    renderOrders();
+    renderBossDashboard();
+  });
 }
 
 function updateCurrentProject(status) {
