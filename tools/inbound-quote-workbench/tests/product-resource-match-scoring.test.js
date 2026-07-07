@@ -22,3 +22,19 @@ test("机场路线可以命中接送机资源", () => {
   assert.equal(productResourceRouteMatch(airportTransfer, query.route).matched, true);
   assert.ok(productResourceMatchScore(airportTransfer, query) >= 80);
 });
+
+test("英文景点名可以命中中文产品库别名", () => {
+  const mutianyuQuery = { category: "门票", city: "北京", serviceType: "景区门票", route: "Great Wall Mutianyu" };
+  const mutianyu = { category: "门票", city: "北京", service_type: "景区门票", name: "慕田峪长城门票", route: "慕田峪长城", spec: "" };
+  const forbidden = { category: "门票", city: "北京", service_type: "景区门票", name: "故宫门票", route: "故宫", spec: "" };
+
+  assert.equal(productResourceRouteMatch(mutianyu, mutianyuQuery.route).matched, true);
+  assert.ok(productResourceMatchScore(mutianyu, mutianyuQuery) > productResourceMatchScore(forbidden, mutianyuQuery));
+
+  const liRiverQuery = { category: "门票", city: "桂林", serviceType: "景区门票", route: "Li River Cruise" };
+  const liRiver = { category: "门票", city: "桂林", service_type: "景区门票", name: "漓江游船", route: "漓江", spec: "" };
+  const yulong = { category: "门票", city: "桂林", service_type: "景区门票", name: "遇龙河竹筏", route: "遇龙河", spec: "" };
+
+  assert.equal(productResourceRouteMatch(liRiver, liRiverQuery.route).matched, true);
+  assert.ok(productResourceMatchScore(liRiver, liRiverQuery) > productResourceMatchScore(yulong, liRiverQuery));
+});

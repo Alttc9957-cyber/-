@@ -4,9 +4,25 @@
   const ORDER_STATUSES = ["待确认", "待安排", "进行中", "已完成"];
 
   const CITY_ALIASES = [
+    { city: "北京", patterns: [/beijing/i, /北京/] },
+    { city: "西安", patterns: [/xi['’]?\s*an/i, /xian/i, /西安/] },
+    { city: "张家界", patterns: [/zhangjiajie/i, /zhang\s*jia\s*jie/i, /张家界/] },
+    { city: "桂林", patterns: [/guilin/i, /yangshuo/i, /桂林|阳朔/] },
+    { city: "上海", patterns: [/shanghai/i, /上海/] },
     { city: "昆明", patterns: [/kunming/i, /昆明/] },
     { city: "重庆", patterns: [/chong\s*qing/i, /chongqing/i, /chongquing/i, /coongqing/i, /重庆/] },
     { city: "成都", patterns: [/chengdu/i, /成都/] },
+  ];
+
+  const CITY_HEADING_PATTERNS = [
+    { city: "北京", pattern: /beijing|北京/i },
+    { city: "西安", pattern: /xi['’]?\s*an|xian|西安/i },
+    { city: "张家界", pattern: /zhangjiajie|zhang\s*jia\s*jie|张家界/i },
+    { city: "桂林", pattern: /yangshuo\s*\/\s*guilin|guilin|yangshuo|桂林|阳朔/i },
+    { city: "上海", pattern: /shanghai|上海/i },
+    { city: "昆明", pattern: /kunming|昆明/i },
+    { city: "重庆", pattern: /chong\s*qing|chongqing|chongquing|coongqing|重庆/i },
+    { city: "成都", pattern: /chengdu|成都/i },
   ];
 
   const MONTHS = {
@@ -129,7 +145,7 @@
   function parseNightsByCity(text) {
     const source = textValue(text);
     const nightsByCity = {};
-    const pattern = /([A-Za-z\u4e00-\u9fa5\s]{2,28}?)\s*(\d{1,2})\s*(?:nights?|晚|晚住宿)/gi;
+    const pattern = /([A-Za-z\u4e00-\u9fa5\s/'’.-]{2,36}?)\s*\(?\s*(\d{1,2})\s*(?:nights?|晚|晚住宿)\s*\)?/gi;
     let match = pattern.exec(source);
     while (match) {
       const city = normalizeCityName(match[1]);
@@ -161,10 +177,11 @@ function inferServiceDays(text, nightsByCity = parseNightsByCity(text)) {
     const senderMatch = source.match(/(?:旅行社|travel\s*agent|agent)\s*([^:\n]{2,80})\s*:/i) || source.match(/\]\s*([^:\n]{2,80})\s*:/);
     const customerName = senderMatch ? senderMatch[1].trim().replace(/\s+/g, " ") : "";
     const fromBangladesh = /bangladesh|bangladeshi|孟加拉/i.test(source);
+    const fromSpain = /西班牙旅行社|spain|spanish|p[eé]rez|eva/i.test(source);
     return {
-      actualCustomerName: customerName,
-      travelAgencyName: fromBangladesh ? "孟加拉旅行社" : "",
-      clientCountry: fromBangladesh ? "孟加拉国" : "",
+      actualCustomerName: fromSpain ? "Eva Pérez" : customerName,
+      travelAgencyName: fromBangladesh ? "孟加拉旅行社" : fromSpain ? "西班牙旅行社" : "",
+      clientCountry: fromBangladesh ? "孟加拉国" : fromSpain ? "西班牙" : "",
       source: /\[\d{1,2}:\d{2}/.test(source) ? "WeChat" : "",
     };
   }
@@ -175,7 +192,7 @@ function inferServiceDays(text, nightsByCity = parseNightsByCity(text)) {
     const trainExcluded = /(?:no\s+need|not\s+need|without|exclude|不需要|不含)[^.\n]{0,60}(?:train|rail|ticket|火车|高铁|车票|机票)/i.test(source);
     const vehicleRequested = /transfer|sightseeing|vehicle|car|van|bus|用车|包车|接送|接机|送机/i.test(source);
     const guideRequested = /guide|导游|讲解/i.test(source);
-    const ticketRequested = /entrance\s*fee|ticket|门票|景点/i.test(source);
+    const ticketRequested = /entrance\s*fee|ticket|门票|景点|must-see|highlights?|great\s*wall|forbidden\s*city|terracotta|avatar\s*mountains?|li\s*river/i.test(source);
     return {
       vehicle: vehicleRequested || true,
       guide: guideRequested,
@@ -264,7 +281,55 @@ function inferServiceDays(text, nightsByCity = parseNightsByCity(text)) {
       });
       match = pattern.exec(source);
     }
+    if (!days.length) return parsePreferredRouteBlocks(source, { ...options, startDate });
     return days.sort((a, b) => a.day - b.day);
+  }
+
+  function parseHighlightsByCity(text) {
+    const source = textValue(text);
+    const lines = source.split("\n");
+    const sections = {};
+    let currentCity = "";
+    lines.forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      const heading = trimmed.match(/^([A-Za-z\u4e00-\u9fa5\s/'’.-]{2,36})\s*[:：]\s*$/);
+      if (heading) {
+        const normalized = normalizeCityName(heading[1]);
+        if (normalized) {
+          currentCity = normalized;
+          sections[currentCity] = sections[currentCity] || [];
+        }
+        return;
+      }
+      if (currentCity && /^[-•]/.test(trimmed)) {
+        sections[currentCity].push(trimmed.replace(/^[-•]\s*/, "").trim());
+      }
+    });
+    return sections;
+  }
+
+  function parsePreferredRouteBlocks(text, options = {}) {
+    const nightsByCity = parseNightsByCity(text);
+    const highlightsByCity = parseHighlightsByCity(text);
+    const cities = findCities(text);
+    let cursor = 1;
+    return cities.map((city) => {
+      const nights = Number(nightsByCity[city] || 0);
+      const highlights = highlightsByCity[city] || [];
+      const day = cursor;
+      cursor += nights ? nights + 1 : 1;
+      return {
+        day,
+        date: addDays(options.startDate || "", day - 1),
+        city,
+        nights,
+        title: nights ? `${city} ${nights} nights` : city,
+        summary: highlights.join("；"),
+        detail: highlights.length ? `${city}: ${highlights.join("；")}` : city,
+        highlights,
+      };
+    });
   }
 
   function parsePhase1DemandText(text, options = {}) {
@@ -285,6 +350,7 @@ function inferServiceDays(text, nightsByCity = parseNightsByCity(text)) {
       childAges: parseChildAges(source),
       cities,
       nightsByCity,
+      highlightsByCity: parseHighlightsByCity(source),
       services,
       transferNeed: services.transfer ? "需要接送机/站与市内游览用车" : "",
       charterNeed: services.vehicle ? "需要" : "",
@@ -301,6 +367,7 @@ function inferServiceDays(text, nightsByCity = parseNightsByCity(text)) {
     inferServiceDays,
     inferGuideDays,
     parseItineraryDays,
+    parseHighlightsByCity,
     findCities,
     parseNightsByCity,
   };

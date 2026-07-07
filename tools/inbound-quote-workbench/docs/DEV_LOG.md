@@ -28,6 +28,77 @@
 - 如果改变交付版本，必须同步登记到 `docs/RELEASE_NOTES.md`。
 - 如果影响核心流程，必须按 `docs/QA_CHECKLIST.md` 跑回归。
 
+## 2026-07-07
+
+日期：2026-07-07
+
+修改目标：完成友易行 V1 地基修复阶段 A 的第一批风险补齐：接口权限、产品补录审核区、服务端持久化兜底、缺成本门禁和 Eva 真实案例结构化验收。
+
+修改原因：上线前整包审查发现当前版本存在敏感写接口无服务端角色校验、OP 补录资源“待复核但已发布”、报价 / 订单 / 审计大量依赖 localStorage、英文多城市真实案例抽取不足、英文景点与中文产品库命中不稳等风险。
+
+关联 bug：
+
+- 待编号：敏感写接口缺少服务端角色守卫。
+- 待编号：OP 补录资源待复核状态下仍可进入正式产品匹配。
+- 待编号：报价版本、订单和阶段审计日志缺少服务端事实来源。
+- 待编号：Eva 英文多城市需求无法稳定结构化。
+
+关联功能：
+
+- F-005 产品资源匹配与报价成本回填
+- F-006 报价明细、汇总与缺成本检查
+- F-011 订单管理与成交转订单
+- F-012 AI 模型配置与报价规则设置
+- F-018 Agent Gateway 权限与日志骨架
+
+涉及文件：
+
+- `server.js`
+- `app.js`
+- `public/js/domain/phase1/phase1-closed-loop.js`
+- `tests/product-resource-upsert-from-quote.test.js`
+- `tests/server-auth-guard.test.js`
+- `tests/phase1-closed-loop.test.js`
+- `tests/product-resource-match-scoring.test.js`
+- `.ai/tasks/A-v1-foundation-goal-loop.yml`
+- `docs/API_RISK_MATRIX_20260707.md`
+- `docs/DEV_LOG.md`
+- `docs/CHANGELOG.md`
+
+具体改动：
+
+- 新增服务端最小角色守卫，敏感写接口按 `sales` / `op` / `boss` / `admin` 做服务端校验。
+- 新增 `GET /api/auth/session`、`GET /api/product-resource-reviews`、`POST /api/product-resource-reviews/approve`、`GET/POST /api/quote-versions`、`GET/POST /api/orders`、`POST /api/audit-events`。
+- 报价台缺成本补录改为进入产品补录审核区，`is_published=false`，老板 / 管理员审核通过后才进入正式产品库。
+- 报价版本、订单、关键审计事件新增服务端 local-json 持久化兜底；localStorage 保留为草稿和离线兜底。
+- 客户方案确认、导出 PDF / 图片、成交转订单前增加缺成本门禁。
+- 快捷补成本不再默认填 0，且拒绝 0 或负数成本。
+- Eva 英文多城市案例纳入测试，可抽取北京 / 西安 / 张家界 / 桂林 / 上海、城市晚数和关键景点。
+- 产品匹配增加英文景点别名与中文产品库名称的同义匹配，如 Mutianyu / 慕田峪、Terracotta / 兵马俑、Li River / 漓江。
+- 新增接口风险矩阵和本阶段 AI 任务文件。
+
+验证结果：
+
+- `node --check app.js` 通过。
+- `node --check server.js` 通过。
+- `find public/js -type f -name '*.js' -print0 | xargs -0 -n 1 node --check` 通过。
+- `node --test tests/*.test.js` 通过，46/46。
+- 接口 smoke 通过：OP 提交补录后产品匹配为 `unmatched`；老板审核通过后匹配为 `matched`。
+- 本地接口 smoke 通过：`GET /api/product-resources` 无角色返回 401，`op` 角色返回 200。
+
+是否影响旧功能：影响报价缺成本补录口径。原先补录后会直接写入正式产品库并参与后续匹配；现在改为先进入审核区，当前报价可使用手填成本，但正式产品库必须老板 / 管理员审核后才发布。
+
+回退方式：
+
+- 回退本轮 commit 即可恢复旧接口和旧补录行为。
+- 如需只回退审核区，可还原 `server.js` 中 `/api/product-resources/upsert-from-quote` 行为和 `app.js` 中 `applyQuoteProductSync()` 行为。
+- 本轮未执行数据库迁移，未修改 `.env`，未写线上 Supabase 数据。
+
+下一步建议：
+
+- 继续阶段 A：把产品补录审核区接到老板视图按钮，补更完整的报价 / 订单服务端读取回填。
+- 阶段 A 完成后提交代码，由 Hermes 做仓库审查。
+
 ## 2026-07-06
 
 日期：2026-07-06

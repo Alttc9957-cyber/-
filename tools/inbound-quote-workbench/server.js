@@ -8,8 +8,30 @@ const port = Number(process.env.PORT || 8787);
 const runtimeSettingsPath = path.join(root, "runtime-settings.json");
 const operationLogPath = path.join(root, "data", "agent-operation-log.json");
 const manualProductResourcesPath = process.env.MANUAL_PRODUCT_RESOURCES_PATH || path.join(root, "data", "manual-product-resources.json");
+const productReviewItemsPath = process.env.PRODUCT_REVIEW_ITEMS_PATH || path.join(root, "data", "product-resource-review-items.json");
+const quoteStatePath = process.env.QUOTE_STATE_PATH || path.join(root, "data", "quote-state.json");
+const orderStatePath = process.env.ORDER_STATE_PATH || path.join(root, "data", "order-state.json");
+const businessAuditLogPath = process.env.BUSINESS_AUDIT_LOG_PATH || path.join(root, "data", "business-audit-events.json");
 loadLocalEnv(path.join(root, ".env"));
 loadLocalEnv(path.join(root, ".env.supabase.local"));
+
+const roleAliases = {
+  admin: "admin",
+  boss: "boss",
+  owner: "boss",
+  op: "op",
+  operations: "op",
+  sales: "sales",
+  designer: "sales",
+};
+
+const rolePolicies = {
+  anyUser: ["sales", "op", "boss", "admin"],
+  quoteWrite: ["sales", "op", "boss", "admin"],
+  opWrite: ["op", "boss", "admin"],
+  bossWrite: ["boss", "admin"],
+  adminWrite: ["admin"],
+};
 
 const types = {
   ".html": "text/html;charset=utf-8",
@@ -23,73 +45,134 @@ const types = {
 
 async function requestHandler(req, res) {
   const route = req.url.split("?")[0];
+  if (req.method === "GET" && route === "/api/auth/session") {
+    const actor = getRequestActor(req);
+    sendJson(res, 200, { actor, permissions: publicPermissionsForRole(actor.role) });
+    return;
+  }
+
   if (req.method === "GET" && route === "/api/settings") {
     handleGetSettings(res);
     return;
   }
 
   if (req.method === "POST" && route === "/api/settings/ai") {
+    if (!requireApiRole(req, res, rolePolicies.adminWrite, "settings:write")) return;
     await handleSaveAiSettings(req, res);
     return;
   }
 
   if (req.method === "POST" && route === "/api/settings/ai/test") {
+    if (!requireApiRole(req, res, rolePolicies.adminWrite, "settings:test")) return;
     await handleTestAiSettings(req, res);
     return;
   }
 
   if (req.method === "POST" && route === "/api/agent") {
+    if (!requireApiRole(req, res, rolePolicies.anyUser, "agent:use")) return;
     await handleAgentRequest(req, res);
     return;
   }
 
   if (req.method === "POST" && route === "/api/agent/chat") {
+    if (!requireApiRole(req, res, rolePolicies.anyUser, "agent:chat")) return;
     await handleAgentChatRequest(req, res);
     return;
   }
 
   if (req.method === "POST" && route === "/api/agent/action") {
+    if (!requireApiRole(req, res, rolePolicies.opWrite, "agent:action")) return;
     await handleAgentActionRequest(req, res);
     return;
   }
 
   if (req.method === "POST" && route === "/api/agent/suggestions") {
+    if (!requireApiRole(req, res, rolePolicies.anyUser, "agent:suggestions")) return;
     await handleAgentSuggestionsRequest(req, res);
     return;
   }
 
   if (req.method === "POST" && route === "/api/agent/apply") {
+    if (!requireApiRole(req, res, rolePolicies.opWrite, "agent:apply")) return;
     await handleAgentApplyRequest(req, res);
     return;
   }
 
   if (req.method === "POST" && route === "/api/translate") {
+    if (!requireApiRole(req, res, rolePolicies.anyUser, "translate:proposal")) return;
     await handleTranslateRequest(req, res);
     return;
   }
 
   if (req.method === "POST" && route === "/api/translate/segment") {
+    if (!requireApiRole(req, res, rolePolicies.anyUser, "translate:segment")) return;
     await handleTranslateSegmentRequest(req, res);
     return;
   }
 
   if (req.method === "GET" && route === "/api/product-imports/latest/report") {
+    if (!requireApiRole(req, res, rolePolicies.anyUser, "product-import-report:read")) return;
     await handleLatestProductImportReport(req, res);
     return;
   }
 
   if (req.method === "GET" && route === "/api/product-resources") {
+    if (!requireApiRole(req, res, rolePolicies.anyUser, "product:read")) return;
     await handleProductResources(req, res);
     return;
   }
 
   if (req.method === "POST" && route === "/api/product-resources/match") {
+    if (!requireApiRole(req, res, rolePolicies.anyUser, "product:match")) return;
     await handleProductResourceMatch(req, res);
     return;
   }
 
   if (req.method === "POST" && route === "/api/product-resources/upsert-from-quote") {
+    if (!requireApiRole(req, res, rolePolicies.opWrite, "product-review:submit")) return;
     await handleUpsertProductResourceFromQuote(req, res);
+    return;
+  }
+
+  if (req.method === "GET" && route === "/api/product-resource-reviews") {
+    if (!requireApiRole(req, res, rolePolicies.opWrite, "product-review:read")) return;
+    await handleProductResourceReviews(req, res);
+    return;
+  }
+
+  if (req.method === "POST" && route === "/api/product-resource-reviews/approve") {
+    if (!requireApiRole(req, res, rolePolicies.bossWrite, "product-review:approve")) return;
+    await handleApproveProductResourceReview(req, res);
+    return;
+  }
+
+  if (req.method === "GET" && route === "/api/quote-versions") {
+    if (!requireApiRole(req, res, rolePolicies.anyUser, "quote-version:read")) return;
+    await handleQuoteVersions(req, res);
+    return;
+  }
+
+  if (req.method === "POST" && route === "/api/quote-versions") {
+    if (!requireApiRole(req, res, rolePolicies.quoteWrite, "quote-version:write")) return;
+    await handleSaveQuoteVersions(req, res);
+    return;
+  }
+
+  if (req.method === "GET" && route === "/api/orders") {
+    if (!requireApiRole(req, res, rolePolicies.opWrite, "order:read")) return;
+    await handleOrders(req, res);
+    return;
+  }
+
+  if (req.method === "POST" && route === "/api/orders") {
+    if (!requireApiRole(req, res, rolePolicies.quoteWrite, "order:write")) return;
+    await handleSaveOrder(req, res);
+    return;
+  }
+
+  if (req.method === "POST" && route === "/api/audit-events") {
+    if (!requireApiRole(req, res, rolePolicies.anyUser, "audit:write")) return;
+    await handleAuditEvent(req, res);
     return;
   }
 
@@ -132,6 +215,10 @@ function isBlockedStaticPath(filePath) {
     "runtime-settings.json",
     path.join("data", "agent-operation-log.json"),
     path.join("data", "manual-product-resources.json"),
+    path.join("data", "product-resource-review-items.json"),
+    path.join("data", "quote-state.json"),
+    path.join("data", "order-state.json"),
+    path.join("data", "business-audit-events.json"),
   ].includes(relative);
 }
 
@@ -147,6 +234,80 @@ function loadLocalEnv(filePath) {
     const value = trimmed.slice(index + 1).trim().replace(/^["']|["']$/g, "");
     if (key && process.env[key] === undefined) process.env[key] = value;
   });
+}
+
+function normalizeRole(value) {
+  const role = String(value || "").trim().toLowerCase();
+  return roleAliases[role] || "";
+}
+
+function getRequestActor(req) {
+  const role = normalizeRole(req.headers["x-youyixing-role"] || req.headers["x-role"]) || "anonymous";
+  return {
+    role,
+    userId: String(req.headers["x-youyixing-user"] || req.headers["x-user-id"] || role || "anonymous").slice(0, 120),
+    tenantId: String(req.headers["x-youyixing-tenant"] || req.headers["x-tenant-id"] || "youyixing-default").slice(0, 120),
+  };
+}
+
+function publicPermissionsForRole(role) {
+  return {
+    canUseAgent: rolePolicies.anyUser.includes(role),
+    canSubmitProductReview: rolePolicies.opWrite.includes(role),
+    canApproveProductReview: rolePolicies.bossWrite.includes(role),
+    canWriteAiSettings: rolePolicies.adminWrite.includes(role),
+    canWriteQuote: rolePolicies.quoteWrite.includes(role),
+    canReadOrders: rolePolicies.opWrite.includes(role),
+  };
+}
+
+function requireApiRole(req, res, allowedRoles = [], action = "api") {
+  const actor = getRequestActor(req);
+  if (!rolePolicies.anyUser.includes(actor.role)) {
+    sendJson(res, 401, { error: "请先选择有效角色后再操作。", code: "unauthenticated", action, actor });
+    return false;
+  }
+  if (!allowedRoles.includes(actor.role)) {
+    sendJson(res, 403, { error: "当前角色无权执行该操作。", code: "forbidden", action, actor });
+    return false;
+  }
+  req.actor = actor;
+  return true;
+}
+
+function readJsonFile(filePath, fallback) {
+  try {
+    if (!fs.existsSync(filePath)) return fallback;
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJsonFile(filePath, payload) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(payload, null, 2));
+}
+
+function makeLocalId(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function appendBusinessAuditEvent(action, payload = {}, actor = {}) {
+  const store = readJsonFile(businessAuditLogPath, { version: 1, events: [] });
+  const events = Array.isArray(store.events) ? store.events : [];
+  const event = {
+    id: makeLocalId("audit"),
+    action,
+    actor: actor.role || payload.actor || "system",
+    userId: actor.userId || "",
+    tenantId: actor.tenantId || "youyixing-default",
+    at: new Date().toISOString(),
+    payload,
+  };
+  events.unshift(event);
+  writeJsonFile(businessAuditLogPath, { version: 1, updatedAt: new Date().toISOString(), events: events.slice(0, 3000) });
+  return event;
 }
 
 async function handleAgentRequest(req, res) {
@@ -844,6 +1005,75 @@ async function handleUpsertProductResourceFromQuote(req, res) {
       sendJson(res, 400, { error: "补录成本为空，不能写入可报价产品库" });
       return;
     }
+    const reviewItem = upsertProductResourceReview({
+      resource,
+      actor: getRequestActor(req),
+      source: "quote-workbench",
+      note: body.note || "报价缺成本补录提交审核。",
+    });
+    appendBusinessAuditEvent("product_resource_review_submitted", {
+      reviewId: reviewItem.id,
+      sourceKey: resource.source_key,
+      category: resource.category,
+      name: resource.name,
+      projectId: resource.extra_fields?.projectId || "",
+    }, getRequestActor(req));
+    sendJson(res, 200, {
+      ok: true,
+      storage: "review-queue",
+      reviewItem,
+      resource: normalizeProductResourceApiFields({ ...resource, id: reviewItem.id }),
+      sourceKey: resource.source_key,
+      warnings: [],
+      message: "已提交产品库审核区。当前报价可使用手填成本，老板审核通过后才会进入正式产品库匹配。",
+    });
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "报价补录资源写入产品库失败" });
+  }
+}
+
+async function handleProductResourceReviews(req, res) {
+  try {
+    const url = new URL(req.url, `http://${host}:${port}`);
+    const status = url.searchParams.get("status") || "";
+    const items = readProductResourceReviews().filter((item) => !status || item.status === status);
+    sendJson(res, 200, { items, count: items.length, storage: "local-json" });
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "读取产品补录审核区失败" });
+  }
+}
+
+async function handleApproveProductResourceReview(req, res) {
+  try {
+    const body = await readJsonBody(req);
+    const action = body.action === "reject" ? "reject" : "approve";
+    const reviewId = body.reviewId || body.id || "";
+    const sourceKey = body.sourceKey || "";
+    const reviewItem = findProductResourceReview({ reviewId, sourceKey });
+    if (!reviewItem) {
+      sendJson(res, 404, { error: "未找到产品补录审核项" });
+      return;
+    }
+
+    if (action === "reject") {
+      const rejected = updateProductResourceReview(reviewItem.id, {
+        status: "rejected",
+        reviewedAt: new Date().toISOString(),
+        reviewedBy: getRequestActor(req).userId,
+        reviewNote: body.note || "老板驳回",
+      });
+      appendBusinessAuditEvent("product_resource_review_rejected", { reviewId: rejected.id, sourceKey: rejected.resource?.source_key || "" }, getRequestActor(req));
+      sendJson(res, 200, { ok: true, reviewItem: rejected, message: "已驳回补录资源，未进入正式产品库。" });
+      return;
+    }
+
+    const resource = {
+      ...(reviewItem.resource || {}),
+      status: "已复核可报价",
+      published_version: "quote-manual-v1",
+      is_published: true,
+      updated_at: new Date().toISOString(),
+    };
     const warnings = [];
     let storage = "local-json";
     let saved = null;
@@ -852,20 +1082,34 @@ async function handleUpsertProductResourceFromQuote(req, res) {
         saved = await upsertSupabaseProductResource(resource);
         storage = "supabase";
       } catch (error) {
-        warnings.push(`Supabase 写入失败，已落本地持久库：${error.message || error}`);
+        warnings.push(`Supabase 写入失败，已落本地正式产品库：${error.message || error}`);
       }
     }
     if (!saved) saved = upsertManualProductResource(resource);
+    const approved = updateProductResourceReview(reviewItem.id, {
+      status: "approved",
+      reviewedAt: new Date().toISOString(),
+      reviewedBy: getRequestActor(req).userId,
+      reviewNote: body.note || "老板审核通过",
+      publishedResourceId: saved.id || "",
+      storage,
+    });
+    appendBusinessAuditEvent("product_resource_review_approved", {
+      reviewId: approved.id,
+      sourceKey: resource.source_key,
+      resourceId: saved.id || "",
+      storage,
+    }, getRequestActor(req));
     sendJson(res, 200, {
       ok: true,
       storage,
       resource: normalizeProductResourceApiFields(saved),
-      sourceKey: resource.source_key,
+      reviewItem: approved,
       warnings,
-      message: storage === "supabase" ? "已写入云端产品库，可被后续报价匹配" : "已写入服务端本地持久产品库，可被后续报价匹配",
+      message: storage === "supabase" ? "审核通过，已写入云端正式产品库。" : "审核通过，已写入服务端本地正式产品库。",
     });
   } catch (error) {
-    sendJson(res, 500, { error: error.message || "报价补录资源写入产品库失败" });
+    sendJson(res, 500, { error: error.message || "审核产品补录失败" });
   }
 }
 
@@ -886,6 +1130,74 @@ function writeManualProductResources(resources = []) {
     updatedAt: new Date().toISOString(),
     resources,
   }, null, 2));
+}
+
+function readProductResourceReviews() {
+  const payload = readJsonFile(productReviewItemsPath, { version: 1, items: [] });
+  return Array.isArray(payload.items) ? payload.items : Array.isArray(payload) ? payload : [];
+}
+
+function writeProductResourceReviews(items = []) {
+  writeJsonFile(productReviewItemsPath, {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    items,
+  });
+}
+
+function productReviewDedupKey(resource = {}) {
+  return resource.source_key || stableSourceKey(["review", resource.category, resource.city, resource.name, resource.service_type, resource.route, resource.model, resource.spec]);
+}
+
+function upsertProductResourceReview(input = {}) {
+  const resource = input.resource || {};
+  const actor = input.actor || {};
+  const items = readProductResourceReviews();
+  const sourceKey = productReviewDedupKey(resource);
+  const index = items.findIndex((item) => item.sourceKey === sourceKey && !["approved", "rejected"].includes(item.status));
+  const existing = index >= 0 ? items[index] : {};
+  const now = new Date().toISOString();
+  const next = {
+    ...existing,
+    id: existing.id || makeLocalId("review"),
+    sourceKey,
+    status: "pending_review",
+    category: resource.category || "",
+    city: resource.city || "",
+    name: resource.name || "",
+    costPrice: resource.cost_price ?? null,
+    supplierName: resource.supplier_name || "",
+    resource: {
+      ...resource,
+      source_key: sourceKey,
+      status: "OP补录待复核",
+      published_version: "",
+      is_published: false,
+    },
+    submittedBy: actor.userId || "",
+    submittedRole: actor.role || "",
+    submittedAt: existing.submittedAt || now,
+    updatedAt: now,
+    note: input.note || existing.note || "",
+    source: input.source || existing.source || "quote-workbench",
+  };
+  if (index >= 0) items[index] = next;
+  else items.unshift(next);
+  writeProductResourceReviews(items.slice(0, 2000));
+  return next;
+}
+
+function findProductResourceReview({ reviewId = "", sourceKey = "" } = {}) {
+  return readProductResourceReviews().find((item) => (reviewId && item.id === reviewId) || (sourceKey && item.sourceKey === sourceKey)) || null;
+}
+
+function updateProductResourceReview(reviewId, patch = {}) {
+  const items = readProductResourceReviews();
+  const index = items.findIndex((item) => item.id === reviewId);
+  if (index === -1) return null;
+  items[index] = { ...items[index], ...patch, updatedAt: new Date().toISOString() };
+  writeProductResourceReviews(items);
+  return items[index];
 }
 
 function filterManualProductResources(resources = [], filters = {}) {
@@ -1056,8 +1368,8 @@ function normalizeQuoteProductResourcePayload(body = {}) {
       note: body.note || "",
     },
     quality_flags: [],
-    published_version: "quote-manual-v1",
-    is_published: true,
+    published_version: "",
+    is_published: false,
     updated_at: now,
   };
 }
@@ -1091,6 +1403,24 @@ function routeFamiliesFromText(value) {
   if (/高铁|火车站|station|接站|送站|接送站/.test(text)) families.add("station");
   if (/市内|市区|本地游|一日游|8小时|八小时|9小时|九小时/.test(text)) families.add("city_day");
   if (/武隆/.test(text)) families.add("wulong");
+  if (/mutianyu|慕田峪/.test(text)) families.add("mutianyu");
+  if (/greatwall|长城/.test(text)) families.add("great_wall");
+  if (/forbiddencity|故宫|palacemuseum/.test(text)) families.add("forbidden_city");
+  if (/tiananmen|天安门/.test(text)) families.add("tiananmen");
+  if (/summerpalace|颐和园/.test(text)) families.add("summer_palace");
+  if (/templeofheaven|天坛/.test(text)) families.add("temple_of_heaven");
+  if (/terracotta|warriors|兵马俑|秦始皇陵/.test(text)) families.add("terracotta");
+  if (/citywall|城墙/.test(text)) families.add("city_wall");
+  if (/yuanjiajie|袁家界|avatarmountain|avatar/.test(text)) families.add("yuanjiajie");
+  if (/bailong|百龙天梯/.test(text)) families.add("bailong_elevator");
+  if (/tianzimountain|天子山/.test(text)) families.add("tianzi_mountain");
+  if (/tianmen|heavengate|天门山|天门洞/.test(text)) families.add("tianmen_mountain");
+  if (/glassbridge|玻璃桥/.test(text)) families.add("glass_bridge");
+  if (/liriver|漓江/.test(text)) families.add("li_river");
+  if (/yulong|遇龙河/.test(text)) families.add("yulong_river");
+  if (/bambooraft|竹筏/.test(text)) families.add("bamboo_raft");
+  if (/thebund|bund|外滩/.test(text)) families.add("bund");
+  if (/nanjingroad|南京路/.test(text)) families.add("nanjing_road");
   return families;
 }
 
@@ -1216,6 +1546,96 @@ async function handleTestAiSettings(req, res) {
   }
 }
 
+async function handleQuoteVersions(req, res) {
+  try {
+    const url = new URL(req.url, `http://${host}:${port}`);
+    const projectId = url.searchParams.get("projectId") || "";
+    const store = readJsonFile(quoteStatePath, { version: 1, projects: {} });
+    const projects = store.projects && typeof store.projects === "object" ? store.projects : {};
+    sendJson(res, 200, { projectId, state: projectId ? projects[projectId] || null : null, storage: "local-json" });
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "读取报价版本失败" });
+  }
+}
+
+async function handleSaveQuoteVersions(req, res) {
+  try {
+    const body = await readJsonBody(req);
+    const projectId = String(body.currentProjectId || body.projectId || "").trim();
+    if (!projectId) {
+      sendJson(res, 400, { error: "缺少 projectId，不能保存报价版本" });
+      return;
+    }
+    const store = readJsonFile(quoteStatePath, { version: 1, projects: {} });
+    const projects = store.projects && typeof store.projects === "object" ? store.projects : {};
+    projects[projectId] = {
+      projectId,
+      activeQuote: Number.isInteger(body.activeQuote) ? body.activeQuote : 0,
+      quoteVersions: Array.isArray(body.quoteVersions) ? body.quoteVersions : [],
+      updatedAt: new Date().toISOString(),
+      updatedBy: getRequestActor(req).userId,
+    };
+    writeJsonFile(quoteStatePath, { version: 1, updatedAt: new Date().toISOString(), projects });
+    appendBusinessAuditEvent("quote_versions_saved", { projectId, count: projects[projectId].quoteVersions.length }, getRequestActor(req));
+    sendJson(res, 200, { ok: true, projectId, storage: "local-json", message: "报价版本已写入服务端事实来源。" });
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "保存报价版本失败" });
+  }
+}
+
+async function handleOrders(req, res) {
+  try {
+    const url = new URL(req.url, `http://${host}:${port}`);
+    const projectId = url.searchParams.get("projectId") || "";
+    const store = readJsonFile(orderStatePath, { version: 1, orders: [] });
+    const orders = Array.isArray(store.orders) ? store.orders : [];
+    const filtered = projectId ? orders.filter((order) => order.projectId === projectId) : orders;
+    sendJson(res, 200, { orders: filtered, count: filtered.length, storage: "local-json" });
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "读取订单失败" });
+  }
+}
+
+async function handleSaveOrder(req, res) {
+  try {
+    const body = await readJsonBody(req);
+    const order = body.order || body;
+    if (!order.id) {
+      sendJson(res, 400, { error: "缺少 order.id，不能保存订单" });
+      return;
+    }
+    const store = readJsonFile(orderStatePath, { version: 1, orders: [] });
+    const orders = Array.isArray(store.orders) ? store.orders : [];
+    const index = orders.findIndex((item) => item.id === order.id);
+    const next = {
+      ...order,
+      serverSyncedAt: new Date().toISOString(),
+      serverSyncedBy: getRequestActor(req).userId,
+    };
+    if (index >= 0) orders[index] = { ...orders[index], ...next };
+    else orders.unshift(next);
+    writeJsonFile(orderStatePath, { version: 1, updatedAt: new Date().toISOString(), orders: orders.slice(0, 3000) });
+    appendBusinessAuditEvent("order_saved", { orderId: order.id, projectId: order.projectId || "", quoteVersion: order.quoteVersion || "" }, getRequestActor(req));
+    sendJson(res, 200, { ok: true, order: next, storage: "local-json", message: "订单已写入服务端事实来源。" });
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "保存订单失败" });
+  }
+}
+
+async function handleAuditEvent(req, res) {
+  try {
+    const body = await readJsonBody(req);
+    if (!body.action) {
+      sendJson(res, 400, { error: "缺少 audit action" });
+      return;
+    }
+    const event = appendBusinessAuditEvent(body.action, body.payload || {}, getRequestActor(req));
+    sendJson(res, 200, { ok: true, event, storage: "local-json" });
+  } catch (error) {
+    sendJson(res, 500, { error: error.message || "写入审计日志失败" });
+  }
+}
+
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
     let raw = "";
@@ -1265,5 +1685,11 @@ requestHandler.normalizeQuoteProductResourcePayload = normalizeQuoteProductResou
 requestHandler.upsertManualProductResource = upsertManualProductResource;
 requestHandler.readManualProductResources = readManualProductResources;
 requestHandler.filterManualProductResources = filterManualProductResources;
+requestHandler.upsertProductResourceReview = upsertProductResourceReview;
+requestHandler.readProductResourceReviews = readProductResourceReviews;
+requestHandler.updateProductResourceReview = updateProductResourceReview;
+requestHandler.findProductResourceReview = findProductResourceReview;
+requestHandler.getRequestActor = getRequestActor;
+requestHandler.requireApiRole = requireApiRole;
 
 module.exports = requestHandler;

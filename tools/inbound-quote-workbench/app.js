@@ -45558,8 +45558,17 @@ async function loadRuntimeData() {
   }
 }
 
+function apiAuthHeaders(extra = {}) {
+  return {
+    "X-Youyixing-Role": state.currentRole || "op",
+    "X-Youyixing-User": $("#owner")?.value || state.currentRole || "op",
+    "X-Youyixing-Tenant": "youyixing-default",
+    ...extra,
+  };
+}
+
 async function fetchJson(url) {
-  const response = await fetch(url);
+  const response = await fetch(url, { headers: apiAuthHeaders() });
   if (!response.ok) throw new Error(`${url} ${response.status}`);
   return response.json();
 }
@@ -45575,7 +45584,7 @@ async function fetchOptionalJson(url, fallback) {
 async function postJson(url, payload = {}) {
   const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: apiAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(payload),
   });
   const data = await response.json().catch(() => ({}));
@@ -48303,15 +48312,17 @@ function loadQuoteVersions() {
 }
 
 function saveQuoteVersions() {
-  setLocalStorageJson("youyixing_quote_versions", {
+  const payload = {
     currentProjectId: state.currentProjectId,
     activeQuote: state.activeQuote,
     quoteVersions: compactQuoteVersionsForStorage(state.quoteVersions, "normal"),
-  }, () => ({
+  };
+  setLocalStorageJson("youyixing_quote_versions", payload, () => ({
     currentProjectId: state.currentProjectId,
     activeQuote: state.activeQuote,
     quoteVersions: compactQuoteVersionsForStorage(state.quoteVersions, "minimal"),
   }));
+  syncQuoteVersionsToServer(payload);
 }
 
 function loadOrderState() {
@@ -48322,10 +48333,12 @@ function loadOrderState() {
 }
 
 function saveOrderState() {
-  localStorage.setItem("youyixing_order_state", JSON.stringify({
+  const payload = {
     order: state.order,
     orders: state.orders || [],
-  }));
+  };
+  localStorage.setItem("youyixing_order_state", JSON.stringify(payload));
+  if (state.order?.id) syncOrderToServer(state.order);
 }
 
 function loadPhase1State() {
@@ -48356,7 +48369,30 @@ function appendPhase1AuditLog(action, payload = {}) {
   state.phase1AuditLogs.unshift(entry);
   state.phase1AuditLogs = state.phase1AuditLogs.slice(0, 300);
   savePhase1State();
+  syncAuditEventToServer(entry);
   return entry;
+}
+
+function syncQuoteVersionsToServer(payload) {
+  if (!payload.currentProjectId) return;
+  postJson("/api/quote-versions", payload).catch((error) => {
+    console.warn("Quote version server sync failed:", error.message || error);
+  });
+}
+
+function syncOrderToServer(order) {
+  postJson("/api/orders", { order }).catch((error) => {
+    console.warn("Order server sync failed:", error.message || error);
+  });
+}
+
+function syncAuditEventToServer(entry) {
+  postJson("/api/audit-events", {
+    action: entry.action,
+    payload: entry,
+  }).catch((error) => {
+    console.warn("Audit event server sync failed:", error.message || error);
+  });
 }
 
 function renderRoleVisibility() {
@@ -51200,7 +51236,7 @@ async function runFreeAgentChat(text) {
   try {
     const response = await fetch("/api/agent/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: apiAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ message: text, projectId: state.currentProjectId, context: agentContext("chat"), attachments: state.xiaoyi.attachments.map(({ name, status, assetId }) => ({ name, status, assetId })) }),
     });
     const data = await response.json();
@@ -51294,7 +51330,7 @@ function logAgentApply(actionId, messageIndex) {
   const structured = state.xiaoyi.messages[messageIndex]?.structured || {};
   fetch("/api/agent/apply", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: apiAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       projectId: state.currentProjectId,
       actionId,
@@ -51374,7 +51410,8 @@ function renderProposalGuard() {
   const guard = $("#proposalGuard");
   if (!guard) return;
   const hasProposal = Boolean($("#proposalContent")?.innerHTML.trim());
-  const canConvert = state.proposalConfirmed || activeQuote()?.status === "已提交";
+  const missingCosts = blockingMissingCostDetails();
+  const canConvert = (state.proposalConfirmed || activeQuote()?.status === "已提交") && !missingCosts.length;
   $$("#convertToOrder, [data-convert-order]").forEach((button) => {
     button.classList.toggle("hidden", !canConvert);
     button.disabled = !canConvert;
@@ -51387,6 +51424,11 @@ function renderProposalGuard() {
   if (!hasProposal) {
     guard.className = "proposal-guard";
     guard.textContent = "未生成客户方案。生成后需要人工确认，才可以导出 PDF / 图片。";
+    return;
+  }
+  if (missingCosts.length) {
+    guard.className = "proposal-guard danger";
+    guard.textContent = `当前仍有 ${missingCosts.length} 项成本缺失。可以内部预览，但不能确认客户方案、导出或成交转订单。`;
     return;
   }
   if (state.proposalConfirmed) {
@@ -51402,6 +51444,12 @@ function confirmProposal() {
   const content = $("#proposalContent")?.innerText || "";
   if (!content.trim()) {
     alert("请先生成客户方案预览。");
+    return;
+  }
+  const missingCosts = blockingMissingCostDetails();
+  if (missingCosts.length) {
+    alert(`当前仍有 ${missingCosts.length} 项成本缺失，不能确认客户方案。\n\n${missingCosts.slice(0, 5).join("\n")}`);
+    renderProposalGuard();
     return;
   }
   if ($("#outputLang")?.value === "en" && containsChinese(content)) {
@@ -51542,7 +51590,7 @@ async function generateEnglishProposalVersion(options = {}) {
   try {
     const response = await fetch("/api/translate", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: apiAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ source, targetLanguage: "English" }),
     });
     const data = await response.json();
@@ -51784,7 +51832,7 @@ async function fixAllTranslationResidues() {
 async function translateResidueSegment(item) {
   const response = await fetch("/api/translate/segment", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: apiAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       targetLanguage: "English",
       text: item.snippet,
@@ -52210,7 +52258,7 @@ function saveQuoteVersionMeta(confirmed = false) {
 
 async function loadAiSettings() {
   try {
-    const response = await fetch("/api/settings");
+    const response = await fetch("/api/settings", { headers: apiAuthHeaders() });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "读取设置失败");
     state.aiSettings = data.ai;
@@ -52270,7 +52318,7 @@ async function mutateAiSettings(url, payload, successMessage, reload = true) {
   try {
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: apiAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(payload),
     });
     const data = await response.json();
@@ -53541,7 +53589,7 @@ async function callAgent(action, instruction) {
   try {
     const response = await fetch("/api/agent", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: apiAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         messages: [
           { role: "user", content: `${instruction}\n\n当前工作台上下文 JSON：\n${JSON.stringify(context)}` },
@@ -55135,38 +55183,37 @@ async function applyQuoteProductSync(modal, rowData, product, mode) {
       note: "报价缺成本补录后写入产品库，供后续报价自动匹配。",
     });
     const saved = result.resource || {};
-    upsertProductCatalogItemFromQuoteSync(product.category, product.item, saved);
+    upsertProductReviewItemFromQuoteSync(product.category, product.item, result.reviewItem || saved);
     rowData.row.syncedProduct = {
       category: product.category,
       name: productName(product.item, product.category),
-      mode: "published",
+      mode: "pending_review",
       storage: result.storage || "",
-      resourceId: saved.id || "",
+      reviewId: result.reviewItem?.id || saved.id || "",
+      resourceId: "",
       sourceKey: result.sourceKey || "",
       syncedAt: new Date().toISOString(),
     };
-    rowData.row.sourceProductId = saved.id || rowData.row.sourceProductId || "";
-    rowData.row.sourceResourceId = saved.id || rowData.row.sourceResourceId || "";
-    rowData.row.source = mergeSources(rowData.row.source || "", `已写入产品库/${result.storage || "data-layer"}`);
-    rowData.row.sourceType = "报价台补录产品库";
-    rowData.row.matchStatus = "matched";
+    rowData.row.source = mergeSources(rowData.row.source || "", `已提交产品库审核/${result.storage || "review-queue"}`);
+    rowData.row.sourceType = "报价台补录待复核";
+    rowData.row.matchStatus = "need_confirm";
     rowData.row.missingCost = false;
     refreshQuoteResources();
     saveLocalProductState();
     saveQuoteVersions();
-    appendPhase1AuditLog("quote_missing_cost_published_to_product_library", {
+    appendPhase1AuditLog("quote_missing_cost_submitted_to_product_review", {
       category: product.category,
       productName: productName(product.item, product.category),
       storage: result.storage || "",
-      resourceId: saved.id || "",
+      reviewId: result.reviewItem?.id || saved.id || "",
     });
     modal.classList.add("hidden");
     renderResourceLibrary();
     renderQuoteTable();
     renderSummary();
     setAgentPending("message", {
-      title: "已写入产品库",
-      body: result.message || "报价补录成本已进入产品库，后续报价会自动调用这条资源。",
+      title: "已提交产品库审核",
+      body: result.message || "报价补录成本已进入审核区，老板复核后才会进入正式产品库。",
     });
   } catch (error) {
     alert(`写入产品库失败：${error.message}`);
@@ -55176,6 +55223,29 @@ async function applyQuoteProductSync(modal, rowData, product, mode) {
       actionButton.textContent = oldLabel;
     }
   }
+}
+
+function upsertProductReviewItemFromQuoteSync(category, item, review = {}) {
+  item.reviewId = review.id || item.reviewId || "";
+  item.sourceKey = review.sourceKey || review.source_key || item.sourceKey || "";
+  item.status = "OP补录待复核";
+  item.updatedAt = new Date().toISOString().slice(0, 10);
+  state.productReviewPool = Array.isArray(state.productReviewPool) ? state.productReviewPool : [];
+  const reviewItem = {
+    id: item.reviewId || `review-${Date.now()}`,
+    category,
+    name: productName(item, category),
+    city: item.city || "",
+    costPrice: productCostValue(item, category),
+    supplierName: productSupplierName(item) || IMPORTED_PENDING_SUPPLIER,
+    status: "pending_review",
+    sourceKey: item.sourceKey || "",
+    submittedAt: new Date().toISOString(),
+  };
+  const index = state.productReviewPool.findIndex((row) => row.id === reviewItem.id || (reviewItem.sourceKey && row.sourceKey === reviewItem.sourceKey));
+  if (index >= 0) state.productReviewPool[index] = { ...state.productReviewPool[index], ...reviewItem };
+  else state.productReviewPool.unshift(reviewItem);
+  savePhase1State();
 }
 
 function upsertProductCatalogItemFromQuoteSync(category, item, resource = {}) {
@@ -55227,9 +55297,14 @@ function openMissingCostQuickFill() {
     alert("当前没有待补成本项。");
     return;
   }
-  const value = window.prompt(`发现 ${details.length} 个待补成本项。输入一个成本价，将补到当前服务项第一条缺成本记录：`, "0");
+  const value = window.prompt(`发现 ${details.length} 个待补成本项。输入一个成本价，将补到当前服务项第一条缺成本记录：`, "");
   if (value === null) return;
-  fillFirstMissingCost(optionalNumber(value));
+  const cost = optionalNumber(value);
+  if (!Number.isFinite(Number(cost)) || Number(cost) <= 0) {
+    alert("补录成本必须大于 0，不能用 0 或空值当作正式成本。");
+    return;
+  }
+  fillFirstMissingCost(cost);
   renderQuoteTable();
   renderSummary();
 }
@@ -55859,6 +55934,11 @@ function missingCostDetails() {
     if (row.missingCost) details.push(`${dayLabel(index)}：线路产品「${row.sourceName || "未命名"}」人数超出成本档位，待询价`);
   });
   return details;
+}
+
+function blockingMissingCostDetails() {
+  if (!state.routeConfirmed) return [];
+  return missingCostDetails();
 }
 
 async function handleBuildProposal() {
@@ -56660,6 +56740,12 @@ async function handleExportPdf() {
 
 function convertToOrder() {
   if (!activeQuote()?.data?.vehicle?.length && state.routeConfirmed) buildQuote({ auto: true });
+  const missingCosts = blockingMissingCostDetails();
+  if (missingCosts.length) {
+    alert(`当前仍有 ${missingCosts.length} 项成本缺失，不能成交转订单。\n\n${missingCosts.slice(0, 5).join("\n")}`);
+    renderProposalGuard();
+    return;
+  }
   const totals = calcTotals();
   const d = getDemand();
   const quote = activeQuote();
@@ -56793,6 +56879,12 @@ function canExportProposal() {
   }
   if (!state.proposalConfirmed) {
     alert("请先确认客户方案，再下载 PDF 或导出图片。");
+    renderProposalGuard();
+    return false;
+  }
+  const missingCosts = blockingMissingCostDetails();
+  if (missingCosts.length) {
+    alert(`当前仍有 ${missingCosts.length} 项成本缺失，不能导出正式客户方案。\n\n${missingCosts.slice(0, 5).join("\n")}`);
     renderProposalGuard();
     return false;
   }
