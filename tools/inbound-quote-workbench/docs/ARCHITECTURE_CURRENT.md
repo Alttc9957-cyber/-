@@ -15,14 +15,15 @@
 - 静态/系统产品库：`data/products/youyixing-product-catalog.json`
 - 云端产品库 API：`GET /api/product-imports/latest/report`、`GET /api/product-resources`、`POST /api/product-resources/match`
 - 新增域模块：`public/js/domain/**`
-- B0 新增模块：`public/js/shared/**`、`public/js/entities/**`
+- B0 新增模块：`public/js/shared/**`、`public/js/entities/itinerary/**`
+- B1 新增模块：`public/js/entities/customer/**`、`public/js/entities/transport/**`、`public/js/features/**`
 - 新增 Agent 安全骨架：`public/js/agent/**`
 - 新增兼容 adapter：`public/js/adapters/quote-engine-adapter.js`
 
 ## 当前核心数据流
 
 1. `server.js` 提供本地页面、静态文件、AI/翻译接口、产品库 API。
-2. `index.html` 加载 `quotable-resource-core.js`、新增域模块、B0 共享 / 实体模块，再加载 `app.js`。
+2. `index.html` 加载 `quotable-resource-core.js`、新增域模块、B0/B1 共享 / 实体 / feature 模块，再加载 `app.js`。
 3. `app.js` 初始化页面状态、项目、产品库、供应商、报价、客户方案。
 4. 产品库优先读取 Supabase 已发布批次；失败时保留静态系统产品库 fallback。
 5. 报价主流程仍由 `app.js` 内既有函数驱动。
@@ -36,6 +37,8 @@
 - 需求识别、主行程表、报价行生成、产品匹配、客户方案生成仍集中在 `app.js`。
 - 稳定配置已迁到 `public/js/shared/app-config.js`。
 - 景点别名、免费地标和接送机日判断已迁到 `public/js/entities/itinerary/attraction-matching.js`。
+- 客户餐食偏好、接送默认和车型推荐已迁到 B1 entity 模块。
+- 产品库门票展开和供应商轻表格渲染已迁到 B1 feature 模块。
 - 本轮没有重写 `buildQuote`、`generateQuoteResources` 或报价页面渲染。
 
 ### 产品库

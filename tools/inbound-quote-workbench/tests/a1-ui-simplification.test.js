@@ -6,6 +6,8 @@ const test = require("node:test");
 const root = path.resolve(__dirname, "..");
 const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const appJs = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const productTableViewJs = fs.readFileSync(path.join(root, "public/js/features/product-library/product-table-view.js"), "utf8");
+const supplierListViewJs = fs.readFileSync(path.join(root, "public/js/features/supplier-manager/supplier-list-view.js"), "utf8");
 
 test("产品库普通主界面不暴露重置系统产品库入口", () => {
   assert.doesNotMatch(indexHtml, /id="clearProductCatalog"/);
@@ -23,9 +25,11 @@ test("景点门票主表按景点聚合票种，避免同景点多规格铺满�
   assert.match(appJs, /function ticketGroupKey/);
   assert.match(appJs, /function renderTicketGroupSpecs/);
   assert.match(appJs, /function productPriceRangeDisplay/);
-  assert.match(appJs, /\$\{count\}个票种/);
-  assert.match(appJs, /展开价格明细/);
-  assert.match(appJs, /mini-spec-table/);
+  assert.match(appJs, /productTableView\.renderTicketGroupSpecs/);
+  assert.match(appJs, /productTableView\.productPriceRangeDisplay/);
+  assert.match(productTableViewJs, /\$\{count\}个票种/);
+  assert.match(productTableViewJs, /展开价格明细/);
+  assert.match(productTableViewJs, /mini-spec-table/);
   const ticketRenderer = appJs.slice(appJs.indexOf("function renderTicketProductCategoryTable"), appJs.indexOf("function priceOrPending"));
   assert.match(ticketRenderer, /"票种\/规格"/);
   assert.match(ticketRenderer, /productCatalogDisplayRows\(category, items\)/);
@@ -36,9 +40,10 @@ test("供应商主界面不暴露开发态占位清理按钮，列表改为轻�
   assert.doesNotMatch(indexHtml, /id="clearSupplierPlaceholders"/);
   assert.match(appJs, /async function clearSupplierPlaceholders/);
   const supplierRenderer = appJs.slice(appJs.indexOf("function renderSupplierManagement"), appJs.indexOf("function filteredSuppliers"));
-  assert.match(supplierRenderer, /"供应商名称","品类","来源","城市 \/ 范围","主要联系人","状态","服务明细","操作"/);
-  assert.doesNotMatch(supplierRenderer, /"历史服务次数"/);
-  assert.doesNotMatch(supplierRenderer, /"评分 \/ 标签"/);
+  assert.match(supplierRenderer, /supplierListView\.renderSupplierListTable/);
+  assert.match(supplierListViewJs, /"供应商名称","品类","来源","城市 \/ 范围","主要联系人","状态","服务明细","操作"/);
+  assert.doesNotMatch(supplierListViewJs, /"历史服务次数"/);
+  assert.doesNotMatch(supplierListViewJs, /"评分 \/ 标签"/);
 });
 
 test("报价缺成本同步会写入产品库持久层", () => {
