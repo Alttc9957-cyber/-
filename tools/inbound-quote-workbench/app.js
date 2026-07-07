@@ -44458,6 +44458,7 @@ function bindEvents() {
   on("#saveSupplierModal", "click", saveSupplierFromModal);
   on("#supplierImportFile", "change", (event) => handleSupplierImportFile(event.target.files?.[0]));
   on("#exportSuppliers", "click", exportSuppliers);
+  on("#clearSupplierPlaceholders", "click", clearSupplierPlaceholders);
   on("#resourceSearch", "input", (event) => { state.resourceFilters.search = event.target.value.trim(); state.productPage = 1; renderResourceLibrary(); });
   on("#resourceTypeFilter", "change", (event) => { state.resourceFilters.type = event.target.value; state.productPage = 1; renderResourceLibrary(); });
   on("#resourceCityFilter", "input", (event) => { state.resourceFilters.city = event.target.value.trim(); state.productPage = 1; renderResourceLibrary(); });
@@ -48036,6 +48037,28 @@ function exportSupplier(id) {
 
 function exportSuppliers() {
   downloadTextFile(`youyixing-suppliers-${Date.now()}.json`, JSON.stringify(state.suppliers, null, 2), "application/json");
+}
+
+async function clearSupplierPlaceholders() {
+  const count = (state.suppliers || []).filter((supplier) => supplier.isPlaceholder).length;
+  if (!count) {
+    alert("当前没有占位供应商。");
+    return;
+  }
+  const ok = window.confirm(`确认清理 ${count} 条占位供应商？真实数据导入前可以保留，导入后建议清掉。`);
+  if (!ok) return;
+  try {
+    const result = await postJson("/api/suppliers/clear-placeholders", {});
+    state.suppliers = Array.isArray(result.suppliers) ? result.suppliers.map(normalizeSupplier) : [];
+    state.supplierCallRecords = Array.isArray(result.supplierCallRecords) ? result.supplierCallRecords : state.supplierCallRecords;
+    saveLocalSupplierState({ sync: false, source: result.storage || "local-json" });
+    refreshQuoteResources();
+    renderSupplierManagement();
+    renderQuoteTable();
+    alert(result.message || "占位供应商已清理。");
+  } catch (error) {
+    alert(`清理占位供应商失败：${error.message}`);
+  }
 }
 
 function handleSupplierImportFile(file) {
