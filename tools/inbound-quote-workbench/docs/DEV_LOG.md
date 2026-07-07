@@ -32,6 +32,62 @@
 
 日期：2026-07-07
 
+修改目标：优化产品资源库主表的景点门票展示，避免同一景点多个票种连续占用多行。
+
+修改原因：乐哥截图反馈“看起来像重复资源 / 不同售价异常”。现场排查后确认这是同一景点存在多个票种或规格，底层数据合理，但主表平铺展示影响 OP 扫表效率。
+
+关联 bug：
+
+- BUG-20260707-001 产品资源库主表同一景点多个门票规格平铺展示。
+
+关联功能：
+
+- F-004 产品资源库导入与清洗
+
+涉及文件：
+
+- `app.js`
+- `index.html`
+- `tests/a1-ui-simplification.test.js`
+- `docs/BUG_LOG.md`
+- `docs/DEV_LOG.md`
+- `docs/CHANGELOG.md`
+
+具体改动：
+
+- 新增产品库展示行聚合：同一城市 + 同一景点的门票规格在主表聚成一行。
+- “全部”和“景点门票”列表都会使用聚合展示。
+- 门票规格以短标签展示，成本价 / 参考售价显示区间。
+- 底层 `state.productCatalog.tickets` 不合并，报价匹配仍按具体票种取价。
+- 补充静态回归测试，防止门票主表退回“一票种一行”的展示。
+- 更新 `app.js` 缓存版本为 `20260707-ticket-grouping`，方便当前 8787 端口刷新生效。
+
+验证结果：
+
+- `node --check app.js` 通过。
+- `node --check server.js` 通过。
+- `find public/js -type f -name '*.js' -print0 | xargs -0 -n 1 node --check` 通过。
+- `node --test tests/a1-ui-simplification.test.js` 通过，6/6。
+- `node --test tests/*.test.js` 通过，47/47。
+- `node scripts/ai/detect-test-scope.mjs` 通过，riskLevel `medium`，无 blocker。
+- `node scripts/ai/verify-module.mjs` 通过。
+- `curl http://127.0.0.1:8787/` 确认加载 `app.js?v=20260707-ticket-grouping`。
+- 系统门票底层 145 条，按同一城市 + 同一景点聚合后主表展示为 72 行，减少 73 行。
+
+是否影响旧功能：只影响产品资源库展示层，不修改产品数据、DeepSeek 配置、报价公式、产品匹配和数据库。
+
+回退方式：
+
+- 回退 `app.js` 中 `productCatalogDisplayRows`、`renderTicketGroup*`、`productPriceRangeDisplay` 等展示聚合函数，并恢复 `renderProductCategoryTable` / `renderTicketProductCategoryTable` 直接分页原始 items。
+
+下一步建议：
+
+- 刷新 8787 后进入产品资源库，确认故宫、颐和园、八达岭、天坛等同一景点只占一行，票种在规格列里展开。
+
+---
+
+日期：2026-07-07
+
 修改目标：完成友易行 V1 地基修复阶段 A 的第一批风险补齐：接口权限、产品补录审核区、服务端持久化兜底、缺成本门禁和 Eva 真实案例结构化验收。
 
 修改原因：上线前整包审查发现当前版本存在敏感写接口无服务端角色校验、OP 补录资源“待复核但已发布”、报价 / 订单 / 审计大量依赖 localStorage、英文多城市真实案例抽取不足、英文景点与中文产品库命中不稳等风险。

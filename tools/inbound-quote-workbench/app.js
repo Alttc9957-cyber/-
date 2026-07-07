@@ -47065,13 +47065,16 @@ function renderProductCategoryTable(category, items) {
   const headers = [
     "资源名称", "品类", "城市", "服务类型/规格", "成本价", "参考售价", "供应商",
   ];
+  const displayRows = productCatalogDisplayRows(category, items);
   const pageSize = state.productPageSize || 100;
-  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(displayRows.length / pageSize));
   state.productPage = Math.min(Math.max(1, state.productPage || 1), totalPages);
   const start = (state.productPage - 1) * pageSize;
-  const visibleItems = items.slice(start, start + pageSize);
-  const rows = visibleItems.map((item) => {
-    const rowCategory = category === "全部" ? (item.__category || "其他") : category;
+  const visibleItems = displayRows.slice(start, start + pageSize);
+  const rows = visibleItems.map((entry) => {
+    if (entry.type === "ticket-group") return renderTicketGroupAsGeneralRow(entry);
+    const item = entry.item;
+    const rowCategory = entry.category;
     const row = [
       `<strong>${escapeHtml(productName(item, rowCategory))}</strong>`,
       escapeHtml(rowCategory),
@@ -47084,31 +47087,122 @@ function renderProductCategoryTable(category, items) {
     return row;
   });
   const empty = `<tr><td colspan="${headers.length}">当前筛选条件下暂无数据。</td></tr>`;
-  return `${renderProductPager(items.length, start, visibleItems.length, totalPages)}${tableWrap(headers, rows, empty, "wide-product-table")}${renderProductPager(items.length, start, visibleItems.length, totalPages)}`;
+  return `${renderProductPager(displayRows.length, start, visibleItems.length, totalPages)}${tableWrap(headers, rows, empty, "wide-product-table")}${renderProductPager(displayRows.length, start, visibleItems.length, totalPages)}`;
 }
 
 function renderTicketProductCategoryTable(category, items) {
   const headers = [
-    "景点名称", "城市", "成本价", "参考售价", "供应商", "缺成本提示",
+    "景点名称", "城市", "票种/规格", "成本价", "参考售价", "供应商", "缺成本提示",
   ];
+  const displayRows = productCatalogDisplayRows(category, items);
   const pageSize = state.productPageSize || 100;
-  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(displayRows.length / pageSize));
   state.productPage = Math.min(Math.max(1, state.productPage || 1), totalPages);
   const start = (state.productPage - 1) * pageSize;
-  const visibleItems = items.slice(start, start + pageSize);
-  const rows = visibleItems.map((item) => {
-    const cost = productCostValue(item, category);
-    return [
-      `<strong>${escapeHtml(item.scenicName || item.name || "未命名景点")}</strong>`,
-      escapeHtml(item.city || "-"),
-      productCostDisplay(cost, item),
-      productPriceDisplay(productSaleValue(item, category)),
-      escapeHtml(productSupplierName(item) || IMPORTED_PENDING_SUPPLIER),
-      productMissingCostHint(cost, item),
-    ];
-  });
+  const visibleItems = displayRows.slice(start, start + pageSize);
+  const rows = visibleItems.map((entry) => renderTicketGroupRow(entry));
   const empty = `<tr><td colspan="${headers.length}">当前筛选条件下暂无景点门票数据。</td></tr>`;
-  return `${renderProductPager(items.length, start, visibleItems.length, totalPages)}${tableWrap(headers, rows, empty, "wide-product-table ticket-product-table")}${renderProductPager(items.length, start, visibleItems.length, totalPages)}`;
+  return `${renderProductPager(displayRows.length, start, visibleItems.length, totalPages)}${tableWrap(headers, rows, empty, "wide-product-table ticket-product-table")}${renderProductPager(displayRows.length, start, visibleItems.length, totalPages)}`;
+}
+
+function productCatalogDisplayRows(category, items = []) {
+  const rows = [];
+  const ticketGroups = new Map();
+  items.forEach((item) => {
+    const rowCategory = category === "全部" ? (item.__category || "其他") : category;
+    if (!isTicketCategory(rowCategory)) {
+      rows.push({ type: "single", category: rowCategory, item });
+      return;
+    }
+    const key = ticketGroupKey(item, rowCategory);
+    let group = ticketGroups.get(key);
+    if (!group) {
+      group = { type: "ticket-group", category: rowCategory, key, item, items: [] };
+      ticketGroups.set(key, group);
+      rows.push(group);
+    }
+    group.items.push(item);
+  });
+  return rows;
+}
+
+function isTicketCategory(category) {
+  return category === "景点门票" || category === "门票";
+}
+
+function ticketGroupKey(item, category) {
+  return [
+    category,
+    normalizeResourceText(item.city || ""),
+    normalizeResourceText(item.scenicName || item.name || productName(item, category)),
+  ].join("|");
+}
+
+function renderTicketGroupAsGeneralRow(entry) {
+  const item = entry.item || {};
+  return [
+    `<strong>${escapeHtml(item.scenicName || item.name || "未命名景点")}</strong>${ticketGroupCountBadge(entry)}`,
+    escapeHtml(entry.category),
+    escapeHtml(item.city || "-"),
+    renderTicketGroupSpecs(entry),
+    productPriceRangeDisplay(entry.items.map((row) => productCostValue(row, entry.category)), entry.items),
+    productPriceRangeDisplay(entry.items.map((row) => productSaleValue(row, entry.category)), [], `<span class="muted-dash">-</span>`),
+    escapeHtml(ticketGroupSupplierText(entry)),
+  ];
+}
+
+function renderTicketGroupRow(entry) {
+  const item = entry.item || {};
+  return [
+    `<strong>${escapeHtml(item.scenicName || item.name || "未命名景点")}</strong>${ticketGroupCountBadge(entry)}`,
+    escapeHtml(item.city || "-"),
+    renderTicketGroupSpecs(entry),
+    productPriceRangeDisplay(entry.items.map((row) => productCostValue(row, entry.category)), entry.items),
+    productPriceRangeDisplay(entry.items.map((row) => productSaleValue(row, entry.category)), [], `<span class="muted-dash">-</span>`),
+    escapeHtml(ticketGroupSupplierText(entry)),
+    ticketGroupMissingCostHint(entry),
+  ];
+}
+
+function ticketGroupCountBadge(entry) {
+  const count = entry.items?.length || 0;
+  return count > 1 ? ` <span class="small-badge">${count}个票种</span>` : "";
+}
+
+function renderTicketGroupSpecs(entry) {
+  const specs = [...new Set((entry.items || []).map((item) => productSpecValue(item, entry.category) || productServiceValue(item, entry.category) || "景区门票").filter(Boolean))];
+  if (!specs.length) return "-";
+  return specs.slice(0, 4).map((spec) => `<span class="small-badge">${escapeHtml(spec)}</span>`).join("") + (specs.length > 4 ? `<span class="small-badge">+${specs.length - 4}</span>` : "");
+}
+
+function productPriceRangeDisplay(values = [], items = [], emptyHtml = `<span class="product-price-missing">待补成本</span>`) {
+  const numeric = values
+    .map((value) => (value === "" || value == null ? null : Number(value)))
+    .filter((value) => Number.isFinite(value));
+  if (!numeric.length) {
+    const hasFree = items.some((item) => item?.isFree === true);
+    return hasFree ? `<span class="product-price-free">${money(0)}</span>` : emptyHtml;
+  }
+  const min = Math.min(...numeric);
+  const max = Math.max(...numeric);
+  const text = min === max ? money(min) : `${money(min)}-${money(max)}`;
+  return `<span class="product-price-value">${text}</span>`;
+}
+
+function ticketGroupSupplierText(entry) {
+  const suppliers = [...new Set((entry.items || []).map(productSupplierName).filter(Boolean))];
+  if (!suppliers.length) return IMPORTED_PENDING_SUPPLIER;
+  if (suppliers.length === 1) return suppliers[0];
+  return `${suppliers.length}个供应商`;
+}
+
+function ticketGroupMissingCostHint(entry) {
+  const missing = (entry.items || []).filter((item) => {
+    const value = productCostValue(item, entry.category);
+    return value === "" || value == null;
+  }).length;
+  if (!missing) return `<span class="muted-dash">-</span>`;
+  return `<span class="product-price-missing">${missing}项待补成本</span>`;
 }
 
 function priceOrPending(value) {

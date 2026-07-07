@@ -18,6 +18,18 @@ test("产品库主表只渲染核心业务列", () => {
   assert.doesNotMatch(tableRenderer, /"状态", "来源", "备注", "操作"/);
 });
 
+test("景点门票主表按景点聚合票种，避免同景点多规格铺满列表", () => {
+  assert.match(appJs, /function productCatalogDisplayRows/);
+  assert.match(appJs, /function ticketGroupKey/);
+  assert.match(appJs, /function renderTicketGroupSpecs/);
+  assert.match(appJs, /function productPriceRangeDisplay/);
+  assert.match(appJs, /\$\{count\}个票种/);
+  const ticketRenderer = appJs.slice(appJs.indexOf("function renderTicketProductCategoryTable"), appJs.indexOf("function priceOrPending"));
+  assert.match(ticketRenderer, /"票种\/规格"/);
+  assert.match(ticketRenderer, /productCatalogDisplayRows\(category, items\)/);
+  assert.doesNotMatch(ticketRenderer, /const visibleItems = items\.slice/);
+});
+
 test("报价缺成本同步会写入产品库持久层", () => {
   assert.match(appJs, /写入产品库并用于后续报价/);
   assert.match(appJs, /\/api\/product-resources\/upsert-from-quote/);
