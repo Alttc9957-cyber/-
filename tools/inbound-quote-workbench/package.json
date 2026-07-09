@@ -1,0 +1,12 @@
+{
+  "name": "youyixing-quote-workbench",
+  "version": "0.15.0",
+  "private": true,
+  "scripts": {
+    "catalog:build": "python3 scripts/build-system-product-catalog.py /Users/alic/Downloads/产品库汇总.xlsx data/products/youyixing-product-catalog.json",
+    "catalog:import:supabase": "node scripts/import-product-catalog-to-supabase.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

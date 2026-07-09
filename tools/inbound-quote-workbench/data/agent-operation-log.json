@@ -1,0 +1,100 @@
+[
+  {
+    "id": "op_1782890620097",
+    "projectId": "QP-20260701-009",
+    "intent": "optimize_itinerary",
+    "actionId": "update_itinerary_day1_transport",
+    "draft": "Day1: 抵达昆明，转火车前往重庆（改为火车）。",
+    "status": "applied",
+    "createdAt": "2026-07-01T07:23:40.097Z"
+  },
+  {
+    "id": "op_1782890617911",
+    "projectId": "QP-20260701-009",
+    "intent": "optimize_itinerary",
+    "actionId": "update_itinerary_chengdu_suggestions",
+    "draft": "Day1: 抵达昆明，转火车前往重庆（改为火车）。",
+    "status": "applied",
+    "createdAt": "2026-07-01T07:23:37.911Z"
+  },
+  {
+    "id": "op_1782711309757",
+    "projectId": "QP-20260629-007",
+    "intent": "extract_customer_info",
+    "actionId": "update_customer_info",
+    "draft": null,
+    "status": "applied",
+    "createdAt": "2026-06-29T05:35:09.757Z"
+  },
+  {
+    "id": "op_1782711305528",
+    "projectId": "QP-20260629-007",
+    "intent": "extract_customer_info",
+    "actionId": "update_customer_info",
+    "draft": null,
+    "status": "applied",
+    "createdAt": "2026-06-29T05:35:05.528Z"
+  },
+  {
+    "id": "op_1782619186708",
+    "projectId": "QP-20260628-007",
+    "intent": "translate_proposal",
+    "actionId": "translate_proposal",
+    "draft": "提案将全部翻译为英文",
+    "status": "applied",
+    "createdAt": "2026-06-28T03:59:46.710Z"
+  },
+  {
+    "id": "op_1782619183829",
+    "projectId": "QP-20260628-007",
+    "intent": "translate_proposal",
+    "actionId": "translate_proposal",
+    "draft": "提案将全部翻译为英文",
+    "status": "applied",
+    "createdAt": "2026-06-28T03:59:43.830Z"
+  },
+  {
+    "id": "op_1782544878239",
+    "projectId": "QP-20260627-007",
+    "intent": "extract_customer_info",
+    "actionId": "update_customer_info",
+    "draft": null,
+    "status": "applied",
+    "createdAt": "2026-06-27T07:21:18.239Z"
+  },
+  {
+    "id": "op_1782459595273",
+    "projectId": "QP-20260626-007",
+    "intent": "extract_customer_info",
+    "actionId": "confirm_extract",
+    "draft": null,
+    "status": "applied",
+    "createdAt": "2026-06-26T07:39:55.273Z"
+  },
+  {
+    "id": "op_1782457197561",
+    "projectId": "QP-20260626-007",
+    "intent": "extract_customer_info",
+    "actionId": "confirm_extract",
+    "draft": null,
+    "status": "applied",
+    "createdAt": "2026-06-26T06:59:57.561Z"
+  },
+  {
+    "id": "op_1782457147847",
+    "projectId": "QP-20260626-007",
+    "intent": "classify_project_images",
+    "actionId": "apply_image_classification",
+    "draft": [
+      {
+        "assetId": "asset_1782457090206_4f6ceb687acb98",
+        "name": "image.png",
+        "category": "封面图",
+        "useInProposal": true,
+        "isCover": true
+      }
+    ],
+    "status": "applied",
+    "createdAt": "2026-06-26T06:59:07.847Z"
+  }
+]

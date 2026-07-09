@@ -1,0 +1,159 @@
+# QA_CHECKLIST
+
+友易行每次修改后的测试清单。任何业务改动至少执行通用检查；涉及产品库、报价、导出、AI 时执行对应专项。
+
+## 通用检查
+
+- [ ] 页面是否能正常打开。
+- [ ] 核心表单是否能正常输入。
+- [ ] 必填字段是否有校验或明确提示。
+- [ ] 报价或核心计算结果是否正确。
+- [ ] 数据是否能保存。
+- [ ] 页面刷新后数据是否丢失。
+- [ ] 导出、提交或生成结果是否正常。
+- [ ] 修改一个功能后，其他核心功能是否仍然正常。
+- [ ] 浏览器控制台是否存在报错。
+- [ ] 接口请求是否存在失败。
+
+## 启动检查
+
+- [ ] 执行 `node --check app.js`。
+- [ ] 执行 `node --check server.js`。
+- [ ] 执行 `for f in $(find public/js -type f | sort); do node --check "$f" || exit 1; done`。
+- [ ] 执行 `node --test tests/*.test.js`。
+- [ ] 启动服务：`node server.js`。
+- [ ] 打开 `http://127.0.0.1:8787/` 或当前服务端口。
+- [ ] 确认首页、报价项目、产品资源库、供应商管理、系统设置能切换。
+
+## Domain / Agent 骨架专项
+
+- [ ] `normalizeProductRemarks(product)` 保留 `rawFields`，并输出 `rawRemark`。
+- [ ] 保票、保房、保证类备注归为 `guarantee_policy`。
+- [ ] 内部备注不进入 `customerVisibleRemarks`。
+- [ ] `buildQuoteCandidates` 无候选时输出 `NO_PRODUCT_CANDIDATE`。
+- [ ] 候选缺成本时输出 `MISSING_COST`，不把空成本显示为正常 0。
+- [ ] 过期价格输出 `PRICE_EXPIRED`。
+- [ ] `buildQuoteLineFromCandidate` 能写入来源、供应商、成本来源和匹配状态。
+- [ ] `buildQuoteVersion` 能统计总成本、总售价、毛利和缺成本数。
+- [ ] Agent L3 工具调用返回 `approval_required`。
+- [ ] Agent context 缺 `userId`、`role` 或 `tenantId` 时拒绝执行。
+- [ ] `createDomainEvent` 缺 `tenantId` 或 `actorId` 时拒绝创建事件。
+
+## 产品库导入专项
+
+- [ ] 清空本地产品库覆盖层或点击“重置为系统产品库”。
+- [ ] 导入《产品库汇总.xlsx》。
+- [ ] 确认识别 7 个模板 Sheet：线路报价、仅包车报价、导游报价、特色体验价、门票报价、餐、酒店。
+- [ ] 执行 `node --test tests/product-catalog-import.test.js`，确认真实 Excel 关键成本点未回退。
+- [ ] 系统产品库有效产品数量应覆盖当前基准：线路 24、用车 940、导游 48、特色体验 77、门票 145、餐厅 151、酒店 153。
+- [ ] 确认各 Sheet 进入正确品类。
+- [ ] 产品库主表不出现错位字段，例如“导入景资源名称”“城市服务类型”“8人以下一小时规格”。
+- [ ] 空成本显示为“待补成本”，不是 0。
+- [ ] `rawFields` 保留原始 Excel 字段。
+- [ ] 刷新页面后，本地导入产品库仍然存在。
+- [ ] 产品库切换品类不卡死。
+- [ ] 清理重复不会对“全部”虚拟分类执行实际去重。
+
+## Supabase 产品库专项
+
+- [ ] `.env.supabase.local` 存在于本机且未进入 `git status --short`。
+- [ ] 执行 `node --check scripts/import-product-catalog-to-supabase.js`。
+- [ ] 执行 `node scripts/import-product-catalog-to-supabase.js` 时，质量门禁通过后才发布新批次。
+- [ ] `GET /api/product-imports/latest/report` 返回 `status=published`、`qualityReport.pass=true`。
+- [ ] 前端 `state.cloudProductCatalog.loaded=true`，产品页读取云端产品数量。
+- [ ] 产品页景点门票表头显示景点名称、类型、票种、淡季成人、旺季成人、旅行社成人、免费政策、保票政策。
+- [ ] 旧 `youyixing_product_state` 坏缓存不会覆盖云端产品库。
+- [ ] `GET /api/product-resources?category=用车&city=重庆&serviceType=接送机&model=7座` 返回成本 250、卖价 450。
+- [ ] `POST /api/product-resources/match` 对重庆接机 7 座返回 `matchStatus=matched`、`costPrice=250`。
+- [ ] publishable key 不能直接读取 `product_resources` 业务数据，浏览器必须走服务端 API。
+
+## 报价匹配专项
+
+- [ ] 重庆接机 / 7座：命中接送机成本 250。
+- [ ] 重庆送机 / 7座：命中接送机成本 250。
+- [ ] 重庆武隆包车 / 14座~17座：命中包车成本 1500。
+- [ ] 重庆市内一日游 8 小时 / 7座：命中包车成本 700。
+- [ ] 北京大兴机场接机命中产品库成本。
+- [ ] 北京市内用车命中产品库成本。
+- [ ] 英文导游命中导游报价。
+- [ ] 故宫门票命中门票报价。
+- [ ] 同一景点别名不重复生成门票项，例如“故宫博物院 / 故宫”只保留一条。
+- [ ] 酒店按城市和星级返回候选。
+- [ ] 餐厅无成本时显示待补成本，不显示 0。
+
+## 报价明细专项
+
+- [ ] 每一行有服务类型、城市、来源、供应商、匹配状态。
+- [ ] 匹配成功时成本来自产品库或供应商服务明细。
+- [ ] AI 不能直接决定成本价。
+- [ ] 完全失败时不生成空白行，必须显示失败原因。
+- [ ] 有候选但不确定时显示待确认。
+- [ ] 缺成本项在汇总风险里明确提示。
+- [ ] 总成本按已匹配成本正确累加。
+
+## 供应商 V1.4 专项
+
+- [ ] 8 类供应商都能生成可报价资源。
+- [ ] 停用供应商不出现在可报价资源列表。
+- [ ] 包车明细显示包车价，不出现“全天价”或“可跨城”。
+- [ ] 导游明细保留原始登记字段。
+- [ ] 大交通只维护票务服务，不出现具体车次、航班、日期、座位、库存字段。
+- [ ] 产品资源详情能看到候选供应商服务明细。
+- [ ] 产品资源可以关联、取消关联、设置首选供应商资源。
+- [ ] 供应商详情能看到服务明细关联产品资源数量。
+- [ ] 报价行“从资源库选择供应商资源”能回填成本、供应商、服务明细和 `quoteLineSnapshot`。
+- [ ] 价格已过期资源不能直接选入报价。
+- [ ] 无价格有效期资源需要人工确认。
+- [ ] 客户可见快照不展示内部成本字段。
+
+## 行程识别专项
+
+- [ ] 输入南京 3 天，生成南京 3 天，不回到北京默认线。
+- [ ] 输入洛阳 2 天，生成洛阳 2 天。
+- [ ] 输入青岛 4 天，生成青岛 4 天。
+- [ ] 输入成都送机、重庆接机，主行程城市不重复错位。
+- [ ] 跨城市天拆出送机、接机或接送站报价项。
+
+## 客户方案和导出专项
+
+- [ ] 生成客户方案。
+- [ ] 编辑方案后保存状态正确。
+- [ ] 确认方案后导出按钮可用。
+- [x] 导出图片依赖 `html2canvas` 能本地加载。
+- [x] 下载 PDF 依赖 `jsPDF` 能本地加载。
+- [ ] 导出图片能下载文件。
+- [ ] 下载 PDF 能下载文件。
+- [ ] 英文方案不显示内部成本、利润、供应商联系方式。
+- [ ] 英文残留中文检查能给出提示。
+
+## AI 和接口专项
+
+- [ ] 本地 `/api/settings` 可读取配置。
+- [ ] 保存 DeepSeek 配置不把完整 Key 返回前端。
+- [x] `/api/settings` 当前返回 `hasApiKey=true`，DeepSeek 来源为 `.env`。
+- [x] `/api/settings/ai/test` 当前返回 `ok=true`。
+- [x] `/api/agent` 当前返回 DeepSeek `usage`，不是本地 fallback。
+- [x] `/api/translate/segment` 当前返回 DeepSeek `usage`，不是本地 fallback。
+- [x] 缺少 DeepSeek Key 时 `/api/agent` 返回 503、`DEEPSEEK_REQUIRED`，不允许本地假成功。
+- [ ] `/api/agent` 返回结构异常时前端能 fallback。
+- [ ] `/api/translate` 不可用时页面给出明确提示。
+- [ ] 公网静态页请求 `/api/*` 失败时不阻断基础本地规则。
+
+## 提交前检查
+
+- [x] `node --check app.js`。
+- [x] `node --check server.js`。
+- [x] `node --test tests/*.test.js`。
+- [x] 8787 服务返回 `HTTP/1.1 200 OK`。
+- [x] 重庆接机 / 7座返回成本 250。
+- [x] 重庆送机 / 7座返回成本 250。
+- [x] 重庆武隆包车 / 14座~17座返回成本 1500。
+- [x] 重庆市内一日游 8 小时 / 7座返回成本 700。
+- [x] 产品库严格数据审计已记录缺成本分布。
+- [x] `git status --short` 中只包含本次任务相关文件。
+- [x] 已更新 `docs/DEV_LOG.md`。
+- [x] 若修 bug，已更新 `docs/BUG_LOG.md`。
+- [x] 若改变功能，已更新 `docs/CHANGELOG.md`。
+- [x] 若要交付版本，已更新 `docs/RELEASE_NOTES.md`。
+- [x] 若新增架构/领域模块，已更新 `docs/FEATURE_MAP.md` 和相关契约文档。
+- [x] 已记录回退方式。

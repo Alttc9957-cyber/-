@@ -5,6 +5,8 @@ build/
 .env
 .env.*
 !.env.example
+runtime-settings.json
+**/runtime-settings.json
 .venv/
 __pycache__/
 *.pyc
@@ -12,4 +14,3 @@ __pycache__/
 .cache/
 coverage/
 *.log
-

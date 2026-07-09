@@ -1,0 +1,58 @@
+{
+  "default_currency": "CNY",
+  "default_profit_rate": 0.2,
+  "traffic_profit_rate": 0.06,
+  "traffic_min_profit": 30,
+  "manual_price_allowed": true,
+  "exchange_rate": {
+    "USD_CNY": null
+  },
+  "vehicle_recommendation_rules": [
+    {
+      "people_min": 1,
+      "people_max": 2,
+      "recommended_vehicle": "5座车"
+    },
+    {
+      "people_min": 3,
+      "people_max": 4,
+      "recommended_vehicle": "7座车"
+    },
+    {
+      "people_min": 5,
+      "people_max": 6,
+      "recommended_vehicle": "9座车"
+    },
+    {
+      "people_min": 7,
+      "people_max": 13,
+      "recommended_vehicle": "14-17座车"
+    }
+  ],
+  "ticket_pricing_rules": {
+    "adult": "adult_price",
+    "child": "child_price",
+    "guide_ticket_free_field": "guide_ticket_free"
+  },
+  "guide_pricing_rules": {
+    "match_by": [
+      "city",
+      "language"
+    ],
+    "default_unit": "per_day"
+  },
+  "hotel_pricing_rules": {
+    "match_by": [
+      "city",
+      "star_rating"
+    ],
+    "manual_replace_allowed": true
+  },
+  "updated_at": "2026-06-24",
+  "source": "manual_standardization",
+  "source_file": "统一清洗规则 / 报价规则",
+  "source_row": null,
+  "missing_fields": [
+    "exchange_rate.USD_CNY"
+  ]
+}

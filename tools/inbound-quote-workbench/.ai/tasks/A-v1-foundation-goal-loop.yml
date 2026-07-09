@@ -1,0 +1,60 @@
+id: A-v1-foundation-goal-loop
+title: Youyixing V1 foundation hardening goal loop
+stage: stage-1-foundation-hardening
+approved: true
+owner_agent: coder
+approved_by: lege
+approved_at: 2026-07-07
+allowed_files:
+  - app.js
+  - server.js
+  - tests/**
+  - docs/**
+  - .ai/tasks/**
+forbidden_files:
+  - .env
+  - .env.*
+  - runtime-settings.json
+  - db/schema.sql
+  - vendor/**
+  - data/products/**
+redlines:
+  - Do not execute database migrations.
+  - Do not change AI provider secrets or runtime settings.
+  - Do not rewrite the quote flow.
+  - Do not invent product costs with AI.
+  - Do not let pending-review product data enter the published product catalog.
+  - Do not expose internal costs or supplier-sensitive fields in customer proposals.
+scope:
+  - A1 API risk matrix.
+  - A2 minimum server-side role guard.
+  - A3 quote missing-cost product review queue before product publication.
+  - A4 server-side local-json persistence for quote versions, orders, and audit events.
+  - A5 missing-cost gate before proposal confirmation, export, and order conversion.
+  - A6 Majfuza and Eva acceptance scaffolding.
+out_of_scope:
+  - Production deployment.
+  - Supabase schema migration execution.
+  - Full employee login UI.
+  - Full boss dashboard redesign.
+  - Full module rewrite.
+acceptance:
+  - Sensitive write APIs require a valid role header.
+  - OP submitted missing-cost product data is stored as pending review.
+  - Pending-review product resources are not returned by published product matching.
+  - Boss/admin approval can publish the resource into the official product catalog fallback.
+  - Quote versions, orders, and audit events can sync to server-side local-json endpoints.
+  - Missing costs block final proposal confirmation, export, and order conversion.
+required_commands:
+  - node --check app.js
+  - node --check server.js
+  - find public/js -type f -name '*.js' -print0 | xargs -0 -n 1 node --check
+  - node --test tests/*.test.js
+risk_level: high
+rollback:
+  - Revert this task commit with git revert.
+  - Remove local-json files generated under data/ only after confirming they are test artifacts.
+next_candidates:
+  - B1 module boundary contracts
+  - B2 quote-domain extraction
+  - B3 product review service extraction

@@ -1,0 +1,98 @@
+{
+  "appId": "youyixing.inbound-quote-workbench",
+  "version": "phase1-online-v1",
+  "releaseBoundary": {
+    "target": "first_customer_online_version",
+    "primaryGoal": "Make quote calculation and product resource usage fully usable for customer testing.",
+    "included": [
+      "customer demand intake",
+      "confirmed itinerary",
+      "quote calculation",
+      "product resource matching",
+      "missing cost backfill",
+      "persistent product resource memory",
+      "customer proposal rendering"
+    ],
+    "deferred": [
+      "xiaoyi intelligent quote assistant expansion",
+      "boss OP management center",
+      "supplier-side full field redesign",
+      "new frontend UI system",
+      "permission-specific UI templates"
+    ]
+  },
+  "modules": [
+    {
+      "id": "ai-gateway",
+      "owns": ["ai_provider_config", "model_request", "translation_request"],
+      "dataLayer": ["runtime-settings.json", ".env"],
+      "publicExposure": "masked_provider_status_only",
+      "phase1Rule": "DeepSeek is only the default provider template. Customer deployment must support its own OpenAI-compatible endpoint."
+    },
+    {
+      "id": "customer-demand",
+      "owns": ["customer_profile", "demand_fields", "missing_info_questions"],
+      "writes": ["quote_project.demand"],
+      "phase1Rule": "AI can draft structured fields, OP confirmation writes to formal quote state."
+    },
+    {
+      "id": "itinerary",
+      "owns": ["main_itinerary", "traffic_nodes", "route_confirmation"],
+      "writes": ["quote_project.itinerary"],
+      "phase1Rule": "Confirmed itinerary is the only source for quote item generation."
+    },
+    {
+      "id": "product-catalog",
+      "owns": ["product_resources", "manual_backfill_resources", "resource_matching"],
+      "dataLayer": ["Supabase product_resources", "data/manual-product-resources.json"],
+      "api": [
+        "GET /api/product-resources",
+        "POST /api/product-resources/match",
+        "POST /api/product-resources/upsert-from-quote"
+      ],
+      "phase1Rule": "Missing cost backfill must become a reusable product resource, not a browser-only draft."
+    },
+    {
+      "id": "quote-engine",
+      "owns": ["quote_rows", "cost_calculation", "sale_calculation", "margin_rules"],
+      "dependsOn": ["itinerary", "product-catalog"],
+      "phase1Rule": "AI never decides final cost. Cost comes from product catalog, supplier detail, or OP backfill."
+    },
+    {
+      "id": "cost-review",
+      "owns": ["missing_cost_detection", "op_backfill", "review_status"],
+      "dependsOn": ["quote-engine", "product-catalog"],
+      "phase1Rule": "OP backfill is immediately reusable and marked as OP补录待复核 for later boss review."
+    },
+    {
+      "id": "proposal",
+      "owns": ["customer_visible_quote", "proposal_export_guard"],
+      "dependsOn": ["quote-engine"],
+      "phase1Rule": "Customer proposal must hide cost, margin, supplier, review, and internal suggestion fields."
+    }
+  ],
+  "events": [
+    {
+      "type": "quote.missing_cost_detected",
+      "producer": "quote-engine",
+      "consumer": "cost-review"
+    },
+    {
+      "type": "product.backfilled_from_quote",
+      "producer": "cost-review",
+      "consumer": "product-catalog"
+    },
+    {
+      "type": "quote.resource_rematched",
+      "producer": "product-catalog",
+      "consumer": "quote-engine"
+    }
+  ],
+  "phase1Acceptance": [
+    "A missing quote cost can be filled by OP and written to the product resource data layer.",
+    "The written product resource is returned by product resource query APIs.",
+    "The written product resource can be used by future quote matching.",
+    "Quote totals are calculated from explicit cost fields and pricing rules.",
+    "Customer proposals hide employee-only fields."
+  ]
+}

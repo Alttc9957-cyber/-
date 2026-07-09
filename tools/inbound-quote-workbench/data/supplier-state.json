@@ -1,0 +1,132 @@
+{
+  "version": 1,
+  "demoSeeded": true,
+  "seededAt": "2026-07-07T08:19:11.614Z",
+  "updatedAt": "2026-07-07T08:19:11.615Z",
+  "suppliers": [
+    {
+      "id": "SUP-DEMO-CHARTER-BJ-001",
+      "category": "包车",
+      "sourceType": "车队",
+      "name": "北京安途车队（占位）",
+      "city": "北京",
+      "cities": [
+        "北京"
+      ],
+      "serviceScope": "北京市区、慕田峪长城、首都机场、大兴机场",
+      "status": "启用",
+      "cancelRule": "出发前 24 小时外可取消，24 小时内按车队确认为准。",
+      "remark": "",
+      "contacts": [
+        {
+          "name": "王调度",
+          "role": "调度",
+          "phone": "13800000000",
+          "wechat": "demo-charter",
+          "whatsapp": "",
+          "email": "",
+          "primary": true,
+          "note": ""
+        }
+      ],
+      "settlement": "",
+      "attachments": [],
+      "qualification": "",
+      "ratingTags": "占位案例, 北京, 包车",
+      "rating": "",
+      "historicalServiceCount": 0,
+      "serviceDetails": [
+        {
+          "id": "SD-DEMO-CHARTER-BJ-001",
+          "serviceCategory": "包车",
+          "routeName": "北京市区 8 小时包车",
+          "fromCity": "北京",
+          "toArea": "北京市区",
+          "vehicleModel": "7座",
+          "seats": 7,
+          "suggestedPassengers": 4,
+          "luggageCapacity": "4 件 24 寸行李",
+          "packageCostPrice": 900,
+          "packageSalePrice": 1250,
+          "validTo": "2026-12-31",
+          "remark": "PRD 占位服务明细，真实车队资料导入后可清理。",
+          "category": "包车",
+          "serviceDetailType": "包车",
+          "costPrice": 900,
+          "referencePrice": 1250,
+          "salePrice": 1250,
+          "priceValidFrom": "",
+          "priceValidUntil": "2026-12-31",
+          "validFrom": "",
+          "serviceDetailId": "SD-DEMO-CHARTER-BJ-001",
+          "name": "",
+          "cancelRule": ""
+        }
+      ],
+      "isPlaceholder": true,
+      "placeholderBatch": "supplier-prd-v1.3-demo",
+      "createdAt": "2026-07-07T08:19:11.614Z",
+      "updatedAt": "2026-07-07T08:19:11.614Z"
+    },
+    {
+      "id": "SUP-DEMO-TRAFFIC-CN-001",
+      "category": "大交通",
+      "sourceType": "大交通代理商",
+      "name": "环宇票务代理（占位）",
+      "city": "全国",
+      "cities": [
+        "全国"
+      ],
+      "serviceScope": "全国火车票、国内机票、外籍证件出票协助",
+      "status": "启用",
+      "cancelRule": "退改签按承运方规则执行，服务费按实际出票规则确认。",
+      "remark": "",
+      "contacts": [
+        {
+          "name": "李票务",
+          "role": "票务",
+          "phone": "13900000000",
+          "wechat": "demo-ticketing",
+          "whatsapp": "",
+          "email": "",
+          "primary": true,
+          "note": ""
+        }
+      ],
+      "settlement": "",
+      "attachments": [],
+      "qualification": "",
+      "ratingTags": "占位案例, 大交通, 外籍证件",
+      "rating": "",
+      "historicalServiceCount": 0,
+      "serviceDetails": [
+        {
+          "id": "SD-DEMO-TRAFFIC-CN-001",
+          "trafficType": "火车票+机票",
+          "agentScope": "全国火车票、国内机票",
+          "foreignDocumentSupport": "支持护照等外籍证件",
+          "serviceFeeRule": "按张收取服务费，成本 ¥20 / 参考售价 ¥35；不维护实时票价和余票。",
+          "refundRule": "退改签按 12306 / 航司 / OTA 规则执行。",
+          "costPrice": 20,
+          "salePrice": 35,
+          "validTo": "2026-12-31",
+          "remark": "只维护渠道和服务费规则，不维护车次、航班、库存。",
+          "category": "大交通",
+          "serviceDetailType": "大交通",
+          "referencePrice": 35,
+          "priceValidFrom": "",
+          "priceValidUntil": "2026-12-31",
+          "validFrom": "",
+          "serviceDetailId": "SD-DEMO-TRAFFIC-CN-001",
+          "name": "",
+          "cancelRule": ""
+        }
+      ],
+      "isPlaceholder": true,
+      "placeholderBatch": "supplier-prd-v1.3-demo",
+      "createdAt": "2026-07-07T08:19:11.615Z",
+      "updatedAt": "2026-07-07T08:19:11.615Z"
+    }
+  ],
+  "supplierCallRecords": []
+}
